@@ -25,8 +25,7 @@ SECRET_KEY = 'django-insecure-)rp))qbjs1qx4n%++44dg^tm!8a-j+)g7(u$v^h0-&ss#=tgd4
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
-
+ALLOWED_HOSTS = ['buscador-inmobiliario.onrender.com', 'localhost', '127.0.0.1']
 
 # Application definition
 
