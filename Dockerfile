@@ -29,4 +29,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Comando para iniciar la aplicación (Render usará el puerto 10000)
-CMD ["python", "manage.py", "runserver", "0.0.0.0:10000"]
+CMD ["./start.sh"]
