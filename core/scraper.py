@@ -10,8 +10,6 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
 import re
 import time
-
-# ¡Importante! Importamos nuestro modelo de la base de datos
 from .models import Propiedad
 
 def iniciar_driver():
@@ -33,17 +31,39 @@ def iniciar_driver():
     return webdriver.Chrome(service=service, options=chrome_options)
 
 def scrape_propiedad_individual(url, driver):
-    """Scrapea los detalles de una única página de propiedad USANDO EL DRIVER EXISTENTE."""
+    """
+    Scrapea TODOS los detalles de una única página de propiedad.
+    Ahora devuelve un diccionario completo o None si falla.
+    """
     try:
         driver.get(url)
         WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.CLASS_NAME, "ui-pdp-description"))
-        )
+            EC.presence_of_element_located((By.CLASS_NAME, "ui-pdp-container"))) # Contenedor principal de la página
+        
         soup = BeautifulSoup(driver.page_source, 'lxml')
 
+        # --- Extracción de todos los datos desde la página de detalle ---
+        
+        # Título
+        titulo_tag = soup.find('h1', class_='ui-pdp-title')
+        titulo = titulo_tag.text.strip() if titulo_tag else "Título no encontrado"
+
+        # Precio
+        precio_container = soup.find('div', class_='ui-pdp-price__main-container')
+        moneda = precio_container.find('span', class_='andes-money-amount__currency-symbol').text.strip()
+        valor_str = precio_container.find('span', class_='andes-money-amount__fraction').text.strip().replace('.', '')
+        valor = int(re.sub(r'\D', '', valor_str))
+
+        # Imagen Principal
+        img_container = soup.find('figure', class_='ui-pdp-gallery__figure')
+        img_tag = img_container.find('img') if img_container else None
+        imagen_url = img_tag['src'] if img_tag else ""
+
+        # Descripción
         descripcion_tag = soup.find('p', class_='ui-pdp-description__content')
         descripcion = descripcion_tag.text.strip() if descripcion_tag else ""
 
+        # Características
         caracteristicas = []
         tabla_features = soup.find('div', class_='ui-pdp-specs__table')
         if tabla_features:
@@ -51,112 +71,96 @@ def scrape_propiedad_individual(url, driver):
                 celda_titulo = row.find('th', class_='andes-table__header--left')
                 celda_valor = row.find('td', class_='andes-table__column--value')
                 if celda_titulo and celda_valor:
-                    titulo_caracteristica = celda_titulo.text.strip()
-                    valor_caracteristica = celda_valor.text.strip()
-                    caracteristicas.append(f"{titulo_caracteristica}: {valor_caracteristica}")
+                    caracteristicas.append(f"{celda_titulo.text.strip()}: {celda_valor.text.strip()}")
         
-        return descripcion, "\n".join(caracteristicas)
+        # Devolvemos un diccionario con todos los datos
+        return {
+            'titulo': titulo,
+            'precio_moneda': moneda,
+            'precio_valor': valor,
+            'url_publicacion': url,
+            'url_imagen': imagen_url,
+            'descripcion': descripcion,
+            'caracteristicas': "\n".join(caracteristicas)
+        }
+
     except Exception as e:
         print(f"Error scrapeando URL individual {url}: {e}")
-        return None, None
-
-# Reemplaza SOLO la función run_scraper en core/scraper.py
+        return None
 
 def run_scraper(max_paginas=5):
     """
-    Función principal que orquesta el scrapeo con una URL base robusta y paginación.
+    Función principal refactorizada en dos fases:
+    1. Recolectar todas las URLs.
+    2. Scrapear los detalles de cada URL.
     """
     print("Iniciando el scraper...")
     driver = iniciar_driver()
     
-    # --- URL CORREGIDA Y MEJORADA ---
-    # Parámetros de la búsqueda que queremos realizar.
-    # Más adelante, podremos pasar estos parámetros a la función.
-    params = {
-        'tipo_inmueble': 'apartamentos',
-        'operacion': 'alquiler',
-        'ubicacion': 'montevideo'
-    }
+    urls_a_visitar = []
     
-    # Construimos una URL base limpia y garantizada para funcionar
-    url_actual = f"https://listado.mercadolibre.com.uy/inmuebles/{params['tipo_inmueble']}/{params['operacion']}/{params['ubicacion']}/"
-    
-    pagina_actual = 1
-    
+    # --- FASE 1: RECOLECCIÓN DE URLS (sin cambios, sigue igual) ---
     try:
+        url_actual = "https://listado.mercadolibre.com.uy/inmuebles/apartamentos/alquiler/montevideo/"
+        pagina_actual = 1
+        
         while pagina_actual <= max_paginas and url_actual:
-            print(f"\n--- Scrapeando página de resultados {pagina_actual}: {url_actual[:70]}... ---")
+            print(f"\n--- Recolectando URLs de la página {pagina_actual} ---")
             driver.get(url_actual)
             
-            WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.CLASS_NAME, "ui-search-results"))
+            WebDriverWait(driver, 15).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, "li.ui-search-layout__item"))
             )
-            
-            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
             time.sleep(2)
 
             soup = BeautifulSoup(driver.page_source, 'lxml')
             items = soup.find_all('li', class_='ui-search-layout__item')
-            
-            if not items:
-                print("No se encontraron propiedades. Terminando.")
-                break
 
-            propiedades_a_visitar = []
+            if not items: break
+
             for item in items:
-                try:
-                    link_tag = item.find('a', class_='poly-component__title') or item.find('a', class_='ui-search-link')
-                    if not link_tag: continue
-                    
+                link_tag = item.find('a', class_='poly-component__title') or item.find('a', class_='ui-search-link')
+                if link_tag and link_tag.has_attr('href'):
                     url_propiedad = link_tag['href']
-                    if Propiedad.objects.filter(url_publicacion=url_propiedad).exists():
-                        print(f"Propiedad ya existe, saltando: {link_tag.text.strip()[:30]}...")
-                        continue
-
-                    # ... (el resto de la lógica de extracción de datos del item es igual)
-                    precio_container = item.find('div', class_='poly-component__price')
-                    moneda = precio_container.find('span', class_='andes-money-amount__currency-symbol').text.strip()
-                    valor_str = precio_container.find('span', class_='andes-money-amount__fraction').text.strip().replace('.', '')
-                    valor = int(re.sub(r'\D', '', valor_str))
-                    img_tag = item.find('img', class_='poly-component__picture')
-                    
-                    propiedades_a_visitar.append({
-                        'titulo': link_tag.text.strip(),
-                        'precio_moneda': moneda,
-                        'precio_valor': valor,
-                        'url_publicacion': url_propiedad,
-                        'url_imagen': img_tag.get('data-src', img_tag.get('src', ''))
-                    })
-                except Exception:
-                    continue
+                    if not Propiedad.objects.filter(url_publicacion=url_propiedad).exists():
+                        urls_a_visitar.append(url_propiedad)
             
-            print(f"Se recolectaron {len(propiedades_a_visitar)} nuevas propiedades para visitar.")
+            print(f"Recolectadas {len(items)} URLs. Total acumulado: {len(urls_a_visitar)}")
 
-            for prop_data in propiedades_a_visitar:
-                print(f"Scrapeando detalles de: {prop_data['titulo'][:30]}...")
-                descripcion, caracteristicas = scrape_propiedad_individual(prop_data['url_publicacion'], driver)
-                
-                if descripcion is None and caracteristicas is None:
-                    print(f"Fallo al obtener detalles para {prop_data['titulo'][:30]}. Saltando.")
-                    continue
-
-                Propiedad.objects.create(
-                    **prop_data,
-                    descripcion=descripcion,
-                    caracteristicas=caracteristicas
-                )
-                print(f"¡Propiedad '{prop_data['titulo'][:30]}...' guardada!")
-
-            # Lógica de Paginación
             try:
+                driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                time.sleep(1)
                 selector_css = "a.andes-pagination__link[title='Siguiente']"
                 boton_siguiente = driver.find_element(By.CSS_SELECTOR, selector_css)
                 url_actual = boton_siguiente.get_attribute('href')
                 pagina_actual += 1
             except Exception:
-                print("No se encontró el botón 'Siguiente'. Fin de la paginación.")
+                print("Fin de la paginación.")
                 url_actual = None
 
-    finally:
-        driver.quit()
-        print("Scraper finalizado.")
+    except Exception as e:
+        print(f"Error en la FASE 1 (Recolección): {e}")
+    
+    print(f"\n--- FASE 1 COMPLETADA: Se recolectaron {len(urls_a_visitar)} URLs únicas. ---")
+
+    # --- FASE 2: SCRAPEO DE DETALLES (ahora es más simple) ---
+    if not urls_a_visitar:
+        print("No hay nuevas URLs para scrapear.")
+    else:
+        print("\n--- Iniciando FASE 2: Scrapeo de detalles de cada propiedad ---")
+        
+        for i, url in enumerate(urls_a_visitar):
+            print(f"Procesando URL {i+1}/{len(urls_a_visitar)}...")
+            
+            # La función de scrapeo individual ahora nos da todos los datos
+            datos_propiedad = scrape_propiedad_individual(url, driver)
+            
+            if datos_propiedad:
+                Propiedad.objects.create(**datos_propiedad)
+                print(f"¡Propiedad '{datos_propiedad['titulo'][:30]}...' guardada!")
+            else:
+                print(f"Fallo al obtener detalles para la URL. Saltando.")
+
+    # --- FINALIZACIÓN ---
+    driver.quit()
+    print("Scraper finalizado.")
