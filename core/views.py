@@ -1,41 +1,58 @@
 # core/views.py
 
 from django.shortcuts import render
-from .scraper import scrape_mercadolibre
+from .models import Propiedad
+from django.db.models import Q # Q nos permite hacer consultas complejas (OR, AND)
+import re
 
 def home(request):
-    resultados = None
-    resultados_count = None
+    # Inicializamos la consulta con todos los objetos de la base de datos
+    queryset = Propiedad.objects.all()
     
+    # Obtenemos los parámetros del formulario
     search_params = {
-        'operacion': request.GET.get('operacion', 'alquiler'),
-        'tipo_inmueble': request.GET.get('tipo_inmueble', 'apartamento'),
-        'ubicacion': request.GET.get('ubicacion', 'montevideo'),
-        'precio_min': request.GET.get('precio_min', ''),
-        'precio_max': request.GET.get('precio_max', ''),
-        'dormitorios': request.GET.get('dormitorios', ''),
-        'banos': request.GET.get('banos', ''),
-        'cochera': request.GET.get('cochera', ''),
-        'condicion': request.GET.get('condicion', ''),
+        'operacion': request.GET.get('operacion'),
+        'tipo_inmueble': request.GET.get('tipo_inmueble'),
+        'ubicacion': request.GET.get('ubicacion'),
         'barrio': request.GET.get('barrio', ''),
-        'superficie': request.GET.get('superficie', ''),
-        'antiguedad': request.GET.get('antiguedad', ''),
-        # --- NUEVOS CHECKBOXES ---
-        'amueblado': request.GET.get('amueblado', ''),
-        'mascotas': request.GET.get('mascotas', ''),
-        'aire': request.GET.get('aire', ''),
-        'piscina': request.GET.get('piscina', ''),
-        'terraza': request.GET.get('terraza', ''),
-        'jardin': request.GET.get('jardin', ''),
+        'dormitorios': request.GET.get('dormitorios'),
+        'banos': request.GET.get('banos'),
+        'texto_libre': request.GET.get('texto_libre', ''), # ¡NUESTRO CAMPO DE BÚSQUEDA PROFUNDA!
     }
 
-    if 'operacion' in request.GET:
-        resultados = scrape_mercadolibre(search_params)
-        if resultados is not None:
-            resultados_count = len(resultados)
+    # --- Lógica de Filtrado en la Base de Datos ---
+    # Solo aplicamos filtros si se envió el formulario (si 'operacion' tiene un valor)
+    if search_params['operacion']:
+        
+        # Filtro por texto libre en título, descripción y características
+        if search_params['texto_libre']:
+            # Normalizamos y separamos las palabras clave
+            palabras_clave = re.split(r'\s+', search_params['texto_libre'].lower())
+            
+            # Creamos un objeto Q por cada palabra clave para buscar en los 3 campos
+            query_combinada = Q()
+            for palabra in palabras_clave:
+                if palabra:
+                    query_palabra = (
+                        Q(titulo__icontains=palabra) |
+                        Q(descripcion__icontains=palabra) |
+                        Q(caracteristicas__icontains=palabra)
+                    )
+                    query_combinada &= query_palabra # Usamos AND (&) para que deba contener todas las palabras
+            
+            queryset = queryset.filter(query_combinada)
 
+        # Aquí irían los otros filtros (dormitorios, baños, etc.) si los implementamos en la BD
+        # Por ahora, nos centramos en la búsqueda de texto
+        
+    # Si no se envió el formulario, no mostramos nada
+    else:
+        queryset = Propiedad.objects.none()
+
+    resultados_count = queryset.count()
+    
     context = {
-        'resultados': resultados,
+        'resultados': queryset, # Pasamos los objetos de la BD directamente
         'resultados_count': resultados_count,
         **search_params
     }

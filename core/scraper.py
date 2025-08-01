@@ -8,154 +8,155 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
+import re
+import time
 
-HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-}
-# Reemplaza la función scrape_mercadolibre en core/scraper.py
+# ¡Importante! Importamos nuestro modelo de la base de datos
+from .models import Propiedad
 
-def scrape_mercadolibre(params):
-    base_url = "https://listado.mercadolibre.com.uy/inmuebles/"
-    
-    # ... (Toda la primera parte de construcción de la ruta se mantiene igual) ...
-    tipo_inmueble = params.get('tipo_inmueble', 'apartamento') + 's'
-    operacion = params.get('operacion', 'alquiler')
-    ubicacion_slug = params.get('ubicacion', 'montevideo').lower().replace(" ", "-")
-    barrio_slug = params.get('barrio', '').lower().replace(" ", "-")
-    
-    ubicacion_completa_slug = f"{ubicacion_slug}/{barrio_slug}" if barrio_slug else ubicacion_slug
-    
-    dormitorios = params.get('dormitorios')
-    dormitorios_path = ""
-    if dormitorios:
-        dormitorios_path = f"{dormitorios}-dormitorios/" if dormitorios != "1" else "1-dormitorio/"
-    
-    # --- Parte 2: Construcción SEGURA del string de filtros (con checkboxes) ---
-    filtros = []
-    
-    # ... (Todos los filtros anteriores se mantienen igual) ...
-    precio_min = params.get('precio_min')
-    precio_max = params.get('precio_max')
-    if precio_min or precio_max:
-        min_p = f"{precio_min}USD" if precio_min else "0"
-        max_p = f"{precio_max}USD" if precio_max else "*"
-        filtros.append(f"_PriceRange_{min_p}-{max_p}")
-
-    banos = params.get('banos')
-    if banos:
-        if banos == '3':
-            filtros.append("_FULL*BATHROOMS_3-*")
-        else:
-            filtros.append(f"_FULL*BATHROOMS_{banos}-{banos}")
-
-    cochera = params.get('cochera')
-    if cochera:
-        if cochera == '1':
-            filtros.append("_PARKING*LOTS_1-*")
-        elif cochera == '0':
-            filtros.append("_PARKING*LOTS_0-0")
-            
-    condicion = params.get('condicion')
-    if condicion:
-        if condicion == 'nuevo':
-            filtros.append("_ITEM*CONDITION_2230284")
-        elif condicion == 'usado':
-            filtros.append("_ITEM*CONDITION_2230581")
-
-    superficie = params.get('superficie')
-    if superficie:
-        min_s, max_s = superficie.split('-')
-        filtros.append(f"_TOTAL*AREA_{min_s}m%C2%B2-{max_s}m%C2%B2")
-    
-    antiguedad = params.get('antiguedad')
-    if antiguedad:
-        min_a, max_a = antiguedad.split('-')
-        filtros.append(f"_PROPERTY*AGE_{min_a}a%C3%B1os-{max_a}a%C3%B1os")
-
-    # --- LÓGICA PARA CHECKBOXES ---
-    if params.get('amueblado') == 'true':
-        filtros.append("_FURNISHED_242085")
-    if params.get('mascotas') == 'true':
-        filtros.append("_IS*SUITABLE*FOR*PETS_242085")
-    if params.get('aire') == 'true':
-        filtros.append("_HAS*AIR*CONDITIONING_242085")
-    if params.get('piscina') == 'true':
-        filtros.append("_HAS*SWIMMING*POOL_242085")
-    if params.get('terraza') == 'true':
-        filtros.append("_HAS*TERRACE_242085")
-    if params.get('jardin') == 'true':
-        filtros.append("_HAS*GARDEN_242085")
-
-    filtros.append("_NoIndex_True")
-    final_filters = "".join(filtros)
-    
-    # --- Parte 3: Construcción de la URL final ---
-    full_url = f"{base_url}{tipo_inmueble}/{operacion}/{dormitorios_path}{ubicacion_completa_slug}/{final_filters}"
-
-    print(f"URL FINAL PARA SCRAPING CON SELENIUM: {full_url}")
-
+def iniciar_driver():
+    """Configura e inicia el driver de Selenium con opciones de estabilidad."""
     chrome_options = Options()
     chrome_options.add_argument("--headless")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
-    chrome_options.add_argument(f"user-agent={HEADERS['User-Agent']}")
+    
+    # --- NUEVOS ARGUMENTOS PARA ESTABILIDAD ---
+    chrome_options.add_argument("--disable-gpu") # Desactiva la aceleración por hardware, a veces causa problemas en headless.
+    chrome_options.add_argument("--window-size=1920x1080") # Define un tamaño de ventana virtual.
+    chrome_options.add_argument("--disable-extensions") # Desactiva extensiones que puedan interferir.
+    chrome_options.add_argument("--log-level=3") # Reduce la cantidad de "ruido" en la terminal.
+
+    chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
     
     service = ChromeService(ChromeDriverManager().install())
-    driver = webdriver.Chrome(service=service, options=chrome_options)
-    
-    html_content = ""
+    return webdriver.Chrome(service=service, options=chrome_options)
+
+def scrape_propiedad_individual(url, driver):
+    """Scrapea los detalles de una única página de propiedad USANDO EL DRIVER EXISTENTE."""
     try:
-        driver.get(full_url)
+        driver.get(url)
         WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.CLASS_NAME, "ui-search-results"))
+            EC.presence_of_element_located((By.CLASS_NAME, "ui-pdp-description"))
         )
-        html_content = driver.page_source
+        soup = BeautifulSoup(driver.page_source, 'lxml')
+
+        descripcion_tag = soup.find('p', class_='ui-pdp-description__content')
+        descripcion = descripcion_tag.text.strip() if descripcion_tag else ""
+
+        caracteristicas = []
+        tabla_features = soup.find('div', class_='ui-pdp-specs__table')
+        if tabla_features:
+            for row in tabla_features.find_all('tr', class_='andes-table__row'):
+                celda_titulo = row.find('th', class_='andes-table__header--left')
+                celda_valor = row.find('td', class_='andes-table__column--value')
+                if celda_titulo and celda_valor:
+                    titulo_caracteristica = celda_titulo.text.strip()
+                    valor_caracteristica = celda_valor.text.strip()
+                    caracteristicas.append(f"{titulo_caracteristica}: {valor_caracteristica}")
+        
+        return descripcion, "\n".join(caracteristicas)
     except Exception as e:
-        print(f"Error durante el scraping con Selenium: {e}")
+        print(f"Error scrapeando URL individual {url}: {e}")
+        return None, None
+
+# Reemplaza SOLO la función run_scraper en core/scraper.py
+
+def run_scraper(max_paginas=5):
+    """
+    Función principal que orquesta el scrapeo con una URL base robusta y paginación.
+    """
+    print("Iniciando el scraper...")
+    driver = iniciar_driver()
+    
+    # --- URL CORREGIDA Y MEJORADA ---
+    # Parámetros de la búsqueda que queremos realizar.
+    # Más adelante, podremos pasar estos parámetros a la función.
+    params = {
+        'tipo_inmueble': 'apartamentos',
+        'operacion': 'alquiler',
+        'ubicacion': 'montevideo'
+    }
+    
+    # Construimos una URL base limpia y garantizada para funcionar
+    url_actual = f"https://listado.mercadolibre.com.uy/inmuebles/{params['tipo_inmueble']}/{params['operacion']}/{params['ubicacion']}/"
+    
+    pagina_actual = 1
+    
+    try:
+        while pagina_actual <= max_paginas and url_actual:
+            print(f"\n--- Scrapeando página de resultados {pagina_actual}: {url_actual[:70]}... ---")
+            driver.get(url_actual)
+            
+            WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((By.CLASS_NAME, "ui-search-results"))
+            )
+            
+            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+            time.sleep(2)
+
+            soup = BeautifulSoup(driver.page_source, 'lxml')
+            items = soup.find_all('li', class_='ui-search-layout__item')
+            
+            if not items:
+                print("No se encontraron propiedades. Terminando.")
+                break
+
+            propiedades_a_visitar = []
+            for item in items:
+                try:
+                    link_tag = item.find('a', class_='poly-component__title') or item.find('a', class_='ui-search-link')
+                    if not link_tag: continue
+                    
+                    url_propiedad = link_tag['href']
+                    if Propiedad.objects.filter(url_publicacion=url_propiedad).exists():
+                        print(f"Propiedad ya existe, saltando: {link_tag.text.strip()[:30]}...")
+                        continue
+
+                    # ... (el resto de la lógica de extracción de datos del item es igual)
+                    precio_container = item.find('div', class_='poly-component__price')
+                    moneda = precio_container.find('span', class_='andes-money-amount__currency-symbol').text.strip()
+                    valor_str = precio_container.find('span', class_='andes-money-amount__fraction').text.strip().replace('.', '')
+                    valor = int(re.sub(r'\D', '', valor_str))
+                    img_tag = item.find('img', class_='poly-component__picture')
+                    
+                    propiedades_a_visitar.append({
+                        'titulo': link_tag.text.strip(),
+                        'precio_moneda': moneda,
+                        'precio_valor': valor,
+                        'url_publicacion': url_propiedad,
+                        'url_imagen': img_tag.get('data-src', img_tag.get('src', ''))
+                    })
+                except Exception:
+                    continue
+            
+            print(f"Se recolectaron {len(propiedades_a_visitar)} nuevas propiedades para visitar.")
+
+            for prop_data in propiedades_a_visitar:
+                print(f"Scrapeando detalles de: {prop_data['titulo'][:30]}...")
+                descripcion, caracteristicas = scrape_propiedad_individual(prop_data['url_publicacion'], driver)
+                
+                if descripcion is None and caracteristicas is None:
+                    print(f"Fallo al obtener detalles para {prop_data['titulo'][:30]}. Saltando.")
+                    continue
+
+                Propiedad.objects.create(
+                    **prop_data,
+                    descripcion=descripcion,
+                    caracteristicas=caracteristicas
+                )
+                print(f"¡Propiedad '{prop_data['titulo'][:30]}...' guardada!")
+
+            # Lógica de Paginación
+            try:
+                selector_css = "a.andes-pagination__link[title='Siguiente']"
+                boton_siguiente = driver.find_element(By.CSS_SELECTOR, selector_css)
+                url_actual = boton_siguiente.get_attribute('href')
+                pagina_actual += 1
+            except Exception:
+                print("No se encontró el botón 'Siguiente'. Fin de la paginación.")
+                url_actual = None
+
     finally:
         driver.quit()
-
-    if not html_content:
-        return []
-
-    soup = BeautifulSoup(html_content, 'lxml')
-    resultados = []
-    
-    # Buscamos el <li> que es el contenedor de cada item
-    items = soup.find_all('li', class_='ui-search-layout__item')
-    print(f"Se encontraron {len(items)} items en la página.")
-
-    for item in items:
-        try:
-            # --- SECCIÓN CORREGIDA CON LOS SELECTORES NUEVOS ---
-
-            # El título y la URL están en la misma etiqueta <a>
-            link_tag = item.find('a', class_='poly-component__title')
-            url = link_tag['href']
-            titulo = link_tag.text.strip()
-            
-            # El precio y la moneda están dentro de este contenedor
-            precio_container = item.find('div', class_='poly-component__price')
-            moneda = precio_container.find('span', class_='andes-money-amount__currency-symbol').text.strip()
-            valor = precio_container.find('span', class_='andes-money-amount__fraction').text.strip()
-            precio = f"{moneda} {valor}"
-
-            # La imagen ahora se busca por esta clase y priorizamos 'data-src'
-            img_tag = item.find('img', class_='poly-component__picture')
-            imagen_url = img_tag.get('data-src', img_tag.get('src', '')) # Usa data-src si existe, sino src
-            
-            # Si logramos extraer todo, lo agregamos a la lista
-            resultados.append({
-                'titulo': titulo,
-                'precio': precio,
-                'url': url,
-                'imagen_url': imagen_url,
-            })
-        except AttributeError as e:
-            # Este error ocurre si a un item le falta alguna de las etiquetas que buscamos.
-            # Lo ignoramos para que el scraper no se detenga por un solo aviso mal formateado.
-            # print(f"Item ignorado por falta de un atributo: {e}") # Descomentar para depurar si es necesario
-            continue
-            
-    print(f"Se procesaron exitosamente {len(resultados)} resultados.")
-    return resultados
+        print("Scraper finalizado.")

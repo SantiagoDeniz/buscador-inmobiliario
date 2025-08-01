@@ -17,178 +17,46 @@
             <h1>Mi Buscador Inmobiliario</h1>
             <p class="lead">Centralizá tu búsqueda de los principales portales de Uruguay.</p>
         </header>
-
-        <!-- Reemplaza el FORMULARIO COMPLETO en home.html -->
         <div class="card p-4 shadow-sm mb-5">
             <form method="GET" action="">
-                <div class="row g-3">
-                    <!-- ... (todas las filas anteriores de Operación, Ubicación, Precios, etc., se mantienen igual) ... -->
-
-                    <!-- Fila 1 -->
-                    <div class="col-md-6">
-                        <label for="operacion" class="form-label">Operación</label>
-                        <select name="operacion" id="operacion" class="form-select">
-                            <option value="venta" {% if operacion == 'venta' %}selected{% endif %}>Venta</option>
-                            <option value="alquiler" {% if operacion == 'alquiler' %}selected{% endif %}>Alquiler</option>
-                        </select>
-                    </div>
-                    <div class="col-md-6">
-                        <label for="tipo_inmueble" class="form-label">Tipo de Inmueble</label>
-                        <select name="tipo_inmueble" id="tipo_inmueble" class="form-select">
-                            <option value="apartamento" {% if tipo_inmueble == 'apartamento' %}selected{% endif %}>Apartamento</option>
-                            <option value="casa" {% if tipo_inmueble == 'casa' %}selected{% endif %}>Casa</option>
-                        </select>
-                    </div>
-                    
-                    <!-- Fila 2: Ubicación -->
-                    <div class="col-md-6">
-                        <label for="ubicacion" class="form-label">Departamento</label>
-                        <select name="ubicacion" id="ubicacion" class="form-select">
-                            <option value="montevideo" {% if ubicacion == 'montevideo' %}selected{% endif %}>Montevideo</option>
-                            <option value="canelones" {% if ubicacion == 'canelones' %}selected{% endif %}>Canelones</option>
-                            <option value="maldonado" {% if ubicacion == 'maldonado' %}selected{% endif %}>Maldonado</option>
-                        </select>
-                    </div>
-                    <div class="col-md-6">
-                        <label for="barrio" class="form-label">Barrio / Ciudad (Opcional)</label>
-                        <input type="text" name="barrio" id="barrio" class="form-control" placeholder="Ej: Pocitos, Carrasco..." value="{{ barrio }}">
-                    </div>
-
-                    <!-- Fila 3: Precios -->
-                    <div class="col-md-6">
-                        <label for="precio_min" class="form-label">Precio Mínimo (USD)</label>
-                        <input type="number" name="precio_min" id="precio_min" class="form-control" placeholder="Ej: 500" value="{{ precio_min }}">
-                    </div>
-                    <div class="col-md-6">
-                        <label for="precio_max" class="form-label">Precio Máximo (USD)</label>
-                        <input type="number" name="precio_max" id="precio_max" class="form-control" placeholder="Ej: 1500" value="{{ precio_max }}">
-                    </div>
-
-                    <!-- Fila 4 -->
-                    <div class="col-md-4">
-                        <label for="dormitorios" class="form-label">Dormitorios</label>
-                        <select name="dormitorios" id="dormitorios" class="form-select">
-                            <option value="" {% if not dormitorios %}selected{% endif %}>Cualquiera</option>
-                            <option value="1" {% if dormitorios == '1' %}selected{% endif %}>1</option>
-                            <option value="2" {% if dormitorios == '2' %}selected{% endif %}>2</option>
-                            <option value="3" {% if dormitorios == '3' %}selected{% endif %}>3</option>
-                            <option value="4" {% if dormitorios == '4' %}selected{% endif %}>4 o más</option>
-                        </select>
-                    </div>
-                    <div class="col-md-4">
-                        <label for="banos" class="form-label">Baños</label>
-                        <select name="banos" id="banos" class="form-select">
-                            <option value="" {% if not banos %}selected{% endif %}>Cualquiera</option>
-                            <option value="1" {% if banos == '1' %}selected{% endif %}>1</option>
-                            <option value="2" {% if banos == '2' %}selected{% endif %}>2</option>
-                            <option value="3" {% if banos == '3' %}selected{% endif %}>3 o más</option>
-                        </select>
-                    </div>
-                    <div class="col-md-4">
-                        <label for="cochera" class="form-label">Cochera</label>
-                        <select name="cochera" id="cochera" class="form-select">
-                            <option value="" {% if not cochera %}selected{% endif %}>Cualquiera</option>
-                            <option value="0" {% if cochera == '0' %}selected{% endif %}>No tiene</option>
-                            <option value="1" {% if cochera == '1' %}selected{% endif %}>Sí (1 o más)</option>
-                        </select>
-                    </div>
-                    
-                    <!-- Fila 5: Superficie -->
+                <div class="row g-3 align-items-end">
                     <div class="col-md-12">
-                        <label for="superficie" class="form-label">Superficie Total</label>
-                        <select name="superficie" id="superficie" class="form-select">
-                            <option value="" {% if not superficie %}selected{% endif %}>Cualquiera</option>
-                            <option value="*-65" {% if superficie == '*-65' %}selected{% endif %}>Hasta 65 m²</option>
-                            <option value="65-150" {% if superficie == '65-150' %}selected{% endif %}>65 a 150 m²</option>
-                            <option value="150-550" {% if superficie == '150-550' %}selected{% endif %}>150 a 550 m²</option>
-                            <option value="550-*" {% if superficie == '550-*' %}selected{% endif %}>Más de 550 m²</option>
-                        </select>
-                    </div>
-
-                    <!-- Fila 6: Antigüedad y Condición -->
-                    <div class="col-md-6">
-                        <label for="antiguedad" class="form-label">Antigüedad</label>
-                        <select name="antiguedad" id="antiguedad" class="form-select">
-                            <option value="" {% if not antiguedad %}selected{% endif %}>Cualquiera</option>
-                            <option value="0-0" {% if antiguedad == '0-0' %}selected{% endif %}>A estrenar</option>
-                            <option value="0-2" {% if antiguedad == '0-2' %}selected{% endif %}>Hasta 2 años</option>
-                            <option value="2-15" {% if antiguedad == '2-15' %}selected{% endif %}>2 a 15 años</option>
-                            <option value="15-50" {% if antiguedad == '15-50' %}selected{% endif %}>15 a 50 años</option>
-                            <option value="50-*" {% if antiguedad == '50-*' %}selected{% endif %}>Más de 50 años</option>
-                        </select>
-                    </div>
-                    <div class="col-md-6">
-                        <label for="condicion" class="form-label">Condición</label>
-                        <select name="condicion" id="condicion" class="form-select">
-                            <option value="" {% if not condicion %}selected{% endif %}>Cualquiera</option>
-                            <option value="nuevo" {% if condicion == 'nuevo' %}selected{% endif %}>Nuevo</option>
-                            <option value="usado" {% if condicion == 'usado' %}selected{% endif %}>Usado</option>
-                        </select>
+                        <label for="texto_libre" class="form-label">¿Qué estás buscando?</label>
+                        <input type="text" name="texto_libre" id="texto_libre" class="form-control" placeholder="Ej: apartamento con parrillero y terraza en pocitos" value="{{ texto_libre }}">
+                        <div class="form-text">Buscamos en el título, descripción y características de las propiedades.</div>
                     </div>
                     
-                    <!-- Fila 7: NUEVOS FILTROS DE CHECKBOX -->
-                    <div class="col-12">
-                        <label class="form-label">Otras características:</label>
-                        <div class="row">
-                            <div class="col-md-4">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" name="amueblado" value="true" id="amueblado" {% if amueblado == 'true' %}checked{% endif %}>
-                                    <label class="form-check-label" for="amueblado">Amoblado</label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" name="mascotas" value="true" id="mascotas" {% if mascotas == 'true' %}checked{% endif %}>
-                                    <label class="form-check-label" for="mascotas">Admite mascotas</label>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" name="aire" value="true" id="aire" {% if aire == 'true' %}checked{% endif %}>
-                                    <label class="form-check-label" for="aire">Aire acondicionado</label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" name="piscina" value="true" id="piscina" {% if piscina == 'true' %}checked{% endif %}>
-                                    <label class="form-check-label" for="piscina">Piscina</label>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" name="terraza" value="true" id="terraza" {% if terraza == 'true' %}checked{% endif %}>
-                                    <label class="form-check-label" for="terraza">Terraza</label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" name="jardin" value="true" id="jardin" {% if jardin == 'true' %}checked{% endif %}>
-                                    <label class="form-check-label" for="jardin">Jardín</label>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <!-- Campo oculto para saber que el formulario fue enviado -->
+                    <input type="hidden" name="operacion" value="buscar">
                 </div>
 
                 <div class="d-grid gap-2 mt-4">
-                    <button type="submit" class="btn btn-primary btn-lg">Buscar</button>
+                    <button type="submit" class="btn btn-primary btn-lg">Buscar en Base de Datos</button>
                 </div>
             </form>
         </div>
 
-        <!-- SECCIÓN DE RESULTADOS -->
-        <h2 class="mb-4">
-            Resultados 
-            {% if resultados_count is not None %}
-                ({{ resultados_count }} encontrados)
-            {% endif %}
-        </h2>
-
-        {% if resultados is not None %}
+        <!-- Reemplaza la SECCIÓN DE RESULTADOS completa en home.html -->
+        <div id="resultados">
+            <h2 class="mb-4">
+                Resultados 
+                {% if resultados_count is not None %}
+                    ({{ resultados_count }} encontrados)
+                {% endif %}
+            </h2>
+            
             {% if resultados %}
                 <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
                     {% for propiedad in resultados %}
                         <div class="col">
                             <div class="card h-100 shadow-sm">
-                                <a href="{{ propiedad.url }}" target="_blank" class="text-decoration-none text-dark">
-                                    <img src="{{ propiedad.imagen_url }}" class="card-img-top" alt="{{ propiedad.titulo }}">
+                                <!-- CAMBIO 1: Usar propiedad.url_publicacion -->
+                                <a href="{{ propiedad.url_publicacion }}" target="_blank" class="text-decoration-none text-dark">
+                                    <!-- CAMBIO 2: Usar propiedad.url_imagen -->
+                                    <img src="{{ propiedad.url_imagen }}" class="card-img-top" alt="{{ propiedad.titulo }}">
                                     <div class="card-body">
                                         <h5 class="card-title">{{ propiedad.titulo }}</h5>
-                                        <p class="card-text fs-4 fw-bold">{{ propiedad.precio }}</p>
+                                        <p class="card-text fs-4 fw-bold">{{ propiedad.precio_moneda }} {{ propiedad.precio_valor|floatformat:"0" }}</p>
                                     </div>
                                 </a>
                             </div>
@@ -196,15 +64,17 @@
                     {% endfor %}
                 </div>
             {% else %}
-                <div class="alert alert-warning" role="alert">
-                    No se encontraron propiedades con los criterios seleccionados. ¡Intentá con otros filtros!
-                </div>
+                {% if request.GET %}
+                    <div class="alert alert-warning" role="alert">
+                        No se encontraron propiedades en nuestra base de datos con los criterios seleccionados.
+                    </div>
+                {% else %}
+                    <div class="alert alert-info" role="alert">
+                        Utilizá el formulario para iniciar una búsqueda.
+                    </div>
+                {% endif %}
             {% endif %}
-        {% else %}
-            <div class="alert alert-info" role="alert">
-                Utilizá el formulario para iniciar una búsqueda.
-            </div>
-        {% endif %}
+        </div>
         <!-- FIN DE LA SECCIÓN DE RESULTADOS -->
     </div>
 </body>
