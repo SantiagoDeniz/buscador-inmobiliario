@@ -11,24 +11,37 @@ from selenium.webdriver.chrome.options import Options
 import re
 import time
 from .models import Propiedad
+from selenium_stealth import stealth
 
 def iniciar_driver():
-    """Configura e inicia el driver de Selenium con opciones de estabilidad."""
+    """Configura e inicia el driver de Selenium en modo 'stealth' para ser indetectable."""
     chrome_options = Options()
     chrome_options.add_argument("--headless")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--window-size=1920x1080")
     
-    # --- NUEVOS ARGUMENTOS PARA ESTABILIDAD ---
-    chrome_options.add_argument("--disable-gpu") # Desactiva la aceleración por hardware, a veces causa problemas en headless.
-    chrome_options.add_argument("--window-size=1920x1080") # Define un tamaño de ventana virtual.
-    chrome_options.add_argument("--disable-extensions") # Desactiva extensiones que puedan interferir.
-    chrome_options.add_argument("--log-level=3") # Reduce la cantidad de "ruido" en la terminal.
-
-    chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+    # Algunas opciones que stealth recomienda
+    chrome_options.add_argument("start-maximized")
+    chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    chrome_options.add_experimental_option('useAutomationExtension', False)
     
     service = ChromeService(ChromeDriverManager().install())
-    return webdriver.Chrome(service=service, options=chrome_options)
+    driver = webdriver.Chrome(service=service, options=chrome_options)
+
+    # --- ¡LA MAGIA DE STEALTH! ---
+    stealth(driver,
+            languages=["es-ES", "es"],
+            vendor="Google Inc.",
+            platform="Win32",
+            webgl_vendor="Intel Inc.",
+            renderer="Intel Iris OpenGL Engine",
+            fix_hairline=True,
+            )
+    # -----------------------------
+    
+    return driver
 
 def scrape_propiedad_individual(url, driver):
     """
@@ -90,76 +103,103 @@ def scrape_propiedad_individual(url, driver):
 
 def run_scraper(max_paginas=5):
     """
-    Función principal refactorizada en dos fases:
-    1. Recolectar todas las URLs.
-    2. Scrapear los detalles de cada URL.
+    Función principal que simula una visita inicial para obtener cookies
+    antes de proceder con el scrapeo por lotes.
     """
     print("Iniciando el scraper...")
     driver = iniciar_driver()
     
-    urls_a_visitar = []
+    urls_a_visitar = set()
     
-    # --- FASE 1: RECOLECCIÓN DE URLS (sin cambios, sigue igual) ---
     try:
-        url_actual = "https://listado.mercadolibre.com.uy/inmuebles/apartamentos/alquiler/montevideo/"
-        pagina_actual = 1
+        # --- PASO DE CALENTAMIENTO: OBTENER COOKIES ---
+        print("Fase de calentamiento: Visitando página principal para obtener cookies...")
+        driver.get("https://www.mercadolibre.com.uy/")
         
-        while pagina_actual <= max_paginas and url_actual:
-            print(f"\n--- Recolectando URLs de la página {pagina_actual} ---")
+        try:
+            # Esperamos hasta 5 segundos por el botón de aceptar cookies y hacemos clic si aparece
+            boton_cookies = WebDriverWait(driver, 5).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, "button[data-testid='action:understood-button']"))
+            )
+            boton_cookies.click()
+            print("Banner de cookies aceptado.")
+            time.sleep(2) # Pausa después de aceptar
+        except Exception:
+            print("No se encontró el banner de cookies o no fue necesario hacer clic.")
+        
+        # --- FASE 1: RECOLECCIÓN DE URLS (ahora con una sesión más confiable) ---
+        urls_por_pagina = []
+        url_base = "https://listado.mercadolibre.com.uy/inmuebles/apartamentos/alquiler/montevideo/"
+        
+        for pagina in range(max_paginas):
+            offset = 1 + (pagina * 48)
+            url_actual = url_base if pagina == 0 else f"{url_base}_Desde_{offset}_NoIndex_True"
+            
+            print(f"\n--- Recolectando URLs de la página {pagina + 1} ---")
             driver.get(url_actual)
             
-            WebDriverWait(driver, 15).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, "li.ui-search-layout__item"))
-            )
-            time.sleep(2)
+            try:
+                WebDriverWait(driver, 10).until(
+                    EC.presence_of_element_located((By.CLASS_NAME, "ui-search-results"))
+                )
+                time.sleep(1)
+            except Exception:
+                print("La página no cargó los resultados, incluso después del calentamiento. Terminando recolección.")
+                driver.save_screenshot('debug_screenshot_fase1.png') # Guardamos evidencia si falla
+                break
 
             soup = BeautifulSoup(driver.page_source, 'lxml')
             items = soup.find_all('li', class_='ui-search-layout__item')
+            if not items:
+                print("No se encontraron más items. Fin de la paginación.")
+                break
 
-            if not items: break
-
+            urls_de_esta_pagina = []
             for item in items:
                 link_tag = item.find('a', class_='poly-component__title') or item.find('a', class_='ui-search-link')
                 if link_tag and link_tag.has_attr('href'):
                     url_propiedad = link_tag['href']
                     if not Propiedad.objects.filter(url_publicacion=url_propiedad).exists():
-                        urls_a_visitar.append(url_propiedad)
+                        urls_de_esta_pagina.append(url_propiedad)
             
-            print(f"Recolectadas {len(items)} URLs. Total acumulado: {len(urls_a_visitar)}")
-
-            try:
-                driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-                time.sleep(1)
-                selector_css = "a.andes-pagination__link[title='Siguiente']"
-                boton_siguiente = driver.find_element(By.CSS_SELECTOR, selector_css)
-                url_actual = boton_siguiente.get_attribute('href')
-                pagina_actual += 1
-            except Exception:
-                print("Fin de la paginación.")
-                url_actual = None
-
+            if urls_de_esta_pagina:
+                urls_por_pagina.append(urls_de_esta_pagina)
+                print(f"Se recolectaron {len(urls_de_esta_pagina)} URLs nuevas.")
+    
     except Exception as e:
         print(f"Error en la FASE 1 (Recolección): {e}")
-    
-    print(f"\n--- FASE 1 COMPLETADA: Se recolectaron {len(urls_a_visitar)} URLs únicas. ---")
+    finally:
+        # En esta arquitectura, cerramos el driver al final de todo, no aquí.
+        pass
 
-    # --- FASE 2: SCRAPEO DE DETALLES (ahora es más simple) ---
-    if not urls_a_visitar:
+    total_urls_recolectadas = sum(len(p) for p in urls_por_pagina)
+    print(f"\n--- FASE 1 COMPLETADA: Se recolectaron {total_urls_recolectadas} URLs únicas en {len(urls_por_pagina)} páginas. ---")
+    
+    # --- FASE 2: SCRAPEO DE DETALLES ---
+    if not urls_por_pagina:
         print("No hay nuevas URLs para scrapear.")
     else:
         print("\n--- Iniciando FASE 2: Scrapeo de detalles de cada propiedad ---")
         
-        for i, url in enumerate(urls_a_visitar):
-            print(f"Procesando URL {i+1}/{len(urls_a_visitar)}...")
-            
-            # La función de scrapeo individual ahora nos da todos los datos
-            datos_propiedad = scrape_propiedad_individual(url, driver)
-            
-            if datos_propiedad:
-                Propiedad.objects.create(**datos_propiedad)
-                print(f"¡Propiedad '{datos_propiedad['titulo'][:30]}...' guardada!")
-            else:
-                print(f"Fallo al obtener detalles para la URL. Saltando.")
+        # Iteramos sobre cada lote de URLs (cada página)
+        for i, lote_urls in enumerate(urls_por_pagina):
+            print(f"\n--- Procesando LOTE de página {i+1}/{len(urls_por_pagina)} ({len(lote_urls)} propiedades) ---")
+            # Ya no reiniciamos el driver, usamos el mismo que tiene las cookies
+            try:
+                for j, url in enumerate(lote_urls):
+                    print(f"Procesando URL {j+1}/{len(lote_urls)} del lote...")
+                    datos_propiedad = scrape_propiedad_individual(url, driver)
+                    if datos_propiedad:
+                        Propiedad.objects.create(**datos_propiedad)
+                        print(f"¡Propiedad '{datos_propiedad['titulo'][:30]}...' guardada!")
+                    else:
+                        print(f"Fallo al obtener detalles para la URL. Saltando.")
+            except Exception as e:
+                print(f"Ocurrió un error grave en el lote {i+1}: {e}. Continuando con el siguiente lote.")
+                # Si el driver crashea, lo reiniciamos para el siguiente lote
+                driver.quit()
+                driver = iniciar_driver()
+                continue
 
     # --- FINALIZACIÓN ---
     driver.quit()
