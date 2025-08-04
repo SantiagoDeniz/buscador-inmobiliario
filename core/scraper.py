@@ -1,192 +1,202 @@
-# core/scraper.py
-
+import math, concurrent.futures, requests, re, time, os
 from bs4 import BeautifulSoup
-import requests 
-import re
-import time
-from .models import Propiedad
-import concurrent.futures
-import os
 from dotenv import load_dotenv
-import math
+from .models import Propiedad
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service as ChromeService
+from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.chrome.options import Options
+from selenium_stealth import stealth
 
-# Cargamos las variables de entorno desde el archivo .env
 load_dotenv()
 
+def iniciar_driver():
+    chrome_options = Options()
+    chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--window-size=1920x1080")
+    chrome_options.add_argument("start-maximized")
+    chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    chrome_options.add_experimental_option('useAutomationExtension', False)
+    service = ChromeService(ChromeDriverManager().install())
+    driver = webdriver.Chrome(service=service, options=chrome_options)
+    stealth(driver, languages=["es-ES", "es"], vendor="Google Inc.", platform="Win32",
+            webgl_vendor="Intel Inc.", renderer="Intel Iris OpenGL Engine", fix_hairline=True)
+    return driver
+
 def scrape_detalle_con_requests(url, api_key):
+    """
+    Scrapea los detalles de una página individual usando requests y el proxy.
+    Extrae datos estructurados (dormitorios, baños, etc.) y los devuelve en un diccionario.
+    """
     try:
         url_proxy = f'http://api.scraperapi.com?api_key={api_key}&url={url}'
-        response = requests.get(url_proxy, timeout=60) # Aumentamos el timeout
-        response.raise_for_status()
+        response = requests.get(url_proxy, headers=HEADERS, timeout=60)
+
+        # Manejo de errores de API (Too Many Requests / Forbidden)
+        if response.status_code in [429, 403]:
+            print(f"  -> Recibido error {response.status_code}. Reintentando en unos segundos...")
+            # Aquí podrías añadir una lógica de reintento más formal si quisieras
+            return None
+        
+        response.raise_for_status() # Lanza error para otros códigos HTTP (404, 500)
         
         soup = BeautifulSoup(response.text, 'lxml')
+        
+        # --- Diccionario para guardar los datos ---
+        datos = { 'url_publicacion': url, 'operacion': 'venta' if '/venta/' in url else 'alquiler' }
 
+
+        # Título
         titulo_tag = soup.find('h1', class_='ui-pdp-title')
-        titulo = titulo_tag.text.strip() if titulo_tag else "Título no encontrado"
+        datos['titulo'] = titulo_tag.text.strip() if titulo_tag else "Título no encontrado"
 
+        # Precio
         precio_container = soup.find('div', class_='ui-pdp-price__main-container')
-        moneda = precio_container.find('span', class_='andes-money-amount__currency-symbol').text.strip()
-        valor_str = precio_container.find('span', class_='andes-money-amount__fraction').text.strip().replace('.', '')
-        valor = int(re.sub(r'\D', '', valor_str))
+        datos['precio_moneda'] = "N/A"
+        datos['precio_valor'] = 0
+        if precio_container:
+            moneda_tag = precio_container.find('span', class_='andes-money-amount__currency-symbol')
+            valor_tag = precio_container.find('span', class_='andes-money-amount__fraction')
+            if moneda_tag and valor_tag:
+                datos['precio_moneda'] = moneda_tag.text.strip()
+                valor_str = valor_tag.text.strip().replace('.', '')
+                datos['precio_valor'] = int(re.sub(r'\D', '', valor_str))
 
+        # Imagen Principal
         img_container = soup.find('figure', class_='ui-pdp-gallery__figure')
         img_tag = img_container.find('img') if img_container else None
-        imagen_url = img_tag['src'] if img_tag else ""
+        datos['url_imagen'] = img_tag['src'] if img_tag and 'src' in img_tag.attrs else ""
 
+        # Descripción
         descripcion_tag = soup.find('p', class_='ui-pdp-description__content')
-        descripcion = descripcion_tag.text.strip() if descripcion_tag else ""
+        datos['descripcion'] = descripcion_tag.text.strip() if descripcion_tag else ""
 
-        caracteristicas_tags = soup.find_all('tr', class_='andes-table__row')
-        caracteristicas = "\n".join([f"{row.find('th').text.strip()}: {row.find('td').text.strip()}" for row in caracteristicas_tags if row.find('th') and row.find('td')])
+        # --- Extracción ESTRUCTURADA de TODOS los campos ---
+        datos['departamento'] = ''
+        datos['ciudad_barrio'] = ''
+        datos['dormitorios'] = None
+        datos['banos'] = None
+        datos['superficie_total'] = None
+        datos['superficie_cubierta'] = None
+        datos['cocheras'] = None
+        datos['antiguedad'] = ''
         
-        return {
-            'titulo': titulo, 'precio_moneda': moneda, 'precio_valor': valor,
-            'url_publicacion': url, 'url_imagen': imagen_url,
-            'descripcion': descripcion, 'caracteristicas': caracteristicas
-        }
+        caracteristicas_lista_texto = []
+        tabla_features = soup.find('div', class_='ui-pdp-specs__table')
+        if tabla_features:
+            filas = tabla_features.find_all('tr', class_='andes-table__row')
+            for row in filas:
+                titulo_th = row.find('th')
+                valor_td = row.find('td')
+                if titulo_th and valor_td:
+                    key = titulo_th.text.strip().lower()
+                    value = valor_td.text.strip()
+                    caracteristicas_lista_texto.append(f"{key.capitalize()}: {value}")
 
+                    # Mapeo a campos estructurados
+                    try:
+                        if 'departamento' in key: datos['departamento'] = value
+                        if 'ciudad' in key or 'barrio' in key: datos['ciudad_barrio'] = value
+                        if 'antigüedad' in key: datos['antiguedad'] = value
+                        
+                        # Para campos numéricos, extraemos solo el número
+                        if 'dormitorios' in key: datos['dormitorios'] = int(re.search(r'\d+', value).group())
+                        if 'baños' in key: datos['banos'] = int(re.search(r'\d+', value).group())
+                        if 'superficie total' in key: datos['superficie_total'] = int(re.search(r'\d+', value).group())
+                        if 'superficie cubierta' in key: datos['superficie_cubierta'] = int(re.search(r'\d+', value).group())
+                        if 'cocheras' in key: datos['cocheras'] = int(re.search(r'\d+', value).group())
+                    except:
+                        pass # Si falla la conversión a número, lo dejamos en None
+        
+        datos['caracteristicas'] = "\n".join(caracteristicas_lista_texto)
+        return datos
+
+    except requests.exceptions.RequestException as e:
+        print(f"  -> Error de red para {url[:60]}...: {e}")
+        return None
     except Exception as e:
-        print(f"Error en scrape_detalle_con_requests para {url}: {e}")
+        print(f"  -> Fallo general en scrape_detalle para {url[:60]}... : {e}")
         return None
 
-
-
-
-
-def run_scraper(tipo_inmueble='apartamentos', operacion='venta', ubicacion='montevideo', max_paginas=None, workers_fase1=5, workers_fase2=5):
-    """
-    Versión con detección matemática de páginas y concurrencia adaptativa.
-    """
-    print(f"Iniciando scraper para {tipo_inmueble} en {operacion} en {ubicacion}...")
-    
-    API_KEY = os.getenv('SCRAPER_API_KEY')
-    if not API_KEY:
-        print("ERROR: La variable de entorno SCRAPER_API_KEY no está definida.")
-        return
-
-    # Contadores
-    urls_recolectadas_total = 0
-    propiedades_omitidas = 0
-    nuevas_propiedades_guardadas = 0
-    
-    # --- FASE 0: DETECCIÓN MATEMÁTICA DE PÁGINAS ---
-    url_base = f"https://listado.mercadolibre.com.uy/inmuebles/{tipo_inmueble}/{operacion}/{ubicacion.lower().replace(' ', '-')}/"
-    paginas_a_scrapear = 1
-    
-    print("\n--- Iniciando FASE 0: Detección de número total de resultados ---")
-    try:
-        url_proxy_inicial = f'http://api.scraperapi.com?api_key={API_KEY}&url={url_base}'
-        response = requests.get(url_proxy_inicial, timeout=60)
-        if response.status_code == 200:
+def recolectar_urls_requests(paginas_de_resultados, api_key, workers):
+    urls_encontradas = set()
+    def recolectar_una_pagina(url):
+        try:
+            url_proxy = f'http://api.scraperapi.com?api_key={api_key}&url={url}'
+            response = requests.get(url_proxy, timeout=60)
+            if response.status_code >= 400: return set()
             soup = BeautifulSoup(response.text, 'lxml')
-            
-            # Buscamos el span que contiene el número de resultados
-            results_span = soup.find('span', class_='ui-search-search-result__quantity-results')
-            if results_span:
-                # Extraemos el texto, limpiamos puntos y buscamos el primer número
-                results_text = results_span.text.replace('.', '')
-                match = re.search(r'(\d+)', results_text)
-                if match:
-                    total_resultados = int(match.group(1))
-                    # Calculamos el número de páginas, 48 resultados por página
-                    paginas_calculadas = math.ceil(total_resultados / 48)
-                    paginas_a_scrapear = paginas_calculadas
-                    print(f"Se encontraron {total_resultados} resultados. Calculando {paginas_a_scrapear} páginas.")
-                else:
-                    print("No se pudo extraer el número de resultados. Asumiendo 1 página.")
-            else:
-                # Si no hay span de resultados, probablemente no hay publicaciones
-                print("No se encontró el contador de resultados. Probablemente no hay publicaciones. Se asume 0 páginas.")
-                paginas_a_scrapear = 0
-        else:
-             print(f"Respuesta no exitosa ({response.status_code}) al detectar páginas. Se asume 0 páginas.")
-             paginas_a_scrapear = 0
-    except Exception as e:
-        print(f"Error detectando páginas: {e}. Asumiendo 0 páginas.")
-        paginas_a_scrapear = 0
+            items = soup.find_all('li', class_='ui-search-layout__item')
+            return {link['href'].split('#')[0] for item in items if (link := item.find('a', 'ui-search-link')) and link.has_attr('href')}
+        except: return set()
+    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
+        for urls_de_pagina in executor.map(recolectar_una_pagina, paginas_de_resultados):
+            urls_encontradas.update(urls_de_pagina)
+    return urls_encontradas
+
+def recolectar_urls_selenium(paginas_de_resultados):
+    urls_encontradas = set()
+    driver = iniciar_driver()
+    try:
+        for i, url in enumerate(paginas_de_resultados):
+            print(f"  Procesando página {i+1}/{len(paginas_de_resultados)} con Selenium...")
+            driver.get(url)
+            try: WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.CLASS_NAME, "ui-search-results")))
+            except: break
+            soup = BeautifulSoup(driver.page_source, 'lxml')
+            items = soup.find_all('li', class_='ui-search-layout__item')
+            if not items: break
+            urls_encontradas.update({link['href'].split('#')[0] for item in items if (link := item.find('a', 'ui-search-link')) and link.has_attr('href')})
+    finally: driver.quit()
+    return urls_encontradas
+
+def run_scraper(tipo_inmueble='inmuebles', operacion='venta', ubicacion='montevideo', max_paginas=42, precio_min=None, precio_max=None, workers_fase1=5, workers_fase2=5):
+    API_KEY = os.getenv('SCRAPER_API_KEY')
+    if not API_KEY: print("ERROR: SCRAPER_API_KEY no definida."); return
     
-    # Aplicamos el límite manual del usuario si existe
-    if max_paginas is not None:
-        paginas_finales = min(paginas_a_scrapear, max_paginas)
-        print(f"Límite manual de --paginas={max_paginas} establecido. Se scrapearán {paginas_finales} páginas.")
-        paginas_a_scrapear = paginas_finales
+    urls_recolectadas_total, propiedades_omitidas, nuevas_propiedades_guardadas, urls_a_visitar = 0, 0, 0, set()
+    
+    base_path = f"https://listado.mercadolibre.com.uy/inmuebles/{tipo_inmueble}/{operacion}/{ubicacion.lower().replace(' ', '-')}/"
+    price_filter = f"_PriceRange_{(precio_min or 0)}USD-{(precio_max or '*')}USD" if precio_min is not None or precio_max is not None else ""
+    url_base_para_paginacion = f"{base_path}{price_filter}"
+    
+    paginas_de_resultados = [f"{url_base_para_paginacion}_Desde_{1 + (i * 48)}_NoIndex_True" if i > 0 else f"{url_base_para_paginacion}_NoIndex_True" for i in range(max_paginas)]
 
-    # --- FASE 1: RECOLECCIÓN CONCURRENTE ---
-    if paginas_a_scrapear == 0:
-        print("No hay páginas para scrapear.")
-    else:
-        workers_recoleccion = min(paginas_a_scrapear, workers_fase1)
-        print(f"\n--- Iniciando FASE 1: Recolectando {paginas_a_scrapear} páginas con {workers_recoleccion} hilos... ---")
-        
-        paginas_de_resultados = []
-        for pagina in range(paginas_a_scrapear):
-            offset = 1 + (pagina * 48)
-            url_target = url_base if pagina == 0 else f"{url_base}_Desde_{offset}_NoIndex_True"
-            paginas_de_resultados.append(url_target)
-        
-        # ... (código de la FASE 1 concurrente)
-        urls_a_visitar = set()
-        with concurrent.futures.ThreadPoolExecutor(max_workers=workers_recoleccion) as executor:
-            mapa_futuros_f1 = {executor.submit(recolectar_urls_de_pagina, url, API_KEY, ubicacion): url for url in paginas_de_resultados}
-            for futuro in concurrent.futures.as_completed(mapa_futuros_f1):
-                urls_nuevas, conteo_items = futuro.result()
-                urls_recolectadas_total += conteo_items
-                urls_a_visitar.update(urls_nuevas)
-        
-        # ... (código de chequeo de duplicados y Fase 2)
-        urls_existentes = set(Propiedad.objects.filter(url_publicacion__in=list(urls_a_visitar)).values_list('url_publicacion', flat=True))
-        propiedades_omitidas = len(urls_existentes)
-        urls_a_visitar = urls_a_visitar - urls_existentes
-        print(f"\n--- FASE 1 COMPLETADA: Se encontraron {len(urls_a_visitar)} URLs únicas y nuevas. ---")
-        
-        if urls_a_visitar:
-            print(f"\n--- Iniciando FASE 2: Scrapeo de detalles en paralelo (hasta {workers_fase2} hilos)... ---")
-            urls_lista = list(urls_a_visitar)
-            with concurrent.futures.ThreadPoolExecutor(max_workers=workers_fase2) as executor:
-                mapa_futuros_f2 = {executor.submit(scrape_detalle_con_requests, url, API_KEY): url for url in urls_lista}
-                for i, futuro in enumerate(concurrent.futures.as_completed(mapa_futuros_f2)):
-                    url_original = mapa_futuros_f2[futuro]
-                    print(f"Procesando resultado {i+1}/{len(urls_lista)}...")
-                    try:
-                        datos_propiedad = futuro.result()
-                        if datos_propiedad:
-                            Propiedad.objects.create(**datos_propiedad)
-                            nuevas_propiedades_guardadas += 1
-                            print(f"¡Propiedad '{datos_propiedad['titulo'][:30]}...' guardada!")
-                    except Exception as exc:
-                        print(f'URL {url_original[:50]}... generó una excepción: {exc}')
+    print("\n--- FASE 1: Recolección de URLs ---")
+    print("-> Intentando Modo Turbo (rápido con Requests)...")
+    urls_a_visitar = recolectar_urls_requests(paginas_de_resultados, API_KEY, workers_fase1)
 
-    # --- Resumen Final ---
-    print("\n--------------------")
-    print("SCRAPEO FINALIZADO - RESUMEN")
-    print("--------------------")
-    print(f"Total de propiedades vistas: {urls_recolectadas_total}")
+    if not urls_a_visitar:
+        print("-> Modo Turbo falló. Cambiando a Modo Seguro (lento con Selenium)...")
+        urls_a_visitar = recolectar_urls_selenium(paginas_de_resultados)
+
+    urls_existentes = set(Propiedad.objects.filter(url_publicacion__in=list(urls_a_visitar)).values_list('url_publicacion', flat=True))
+    propiedades_omitidas = len(urls_existentes)
+    urls_a_visitar -= urls_existentes
+    
+    print(f"\n--- FASE 1 COMPLETADA: Se encontraron {len(urls_a_visitar)} URLs únicas y nuevas para procesar. ---")
+
+    if urls_a_visitar:
+        print(f"\n--- FASE 2: Scrapeo de detalles en paralelo (hasta {workers_fase2} hilos)... ---")
+        urls_lista = list(urls_a_visitar)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=workers_fase2) as executor:
+            mapa_futuros = {executor.submit(scrape_detalle_con_requests, url, API_KEY): url for url in urls_lista}
+            for i, futuro in enumerate(concurrent.futures.as_completed(mapa_futuros)):
+                url_original = mapa_futuros[futuro]
+                try:
+                    if datos_propiedad := futuro.result():
+                        Propiedad.objects.create(**datos_propiedad)
+                        nuevas_propiedades_guardadas += 1
+                except Exception as exc:
+                    print(f'URL {url_original[:50]}... generó una excepción al guardar: {exc}')
+
+    print("\n--- RESUMEN ---")
     print(f"Propiedades omitidas (ya en BD): {propiedades_omitidas}")
     print(f"Nuevas propiedades guardadas: {nuevas_propiedades_guardadas}")
     print(f"Total de propiedades en la base de datos: {Propiedad.objects.count()}")
-    print("--------------------")
-
-# También necesitamos actualizar la función interna para que reciba la API key y la ubicación
-def recolectar_urls_de_pagina(url_target, api_key, ubicacion):
-    try:
-        url_proxy = f'http://api.scraperapi.com?api_key={api_key}&url={url_target}'
-        response = requests.get(url_proxy, timeout=60)
-        
-        # Chequeo de redirección mejorado
-        final_url_text = response.request.url.lower()
-        if ubicacion.lower().replace('-', ' ') not in final_url_text.replace('-', ' '):
-            print(f"  -> Redirección detectada. Omitiendo página.")
-            return set(), 0
-        
-        if response.status_code >= 400:
-            print(f"  -> Error {response.status_code} en {url_target}. Omitiendo página.")
-            return set(), 0
-            
-        soup = BeautifulSoup(response.text, 'lxml')
-        items = soup.find_all('li', class_='ui-search-layout__item')
-        if not items: return set(), 0
-        urls_de_pagina = {link['href'].split('#')[0] for item in items if (link := item.find('a', class_='poly-component__title') or item.find('a', class_='ui-search-link')) and link.has_attr('href')}
-        return urls_de_pagina, len(items)
-    except Exception as e:
-        print(f"Error recolectando {url_target}: {e}")
-        return set(), 0
