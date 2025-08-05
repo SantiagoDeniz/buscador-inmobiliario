@@ -1,3 +1,5 @@
+# Reemplaza el archivo completo en core/management/commands/run_scraper.py
+
 from django.core.management.base import BaseCommand
 from core.scraper import run_scraper
 
@@ -5,16 +7,15 @@ class Command(BaseCommand):
     help = 'Ejecuta el scraper de MercadoLibre para poblar la base de datos'
 
     def add_arguments(self, parser):
-        # Límite de 42 páginas por defecto
-        parser.add_argument('--paginas', type=int, default=42, help='Número máximo de páginas a scrapear (límite de ML: 42).')
-        parser.add_argument('--tipo', type=str, default='inmuebles', help='Tipo (inmuebles, casas, apartamentos).')
-        parser.add_argument('--operacion', type=str, default='venta', help='Operación (venta, alquiler).')
-        parser.add_argument('--ubicacion', type=str, default='montevideo', help='Departamento.')
-        # Nuevos argumentos de precio
-        parser.add_argument('--precio-min', type=int, default=None, help='Precio mínimo en USD.')
-        parser.add_argument('--precio-max', type=int, default=None, help='Precio máximo en USD.')
-        
-        parser.add_argument('--workers', type=int, default=5, help='Número de hilos concurrentes.')
+        parser.add_argument('--paginas', type=int, default=42)
+        # CORRECCIÓN: default=None es la forma correcta de manejar un argumento opcional
+        parser.add_argument('--tipo', type=str, default=None, help='(casas, apartamentos). Omitir para todos los inmuebles.')
+        parser.add_argument('--operacion', type=str, default='venta')
+        parser.add_argument('--ubicacion', type=str, default='montevideo')
+        parser.add_argument('--precio-min', type=int, default=None)
+        parser.add_argument('--precio-max', type=int, default=None)
+        parser.add_argument('--workers', type=int, default=5)
+        parser.add_argument('--limpiar', action='store_true', help='Borra las propiedades existentes para esta búsqueda.')
 
     def handle(self, *args, **kwargs):
         paginas = kwargs['paginas']

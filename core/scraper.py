@@ -1,3 +1,5 @@
+# core/scraper.py
+
 import math, concurrent.futures, requests, re, time, os
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
@@ -12,6 +14,10 @@ from selenium.webdriver.chrome.options import Options
 from selenium_stealth import stealth
 
 load_dotenv()
+
+HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+}
 
 def iniciar_driver():
     chrome_options = Options()
@@ -29,118 +35,115 @@ def iniciar_driver():
             webgl_vendor="Intel Inc.", renderer="Intel Iris OpenGL Engine", fix_hairline=True)
     return driver
 
+def parse_rango(texto):
+    texto = texto.lower()
+    if 'monoambiente' in texto: return 0, 0
+    numeros = [int(n) for n in re.findall(r'\d+', texto)]
+    if len(numeros) == 1: return numeros[0], numeros[0]
+    if len(numeros) >= 2: return min(numeros), max(numeros)
+    return None, None
+
 def scrape_detalle_con_requests(url, api_key):
     """
-    Scrapea los detalles de una página individual usando requests y el proxy.
-    Extrae datos estructurados (dormitorios, baños, etc.) y los devuelve en un diccionario.
+    Scrapea detalles con una lógica de extracción de características renovada y robusta.
     """
     try:
-        url_proxy = f'http://api.scraperapi.com?api_key={api_key}&url={url}'
-        response = requests.get(url_proxy, headers=HEADERS, timeout=60)
-
-        # Manejo de errores de API (Too Many Requests / Forbidden)
-        if response.status_code in [429, 403]:
-            print(f"  -> Recibido error {response.status_code}. Reintentando en unos segundos...")
-            # Aquí podrías añadir una lógica de reintento más formal si quisieras
-            return None
+        params = {'api_key': api_key, 'url': url}
+        response = requests.get('https://app.scrapingbee.com/api/v1/', params=params, timeout=90)
+        response.raise_for_status()
         
-        response.raise_for_status() # Lanza error para otros códigos HTTP (404, 500)
+        soup = BeautifulSoup(response.content, 'lxml')
+        if not soup.find('div', class_='ui-pdp-container'): return None
+
+        datos = {'url_publicacion': url}
         
-        soup = BeautifulSoup(response.text, 'lxml')
-        
-        # --- Diccionario para guardar los datos ---
-        datos = { 'url_publicacion': url, 'operacion': 'venta' if '/venta/' in url else 'alquiler' }
+        # --- Extracción de Datos Principales (sin cambios) ---
+        datos['titulo'] = (t.text.strip() if (t := soup.find('h1', class_='ui-pdp-title')) else "N/A")
+        if pc := soup.find('div', class_='ui-pdp-price__main-container'):
+            datos['precio_moneda'] = (m.text.strip() if (m := pc.find('span', 'andes-money-amount__currency-symbol')) else "")
+            valor_str = (v.text.strip().replace('.', '') if (v := pc.find('span', 'andes-money-amount__fraction')) else "0")
+            datos['precio_valor'] = int(re.sub(r'\D', '', valor_str))
 
-
-        # Título
-        titulo_tag = soup.find('h1', class_='ui-pdp-title')
-        datos['titulo'] = titulo_tag.text.strip() if titulo_tag else "Título no encontrado"
-
-        # Precio
-        precio_container = soup.find('div', class_='ui-pdp-price__main-container')
-        datos['precio_moneda'] = "N/A"
-        datos['precio_valor'] = 0
-        if precio_container:
-            moneda_tag = precio_container.find('span', class_='andes-money-amount__currency-symbol')
-            valor_tag = precio_container.find('span', class_='andes-money-amount__fraction')
-            if moneda_tag and valor_tag:
-                datos['precio_moneda'] = moneda_tag.text.strip()
-                valor_str = valor_tag.text.strip().replace('.', '')
-                datos['precio_valor'] = int(re.sub(r'\D', '', valor_str))
-
-        # Imagen Principal
-        img_container = soup.find('figure', class_='ui-pdp-gallery__figure')
-        img_tag = img_container.find('img') if img_container else None
+        img_tag = (fig.find('img') if (fig := soup.find('figure', 'ui-pdp-gallery__figure')) else None)
         datos['url_imagen'] = img_tag['src'] if img_tag and 'src' in img_tag.attrs else ""
+        datos['descripcion'] = (d.text.strip() if (d := soup.find('p', 'ui-pdp-description__content')) else "")
 
-        # Descripción
-        descripcion_tag = soup.find('p', class_='ui-pdp-description__content')
-        datos['descripcion'] = descripcion_tag.text.strip() if descripcion_tag else ""
-
-        # --- Extracción ESTRUCTURADA de TODOS los campos ---
-        datos['departamento'] = ''
-        datos['ciudad_barrio'] = ''
-        datos['dormitorios'] = None
-        datos['banos'] = None
-        datos['superficie_total'] = None
-        datos['superficie_cubierta'] = None
-        datos['cocheras'] = None
-        datos['antiguedad'] = ''
+        # --- LÓGICA DE EXTRACCIÓN DE CARACTERÍSTICAS CORREGIDA ---
+        caracteristicas_dict = {}
         
-        caracteristicas_lista_texto = []
-        tabla_features = soup.find('div', class_='ui-pdp-specs__table')
-        if tabla_features:
-            filas = tabla_features.find_all('tr', class_='andes-table__row')
-            for row in filas:
-                titulo_th = row.find('th')
-                valor_td = row.find('td')
-                if titulo_th and valor_td:
-                    key = titulo_th.text.strip().lower()
-                    value = valor_td.text.strip()
-                    caracteristicas_lista_texto.append(f"{key.capitalize()}: {value}")
-
-                    # Mapeo a campos estructurados
-                    try:
-                        if 'departamento' in key: datos['departamento'] = value
-                        if 'ciudad' in key or 'barrio' in key: datos['ciudad_barrio'] = value
-                        if 'antigüedad' in key: datos['antiguedad'] = value
-                        
-                        # Para campos numéricos, extraemos solo el número
-                        if 'dormitorios' in key: datos['dormitorios'] = int(re.search(r'\d+', value).group())
-                        if 'baños' in key: datos['banos'] = int(re.search(r'\d+', value).group())
-                        if 'superficie total' in key: datos['superficie_total'] = int(re.search(r'\d+', value).group())
-                        if 'superficie cubierta' in key: datos['superficie_cubierta'] = int(re.search(r'\d+', value).group())
-                        if 'cocheras' in key: datos['cocheras'] = int(re.search(r'\d+', value).group())
-                    except:
-                        pass # Si falla la conversión a número, lo dejamos en None
+        # 1. Extraer de las tablas "Principales", "Ambientes", etc.
+        for row in soup.select('tr.andes-table__row'):
+            if (th := row.find('th')) and (td := row.find('td')):
+                key = th.text.strip().lower()
+                value = td.text.strip()
+                caracteristicas_dict[key] = value
         
-        datos['caracteristicas'] = "\n".join(caracteristicas_lista_texto)
+        # 2. Extraer de la sección de íconos "highlighted"
+        for spec in soup.select('div.ui-vpp-highlighted-specs__key-value'):
+            if len(spans := spec.find_all('span')) == 2:
+                key = spans[0].text.replace(':', '').strip().lower()
+                value = spans[1].text.strip()
+                caracteristicas_dict[key] = value
+        
+        datos['caracteristicas_texto'] = "\n".join([f"{k.capitalize()}: {v}" for k, v in caracteristicas_dict.items()])
+
+        def get_int(key):
+            try: return int(re.search(r'\d+', caracteristicas_dict.get(key, '')).group())
+            except: return None
+
+        # --- Mapeo a campos estructurados (usando el diccionario unificado) ---
+        datos['tipo_inmueble'] = caracteristicas_dict.get('tipo de casa') or caracteristicas_dict.get('tipo de inmueble', 'N/A')
+        datos['condicion'] = caracteristicas_dict.get('condición del ítem', '')
+        
+        datos['dormitorios_min'], datos['dormitorios_max'] = parse_rango(caracteristicas_dict.get('dormitorios', ''))
+        datos['banos_min'], datos['banos_max'] = parse_rango(caracteristicas_dict.get('baños', ''))
+        datos['superficie_total_min'], datos['superficie_total_max'] = parse_rango(caracteristicas_dict.get('superficie total', ''))
+        datos['superficie_cubierta_min'], datos['superficie_cubierta_max'] = parse_rango(caracteristicas_dict.get('área privada', '') or caracteristicas_dict.get('superficie cubierta', ''))
+        datos['cocheras_min'], datos['cocheras_max'] = parse_rango(caracteristicas_dict.get('cocheras', ''))
+        
+        antiguedad_str = caracteristicas_dict.get('antigüedad', '')
+        datos['antiguedad'] = 0 if 'a estrenar' in antiguedad_str.lower() else get_int(antiguedad_str)
+        
+        # Mapeo de booleanos
+        datos['es_amoblado'] = caracteristicas_dict.get('amoblado', 'no').lower() == 'sí'
+        datos['admite_mascotas'] = caracteristicas_dict.get('admite mascotas', 'no').lower() == 'sí'
+        datos['tiene_piscina'] = caracteristicas_dict.get('piscina', 'no').lower() == 'sí'
+        datos['tiene_terraza'] = caracteristicas_dict.get('terraza', 'no').lower() == 'sí'
+        datos['tiene_jardin'] = caracteristicas_dict.get('jardín', 'no').lower() == 'sí'
+        
         return datos
-
-    except requests.exceptions.RequestException as e:
-        print(f"  -> Error de red para {url[:60]}...: {e}")
-        return None
     except Exception as e:
-        print(f"  -> Fallo general en scrape_detalle para {url[:60]}... : {e}")
         return None
 
-def recolectar_urls_requests(paginas_de_resultados, api_key, workers):
-    urls_encontradas = set()
-    def recolectar_una_pagina(url):
-        try:
-            url_proxy = f'http://api.scraperapi.com?api_key={api_key}&url={url}'
-            response = requests.get(url_proxy, timeout=60)
-            if response.status_code >= 400: return set()
-            soup = BeautifulSoup(response.text, 'lxml')
-            items = soup.find_all('li', class_='ui-search-layout__item')
-            return {link['href'].split('#')[0] for item in items if (link := item.find('a', 'ui-search-link')) and link.has_attr('href')}
-        except: return set()
-    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
-        for urls_de_pagina in executor.map(recolectar_una_pagina, paginas_de_resultados):
-            urls_encontradas.update(urls_de_pagina)
-    return urls_encontradas
+
+def recolectar_urls_de_pagina(url_target, api_key, ubicacion):
+    """
+    Función de recolección para un hilo, AHORA CON LOGS DETALLADOS.
+    """
+    print(f"  [Hilo] Iniciando recolección para: {url_target}")
+    try:
+        url_proxy = f'https://app.scrapingbee.com/api/v1/?api_key={api_key}&url={url_target}'
+        response = requests.get(url_proxy, headers=HEADERS, timeout=60)
+        
+        if response.status_code >= 400:
+            print(f"  [Hilo] ERROR: Status {response.status_code} para {url_proxy}")
+            return set(), 0
+
+        soup = BeautifulSoup(response.text, 'lxml')
+        items = soup.find_all('li', class_='ui-search-layout__item')
+        if not items:
+            print(f"  [Hilo] ADVERTENCIA: No se encontraron items en {url_target}")
+            return set(), 0
+
+        urls_de_pagina = {link['href'].split('#')[0] for item in items if (link := item.find('a', class_='poly-component__title') or item.find('a', class_='ui-search-link')) and link.has_attr('href')}
+        print(f"  [Hilo] ÉXITO: Se encontraron {len(urls_de_pagina)} URLs en {url_target}")
+        return urls_de_pagina, len(items)
+    except Exception as e:
+        print(f"  [Hilo] EXCEPCIÓN: Ocurrió un error procesando {url_target}: {e}")
+        return set(), 0
 
 def recolectar_urls_selenium(paginas_de_resultados):
+    # (Esta función no cambia, es idéntica a la que me pasaste)
     urls_encontradas = set()
     driver = iniciar_driver()
     try:
@@ -156,41 +159,72 @@ def recolectar_urls_selenium(paginas_de_resultados):
     finally: driver.quit()
     return urls_encontradas
 
-def run_scraper(tipo_inmueble='inmuebles', operacion='venta', ubicacion='montevideo', max_paginas=42, precio_min=None, precio_max=None, workers_fase1=5, workers_fase2=5):
-    API_KEY = os.getenv('SCRAPER_API_KEY')
-    if not API_KEY: print("ERROR: SCRAPER_API_KEY no definida."); return
+def run_scraper(tipo_inmueble=None, operacion='venta', ubicacion='montevideo', max_paginas=42, precio_min=None, precio_max=None, workers_fase1=5, workers_fase2=5):
+    API_KEY = os.getenv('SCRAPINGBEE_API_KEY')
+    if not API_KEY: print("ERROR: SCRAPINGBEE_API_KEY no definida."); return
     
-    urls_recolectadas_total, propiedades_omitidas, nuevas_propiedades_guardadas, urls_a_visitar = 0, 0, 0, set()
+    propiedades_omitidas = 0
+    nuevas_propiedades_guardadas = 0
+    urls_a_visitar_final = set()
     
-    base_path = f"https://listado.mercadolibre.com.uy/inmuebles/{tipo_inmueble}/{operacion}/{ubicacion.lower().replace(' ', '-')}/"
+    # --- CONSTRUCCIÓN DE URL BASE ---
+    path_segment = f"inmuebles/{tipo_inmueble}" if tipo_inmueble else "inmuebles"
+    base_path = f"https://listado.mercadolibre.com.uy/{path_segment}/{operacion}/{ubicacion.lower().replace(' ', '-')}/"
     price_filter = f"_PriceRange_{(precio_min or 0)}USD-{(precio_max or '*')}USD" if precio_min is not None or precio_max is not None else ""
-    url_base_para_paginacion = f"{base_path}{price_filter}"
+    url_base_con_filtros = f"{base_path}{price_filter}"
     
-    paginas_de_resultados = [f"{url_base_para_paginacion}_Desde_{1 + (i * 48)}_NoIndex_True" if i > 0 else f"{url_base_para_paginacion}_NoIndex_True" for i in range(max_paginas)]
-
-    print("\n--- FASE 1: Recolección de URLs ---")
-    print("-> Intentando Modo Turbo (rápido con Requests)...")
-    urls_a_visitar = recolectar_urls_requests(paginas_de_resultados, API_KEY, workers_fase1)
-
-    if not urls_a_visitar:
-        print("-> Modo Turbo falló. Cambiando a Modo Seguro (lento con Selenium)...")
-        urls_a_visitar = recolectar_urls_selenium(paginas_de_resultados)
-
-    urls_existentes = set(Propiedad.objects.filter(url_publicacion__in=list(urls_a_visitar)).values_list('url_publicacion', flat=True))
-    propiedades_omitidas = len(urls_existentes)
-    urls_a_visitar -= urls_existentes
+    print(f"\n[Principal] URL Base construida: {url_base_con_filtros}")
     
-    print(f"\n--- FASE 1 COMPLETADA: Se encontraron {len(urls_a_visitar)} URLs únicas y nuevas para procesar. ---")
+    # --- FASE 1: RECOLECCIÓN ---
+    paginas_de_resultados = [f"{url_base_con_filtros}_Desde_{1 + (i * 48)}_NoIndex_True" if i > 0 else f"{url_base_con_filtros}_NoIndex_True" for i in range(max_paginas)]
+    
+    print(f"\n--- FASE 1: Se intentarán recolectar {len(paginas_de_resultados)} páginas con {workers_fase1} hilos... ---")
+    
+    urls_recolectadas_bruto = set()
+    with concurrent.futures.ThreadPoolExecutor(max_workers=workers_fase1) as executor:
+        # (La lógica de hilos no cambia)
+        mapa_futuros = {executor.submit(recolectar_urls_de_pagina, url, API_KEY, ubicacion): url for url in paginas_de_resultados}
+        for futuro in concurrent.futures.as_completed(mapa_futuros):
+            urls_nuevas, _ = futuro.result()
+            urls_recolectadas_bruto.update(urls_nuevas)
 
-    if urls_a_visitar:
+    print(f"\n[Principal] FASE 1 Recolección Bruta Finalizada. Se obtuvieron {len(urls_recolectadas_bruto)} URLs en total.")
+
+    # --- LÓGICA DE DEDUPLICACIÓN (con logs) ---
+    print("\n[Principal] Iniciando chequeo de duplicados contra la base de datos...")
+    if urls_recolectadas_bruto:
+        # Consultamos a la BD una sola vez por todas las URLs encontradas
+        urls_existentes = set(Propiedad.objects.filter(url_publicacion__in=list(urls_recolectadas_bruto)).values_list('url_publicacion', flat=True))
+        propiedades_omitidas = len(urls_existentes)
+        
+        # Las URLs a visitar son las que recolectamos MENOS las que ya existen
+        urls_a_visitar_final = urls_recolectadas_bruto - urls_existentes
+        
+        print(f"[Principal] URLs existentes en BD: {propiedades_omitidas}")
+        print(f"[Principal] URLs nuevas para procesar: {len(urls_a_visitar_final)}")
+    else:
+        print("[Principal] No se recolectaron URLs para chequear.")
+
+    if urls_a_visitar_final:
         print(f"\n--- FASE 2: Scrapeo de detalles en paralelo (hasta {workers_fase2} hilos)... ---")
-        urls_lista = list(urls_a_visitar)
+        # ... (inicio FASE 2)
+        urls_lista = list(urls_a_visitar_final)
         with concurrent.futures.ThreadPoolExecutor(max_workers=workers_fase2) as executor:
             mapa_futuros = {executor.submit(scrape_detalle_con_requests, url, API_KEY): url for url in urls_lista}
             for i, futuro in enumerate(concurrent.futures.as_completed(mapa_futuros)):
                 url_original = mapa_futuros[futuro]
+                print(f"Procesando resultado {i+1}/{len(urls_lista)}...")
                 try:
                     if datos_propiedad := futuro.result():
+                        # --- ¡AQUÍ ESTÁ LA MEJORA! ---
+                        # Pre-rellenamos con los datos que ya conocemos de la búsqueda
+                        datos_propiedad['operacion'] = operacion
+                        datos_propiedad['departamento'] = ubicacion.replace('-', ' ').title() # Capitalizamos
+                        
+                        # Si el scraper no encontró un tipo de inmueble, usamos el de la búsqueda
+                        if not datos_propiedad.get('tipo_inmueble'):
+                           datos_propiedad['tipo_inmueble'] = tipo_inmueble if tipo_inmueble else 'N/A'
+                        
                         Propiedad.objects.create(**datos_propiedad)
                         nuevas_propiedades_guardadas += 1
                 except Exception as exc:
