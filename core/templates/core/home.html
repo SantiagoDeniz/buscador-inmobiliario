@@ -10,82 +10,187 @@
 <body>
     <div class="container my-4">
         <header class="text-center mb-5">
-            <h1>Tu Asistente Inmobiliario</h1>
+            <h1>Buscador de Propiedades</h1>
             <p class="lead">Encuentra la propiedad perfecta analizando miles de publicaciones por ti.</p>
         </header>
 
         <div class="card p-4 shadow-sm mb-5" id="search-form">
-            <form method="GET" action="{% url 'home' %}#resultados">
+            <form method="post" action="" autocomplete="off">
+                {% csrf_token %}
                 <div class="row g-3">
                     <div class="col-12">
-                        <label for="texto_libre" class="form-label fw-bold">¿Qué estás buscando?</label>
-                        <input type="text" name="texto_libre" id="texto_libre" class="form-control form-control-lg" placeholder="Ej: parrillero, luminoso, cerca de la rambla..." value="{{ request.GET.texto_libre }}">
+                        <label for="keywords" class="form-label fw-bold">¿Qué estás buscando?</label>
+                        {% if search_data %}
+                        <input type="text" name="keywords" id="keywords" class="form-control form-control-lg" placeholder="Ej: parrillero, luminoso, cerca de la rambla..." value="{{ search_data.keywords|join:', ' }}">
+                        {% else %}
+                        <input type="text" name="keywords" id="keywords" class="form-control form-control-lg" placeholder="Ej: parrillero, luminoso, cerca de la rambla...">
+                        {% endif %}
                     </div>
-
-                    <div class="col-md-6 col-lg-3">
-                        <label for="departamento" class="form-label">Departamento</label>
-                        <select name="departamento" id="departamento" class="form-select">
-                            <option value="">Todos</option>
-                            {% for dep in departamentos %}{% if dep %}<option value="{{ dep }}" {% if request.GET.departamento == dep %}selected{% endif %}>{{ dep }}</option>{% endif %}{% endfor %}
-                        </select>
+                    <div class="col-md-4 col-lg-2">
+                        <label for="precio_min" class="form-label">Precio mínimo</label>
+                        <input type="number" min="0" name="precio_min" id="precio_min" class="form-control" placeholder="Ej: 50000" value="{{ search_data.filters.precio_min|default:'' }}">
                     </div>
-                    <div class="col-md-6 col-lg-3">
-                        <label for="ciudad_barrio" class="form-label">Ciudad / Barrio</label>
-                        <select name="ciudad_barrio" id="ciudad_barrio" class="form-select">
-                            <option value="">Todos</option>
-                             {% for cb in ciudades_barrios %}{% if cb %}<option value="{{ cb }}" {% if request.GET.ciudad_barrio == cb %}selected{% endif %}>{{ cb }}</option>{% endif %}{% endfor %}
-                        </select>
+                    <div class="col-md-4 col-lg-2">
+                        <label for="precio_max" class="form-label">Precio máximo</label>
+                        <input type="number" min="0" name="precio_max" id="precio_max" class="form-control" placeholder="Ej: 200000" value="{{ search_data.filters.precio_max|default:'' }}">
                     </div>
-                    <div class="col-md-6 col-lg-3">
-                        <label for="dormitorios" class="form-label">Dormitorios (exacto)</label>
-                        <input type="number" name="dormitorios" id="dormitorios" class="form-control" min="0" placeholder="Ej: 2" value="{{ request.GET.dormitorios }}">
-                    </div>
-                    <div class="col-md-6 col-lg-3">
-                        <label for="banos" class="form-label">Baños (exacto)</label>
-                        <input type="number" name="banos" id="banos" class="form-control" min="0" placeholder="Ej: 1" value="{{ request.GET.banos }}">
-                    </div>
-
-                    <div class="col-md-4">
+                    <div class="col-md-4 col-lg-2">
                         <label for="moneda" class="form-label">Moneda</label>
                         <select name="moneda" id="moneda" class="form-select">
-                            <option value="USD" {% if request.GET.moneda == 'USD' or not request.GET.moneda %}selected{% endif %}>Dólares (USD)</option>
-                            <option value="UYU" {% if request.GET.moneda == 'UYU' %}selected{% endif %}>Pesos ($)</option>
+                            <option value="USD" {% if search_data.filters.moneda == 'USD' or not search_data.filters.moneda %}selected{% endif %}>USD</option>
+                            <option value="UYU" {% if search_data.filters.moneda == 'UYU' %}selected{% endif %}>UYU</option>
                         </select>
                     </div>
-                    <div class="col-md-4">
-                        <label for="precio_min" class="form-label">Precio Mínimo</label>
-                        <input type="number" name="precio_min" id="precio_min" class="form-control" value="{{ request.GET.precio_min }}">
+                    <div class="col-md-6 col-lg-3">
+                        <label for="departamento" class="form-label">Departamento</label>
+                        <select name="departamento" id="departamento" class="form-select" onchange="mostrarCiudades()">
+                            <option value="">Todos</option>
+                            <option>Artigas</option>
+                            <option>Canelones</option>
+                            <option>Cerro Largo</option>
+                            <option>Colonia</option>
+                            <option>Durazno</option>
+                            <option>Flores</option>
+                            <option>Florida</option>
+                            <option>Lavalleja</option>
+                            <option>Maldonado</option>
+                            <option>Montevideo</option>
+                            <option>Paysandú</option>
+                            <option>Rivera</option>
+                            <option>Rocha</option>
+                            <option>Río Negro</option>
+                            <option>Salto</option>
+                            <option>San José</option>
+                            <option>Soriano</option>
+                            <option>Tacuarembó</option>
+                            <option>Treinta y Tres</option>
+                        </select>
                     </div>
-                    <div class="col-md-4">
-                        <label for="precio_max" class="form-label">Precio Máximo</label>
-                        <input type="number" name="precio_max" id="precio_max" class="form-control" value="{{ request.GET.precio_max }}">
+                    <div class="col-md-6 col-lg-3" id="ciudad_div" style="display:none">
+                        <label for="ciudad" class="form-label">Ciudad (solo Montevideo)</label>
+                        <select name="ciudad" id="ciudad" class="form-select">
+                            <option value="">Todas</option>
+                            <option>Aguada</option>
+                            <option>Aires Puros</option>
+                            <option>Arroyo Seco</option>
+                            <option>Atahualpa</option>
+                            <option>Barrio Sur</option>
+                            <option>Bella Vista</option>
+                            <option>Belvedere</option>
+                            <option>Bolivar</option>
+                            <option>Brazo Oriental</option>
+                            <option>Buceo</option>
+                            <option>Capurro</option>
+                            <option>Carrasco</option>
+                            <option>Carrasco Norte</option>
+                            <option>Casavalle</option>
+                            <option>Centro</option>
+                            <option>Cerrito</option>
+                            <option>Cerro</option>
+                            <option>Ciudad Vieja</option>
+                            <option>Colón</option>
+                            <option>Cordón</option>
+                            <option>Flor de Maroñas</option>
+                            <option>Goes</option>
+                            <option>Ituzaingó</option>
+                            <option>Jacinto Vera</option>
+                            <option>Jardines Hipódromo</option>
+                            <option>La Blanqueada</option>
+                            <option>La Comercial</option>
+                            <option>La Figurita</option>
+                            <option>La Teja</option>
+                            <option>Larrañaga</option>
+                            <option>Las Acacias</option>
+                            <option>Lezica</option>
+                            <option>Malvin</option>
+                            <option>Malvin Norte</option>
+                            <option>Manga</option>
+                            <option>Marconi</option>
+                            <option>Maroñas</option>
+                            <option>Maroñas, Curva</option>
+                            <option>Melilla</option>
+                            <option>Mercado Modelo</option>
+                            <option>Montevideo</option>
+                            <option>Nuevo París</option>
+                            <option>Palermo</option>
+                            <option>Parque Batlle</option>
+                            <option>Parque Rodó</option>
+                            <option>Paso de la Arena</option>
+                            <option>Paso Molino</option>
+                            <option>Peñarol</option>
+                            <option>Perez Castellanos</option>
+                            <option>Piedras Blancas</option>
+                            <option>Pocitos</option>
+                            <option>Pocitos Nuevo</option>
+                            <option>Prado</option>
+                            <option>Puerto Buceo</option>
+                            <option>Punta Carretas</option>
+                            <option>Punta Gorda</option>
+                            <option>Punta Rieles</option>
+                            <option>Reducto</option>
+                            <option>Santiago Vázquez</option>
+                            <option>Sayago</option>
+                            <option>Tres Cruces</option>
+                            <option>Unión</option>
+                            <option>Villa Biarritz</option>
+                            <option>Villa Dolores</option>
+                            <option>Villa Española</option>
+                            <option>Villa Muñoz</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6 col-lg-3">
+                        <label for="operacion" class="form-label">Tipo de operación</label>
+                        <select name="operacion" id="operacion" class="form-select">
+                            <option value="">Todas</option>
+                            <option>Venta</option>
+                            <option>Alquiler</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6 col-lg-3">
+                        <label for="tipo" class="form-label">Tipo de inmueble</label>
+                        <select name="tipo" id="tipo" class="form-select">
+                            <option value="">Todos</option>
+                            <option>Apartamentos</option>
+                            <option>Campos</option>
+                            <option>Casas</option>
+                            <option>Cocheras</option>
+                            <option>Depósitos y galpones</option>
+                            <option>Llave de negocio</option>
+                            <option>Locales</option>
+                            <option>Oficinas</option>
+                            <option>Quintas</option>
+                            <option>Terrenos</option>
+                            <option>Otros inmuebles</option>
+                        </select>
                     </div>
                 </div>
-                <div class="d-grid gap-2 mt-4">
-                    <button type="submit" class="btn btn-primary btn-lg">Buscar Propiedades</button>
+                <div class="row mt-3">
+                    <div class="col-12 col-md-8">
+                        <label for="name" class="form-label">Título para guardar esta búsqueda (opcional):</label>
+                        {% if search_data %}
+                        <input type="text" name="name" id="name" class="form-control" value="{{ search_data.name }}">
+                        {% else %}
+                        <input type="text" name="name" id="name" class="form-control">
+                        {% endif %}
+                    </div>
+                    <div class="col-12 col-md-4 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary w-100 me-2">Buscar</button>
+                        <button type="submit" name="guardar" value="1" class="btn btn-success w-100">Buscar y Guardar</button>
+                    </div>
                 </div>
             </form>
         </div>
 
+        {% if results is not None %}
         <div id="resultados">
-            <h2 class="mb-4">
-                Resultados 
-                {% if request.GET %}({{ page_obj.paginator.count }} encontrados){% endif %}
-            </h2>
-            
+            <h2 class="mb-4">Resultados encontrados: {{ results|length }}</h2>
             <div class="row row-cols-1 row-cols-md-2 row-cols-lg-4 g-4">
-                {% for propiedad in page_obj %}
-                    <!-- Esto es lo que tu amigo puede rediseñar -->
+                {% for r in results %}
                     <div class="col">
                         <div class="card h-100 shadow-sm">
-                            <a href="{{ propiedad.url_publicacion }}" target="_blank" class="text-decoration-none text-dark">
-                                <img src="{{ propiedad.url_imagen }}" class="card-img-top" alt="{{ propiedad.titulo }}" onerror="this.onerror=null;this.src='https://via.placeholder.com/400x300.png?text=Imagen+no+disponible';">
+                            <a href="{{ r.url }}" target="_blank" class="text-decoration-none text-dark">
                                 <div class="card-body">
-                                    <h5 class="card-title">{{ propiedad.titulo }}</h5>
-                                    <p class="card-text fs-4 fw-bold">{{ propiedad.precio_moneda }} {{ propiedad.precio_valor|floatformat:"0" }}</p>
-                                </div>
-                                <div class="card-footer">
-                                    <small class="text-muted">{{ propiedad.ciudad_barrio }}, {{ propiedad.departamento }}</small>
+                                    <h5 class="card-title">{{ r.url }}</h5>
                                 </div>
                             </a>
                         </div>
@@ -93,26 +198,37 @@
                 {% empty %}
                     <div class="col-12">
                         <div class="alert alert-info" role="alert">
-                            {% if request.GET %}
-                                No se encontraron propiedades con los criterios seleccionados.
-                            {% else %}
-                                Realiza una búsqueda para ver los resultados.
-                            {% endif %}
+                            No se encontraron propiedades con los criterios seleccionados.
                         </div>
                     </div>
                 {% endfor %}
             </div>
-            
-            {% if page_obj.has_other_pages %}
-            <nav aria-label="Paginación" class="mt-5">
-                <ul class="pagination justify-content-center">
-                    {% if page_obj.has_previous %}<li class="page-item"><a class="page-link" href="?page=1&amp;{{ request.GET.urlencode }}#resultados">&laquo;</a></li>{% endif %}
-                    <li class="page-item disabled"><span class="page-link">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span></li>
-                    {% if page_obj.has_next %}<li class="page-item"><a class="page-link" href="?page={{ page_obj.paginator.num_pages }}&amp;{{ request.GET.urlencode }}#resultados">&raquo;</a></li>{% endif %}
-                </ul>
-            </nav>
-            {% endif %}
+        </div>
+        {% endif %}
+
+        <div class="mt-5">
+            <h3>Búsquedas guardadas</h3>
+            <ul class="list-group">
+                {% for search in searches %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <a href="{% url 'core:search_detail' search.id %}">{{ search.name }}</a>
+                        <a href="{% url 'core:delete_search' search.id %}" class="btn btn-sm btn-danger">Eliminar</a>
+                    </li>
+                {% empty %}
+                    <li class="list-group-item">No hay búsquedas guardadas.</li>
+                {% endfor %}
+            </ul>
         </div>
     </div>
+    <script>
+    function mostrarCiudades() {
+      var dep = document.getElementById('departamento').value;
+      document.getElementById('ciudad_div').style.display = (dep === 'Montevideo') ? '' : 'none';
+    }
+    // Mostrar ciudad si ya estaba seleccionada Montevideo
+    document.addEventListener('DOMContentLoaded', function() {
+      mostrarCiudades();
+    });
+    </script>
 </body>
 </html>

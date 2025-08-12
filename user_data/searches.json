@@ -1,0 +1,20 @@
+[
+  {
+    "id": "062ac889-e9be-4200-bcc5-732e7fe56076",
+    "name": "Test Montevideo",
+    "filters": {
+      "departamento": "Montevideo",
+      "ciudad": "Pocitos",
+      "operacion": "Venta",
+      "tipo": "Apartamento"
+    },
+    "keywords": [
+      "terraza",
+      "garaje"
+    ],
+    "enabled": true,
+    "platforms": [
+      "mercadolibre"
+    ]
+  }
+]

@@ -1,23 +1,128 @@
-# core/scraper.py
 
-import math, concurrent.futures, requests, re, time, os
+
+
+# --- Scraper con Selenium y filtrado detallado para MercadoLibre ---
+import requests
 from bs4 import BeautifulSoup
-from dotenv import load_dotenv
-from .models import Propiedad
+from typing import List, Dict, Any
 from selenium import webdriver
-from selenium.webdriver.chrome.service import Service as ChromeService
-from webdriver_manager.chrome import ChromeDriverManager
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
-from selenium_stealth import stealth
+from selenium.webdriver.common.by import By
+import time
 
-load_dotenv()
+def build_mercadolibre_url(filters: Dict[str, Any]) -> str:
+    base = 'https://listado.mercadolibre.com.uy/inmuebles/'
+    tipo = filters.get('tipo', '').replace(' ', '-').lower()
+    operacion = filters.get('operacion', '').lower()
+    departamento = filters.get('departamento', '').replace(' ', '-').lower()
+    ciudad = filters.get('ciudad', '').replace(' ', '-').lower()
+    precio_min = filters.get('precio_min', '')
+    precio_max = filters.get('precio_max', '')
+    moneda = filters.get('moneda', 'USD').upper()  # USD por defecto
 
-HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-}
+    url = base
+    if tipo:
+        url += f'{tipo}/'
+    if operacion:
+        url += f'{operacion}/'
+    if departamento:
+        url += f'{departamento}/'
+    if departamento == 'montevideo' and ciudad:
+        url += f'{ciudad}/'
+
+    # El segmento de rango de precios se agrega después de la ruta principal
+    price_segment = ''
+    if precio_min or precio_max:
+        min_val = str(precio_min) if precio_min else '0'
+        max_val = str(precio_max) if precio_max else '0'
+        price_segment = f'_PriceRange_{min_val}{moneda}-{max_val}{moneda}'
+    url += price_segment
+    return url
+
+
+def scrape_mercadolibre(filters: Dict[str, Any], keywords: List[str], max_pages: int = 3) -> List[Dict[str, Any]]:
+    import re
+    # Importar aquí para evitar dependencias cruzadas
+    from core.search_manager import procesar_keywords
+    keywords_filtradas = procesar_keywords(' '.join(keywords))
+    base_url = build_mercadolibre_url(filters)
+    print(f"[scraper] URL base de búsqueda: {base_url}")
+    print(f"[scraper] Palabras clave filtradas: {keywords_filtradas}")
+
+    chrome_options = Options()
+#    chrome_options.add_argument('--headless')
+    chrome_options.add_argument('--no-sandbox')
+    chrome_options.add_argument('--disable-dev-shm-usage')
+    chrome_options.add_argument('--disable-gpu')
+    chrome_options.add_argument('--window-size=1920x1080')
+    driver = webdriver.Chrome(options=chrome_options)
+
+    links = []
+    for page in range(max_pages):
+        if page == 0:
+            url = base_url
+        else:
+            desde = 1 + 48 * page
+            url = f"{base_url}_Desde_{desde}_NoIndex_True"
+        print(f"[scraper] Selenium visitando: {url}")
+        driver.get(url)
+        time.sleep(3)
+        # Selector robusto para los items de publicación (div.poly-card--grid-card)
+        items = driver.find_elements(By.CSS_SELECTOR, 'div.poly-card--grid-card')
+        print(f"Se han encontrado {len(items)} propiedades en la página {page+1}")
+        # Primero recolectar todos los links y títulos de la página
+        publicaciones = []
+        for idx, item in enumerate(items, 1):
+            try:
+                link_tag = item.find_element(By.CSS_SELECTOR, 'h3.poly-component__title-wrapper > a.poly-component__title')
+                link = link_tag.get_attribute('href')
+                titulo = link_tag.text.strip()
+                link_limpio = link.split('#')[0].split('?')[0]
+                publicaciones.append({'idx': idx + page*48, 'titulo': titulo, 'url': link_limpio})
+            except Exception as e:
+                print(f"[scraper] No se pudo obtener el link/título de la propiedad {idx}: {e}")
+        # Ahora visitar cada publicación y analizar
+        for pub in publicaciones:
+            print(f"propiedad {pub['idx']}: {pub['titulo']} - {pub['url']}")
+            cumple = False
+            try:
+                driver.get(pub['url'])
+                time.sleep(2)
+                try:
+                    titulo_text = driver.find_element(By.CSS_SELECTOR, 'h1').text.lower()
+                except:
+                    titulo_text = ''
+                try:
+                    desc_tag = driver.find_element(By.CSS_SELECTOR, 'div.ui-pdp-description, div.description')
+                    descripcion = desc_tag.text.lower()
+                except:
+                    descripcion = ''
+                try:
+                    carac_tag = driver.find_element(By.CSS_SELECTOR, 'ul.ui-pdp-features, ul.characteristics, ul.attributes')
+                    caracteristicas = carac_tag.text.lower()
+                except:
+                    caracteristicas = ''
+                texto_total = f"{titulo_text} {descripcion} {caracteristicas}"
+                encontrados = [kw for kw in keywords_filtradas if kw in texto_total]
+                no_encontrados = [kw for kw in keywords_filtradas if kw not in texto_total]
+                if not keywords_filtradas:
+                    print("⚠️  No se especificaron palabras clave para filtrar.")
+                    cumple = True
+                elif all(kw in texto_total for kw in keywords_filtradas):
+                    print(f"✅ Cumple todos los requisitos. Palabras encontradas: {encontrados}")
+                    cumple = True
+                else:
+                    print(f"❌ No se encontraron todas las palabras clave. Encontradas: {encontrados} | Faltantes: {no_encontrados}")
+            except Exception as e:
+                print(f"[scraper] Error al analizar publicación {pub['url']}: {e}")
+            if cumple:
+                links.append({'url': pub['url']})
+        if len(items) < 48:
+            print(f"Última página detectada (menos de 48 propiedades). Se detiene la búsqueda.")
+            break
+    driver.quit()
+    print(f"[scraper] Resultados encontrados: {len(links)}")
+    return links
 
 def iniciar_driver():
     chrome_options = Options()
@@ -150,13 +255,17 @@ def recolectar_urls_selenium(paginas_de_resultados):
         for i, url in enumerate(paginas_de_resultados):
             print(f"  Procesando página {i+1}/{len(paginas_de_resultados)} con Selenium...")
             driver.get(url)
-            try: WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.CLASS_NAME, "ui-search-results")))
-            except: break
+            try:
+                WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.CLASS_NAME, "ui-search-results")))
+            except:
+                break
             soup = BeautifulSoup(driver.page_source, 'lxml')
             items = soup.find_all('li', class_='ui-search-layout__item')
-            if not items: break
+            if not items:
+                break
             urls_encontradas.update({link['href'].split('#')[0] for item in items if (link := item.find('a', 'ui-search-link')) and link.has_attr('href')})
-    finally: driver.quit()
+    finally:
+        driver.quit()
     return urls_encontradas
 
 def run_scraper(tipo_inmueble=None, operacion='venta', ubicacion='montevideo', max_paginas=42, precio_min=None, precio_max=None, workers_fase1=5, workers_fase2=5):
