@@ -1,3 +1,7 @@
+# CSRF trusted origins para despliegue en Render
+CSRF_TRUSTED_ORIGINS = [
+    'https://buscador-inmobiliario.onrender.com'
+]
 """
 Django settings for buscador project.
 
