@@ -186,38 +186,31 @@ def procesar_keywords(texto: str) -> list:
 	raw_tokens = texto.split()
 	tokens = [normalizar_token(t) for t in raw_tokens if t]
 	tokens = [t for t in tokens if t and t not in _STOPWORDS]
-
-	# Agrupa solo de a dos: número + palabra
-	grupos = []
-	i = 0
-	while i < len(tokens) - 1:
-		if tokens[i].isdigit() and tokens[i+1].isalpha():
-			grupo = f"{tokens[i]} {tokens[i+1]}"
-			grupos.append(grupo)
-		i += 1
-
-	# Incluye los grupos y los tokens simples (sin duplicados)
+	# Devuelve todos los tokens por separado, sin asociaciones
 	resultado = []
 	seen = set()
-	for t in grupos + tokens:
+	for t in tokens:
 		if t not in seen:
 			resultado.append(t)
 			seen.add(t)
 	return resultado
 
 def create_search(data: Dict[str, Any]) -> Dict[str, Any]:
+	import datetime
 	searches = load_searches()
-	# Permite pasar keywords como lista o como string
 	raw_keywords = data.get('keywords', [])
 	if isinstance(raw_keywords, list):
-		# Si ya es lista, la unimos para procesar todo igual
 		raw_keywords = ' '.join(raw_keywords)
 	keywords = procesar_keywords(raw_keywords)
+	# Los resultados y links visitados se inicializan vacíos
 	new_search = {
 		'id': str(uuid.uuid4()),
-		'name': data.get('name', ''),
-		'filters': data.get('filters', {}),
-		'keywords': keywords,
+		'nombre': data.get('name', ''),
+		'busqueda': raw_keywords,
+		'filtros': data.get('filters', {}),
+		'resultados': [],  # títulos de publicaciones coincidentes
+		'links_visitados': [],
+		'ultima_revision': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
 		'enabled': data.get('enabled', True),
 		'platforms': data.get('platforms', ['mercadolibre']),
 	}

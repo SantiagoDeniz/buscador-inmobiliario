@@ -1,26 +1,9 @@
 [
   {
-    "id": "062ac889-e9be-4200-bcc5-732e7fe56076",
-    "name": "Test Montevideo",
-    "filters": {
-      "departamento": "Montevideo",
-      "ciudad": "Pocitos",
-      "operacion": "Venta",
-      "tipo": "Apartamento"
-    },
-    "keywords": [
-      "terraza",
-      "garaje"
-    ],
-    "enabled": true,
-    "platforms": [
-      "mercadolibre"
-    ]
-  },
-  {
-    "id": "eac2f65c-6952-4872-b25b-9b9e6a1a93e6",
-    "name": "l1",
-    "filters": {
+    "id": "721a32bb-ca89-4fd2-ae06-ffc088fe4865",
+    "nombre": "aaa",
+    "busqueda": "antiguedad 0 legislativo",
+    "filtros": {
       "departamento": "Montevideo",
       "ciudad": "Aguada",
       "operacion": "Alquiler",
@@ -29,21 +12,23 @@
       "precio_max": "30000",
       "moneda": "USD"
     },
-    "keywords": [
-      "1 bano",
-      "luminoso",
-      "1",
-      "bano"
+    "resultados": [
+      "https://inmueble.mercadolibre.com.uy/MLU-748534160-frente-palacio-legislativo-50-mts-de-frente-1894-m2-entrada-autos--_JM"
     ],
+    "links_visitados": [
+      "https://inmueble.mercadolibre.com.uy/MLU-748534160-frente-palacio-legislativo-50-mts-de-frente-1894-m2-entrada-autos--_JM"
+    ],
+    "ultima_revision": "2025-08-13 13:04:08",
     "enabled": true,
     "platforms": [
       "mercadolibre"
     ]
   },
   {
-    "id": "ee3a1438-1af5-4d9e-a45b-32dbcc90a20c",
-    "name": "l2",
-    "filters": {
+    "id": "19a76108-92e6-4383-8879-203a39614703",
+    "nombre": "a",
+    "busqueda": "antiguedad 0 legislativo",
+    "filtros": {
       "departamento": "Montevideo",
       "ciudad": "Aguada",
       "operacion": "Alquiler",
@@ -52,52 +37,181 @@
       "precio_max": "30000",
       "moneda": "USD"
     },
-    "keywords": [
-      "ruta",
-      "1"
+    "resultados": [
+      "https://inmueble.mercadolibre.com.uy/MLU-748534160-frente-palacio-legislativo-50-mts-de-frente-1894-m2-entrada-autos--_JM"
     ],
+    "links_visitados": [
+      "https://inmueble.mercadolibre.com.uy/MLU-748534160-frente-palacio-legislativo-50-mts-de-frente-1894-m2-entrada-autos--_JM"
+    ],
+    "ultima_revision": "2025-08-13 14:32:11",
     "enabled": true,
     "platforms": [
       "mercadolibre"
     ]
   },
   {
-    "id": "1fc2be54-e014-49e2-9142-6b11cbc87ec4",
-    "name": "l3",
-    "filters": {
+    "id": "6a5199c6-d1ed-4f96-8dc7-398367dd6221",
+    "nombre": "b",
+    "busqueda": "antiguedad 0 legislativo",
+    "filtros": {
       "departamento": "Montevideo",
-      "ciudad": "Aguada",
+      "ciudad": "",
       "operacion": "Alquiler",
-      "tipo": "Locales",
+      "tipo": "Apartamentos",
       "precio_min": "20000",
       "precio_max": "30000",
       "moneda": "USD"
     },
-    "keywords": [
-      "ruta",
-      "1"
-    ],
+    "resultados": [],
+    "links_visitados": [],
+    "ultima_revision": "2025-08-13 14:46:26",
     "enabled": true,
     "platforms": [
       "mercadolibre"
     ]
   },
   {
-    "id": "36e8ef1d-73d9-4662-b735-a8104bad93be",
-    "name": "l4",
-    "filters": {
+    "id": "613de9ad-90a2-421a-89a8-17fb13def01b",
+    "nombre": "c",
+    "busqueda": "antiguedad 0 libertador",
+    "filtros": {
       "departamento": "Montevideo",
       "ciudad": "Aguada",
       "operacion": "Alquiler",
-      "tipo": "Locales",
+      "tipo": "",
       "precio_min": "20000",
-      "precio_max": "30000",
+      "precio_max": "",
       "moneda": "USD"
     },
-    "keywords": [
-      "ruta",
-      "1"
-    ],
+    "resultados": [],
+    "links_visitados": [],
+    "ultima_revision": "2025-08-13 15:18:38",
+    "enabled": true,
+    "platforms": [
+      "mercadolibre"
+    ]
+  },
+  {
+    "id": "558da39e-4ff2-4120-b99b-500fc70b5f4e",
+    "nombre": "c",
+    "busqueda": "antiguedad 0 libertador",
+    "filtros": {
+      "departamento": "",
+      "ciudad": "",
+      "operacion": "",
+      "tipo": "",
+      "precio_min": "20000",
+      "precio_max": "",
+      "moneda": "USD"
+    },
+    "resultados": [],
+    "links_visitados": [],
+    "ultima_revision": "2025-08-13 15:26:20",
+    "enabled": true,
+    "platforms": [
+      "mercadolibre"
+    ]
+  },
+  {
+    "id": "683b7569-203d-4c4f-9477-7c5ff8ee2b31",
+    "nombre": "ap1",
+    "busqueda": "antiguedad 0 2 dormitorios libertador",
+    "filtros": {
+      "departamento": "Montevideo",
+      "ciudad": "Aguada",
+      "operacion": "Alquiler",
+      "tipo": "Apartamentos",
+      "precio_min": "20000",
+      "precio_max": "35000",
+      "moneda": "UYU"
+    },
+    "resultados": [],
+    "links_visitados": [],
+    "ultima_revision": "2025-08-13 17:27:23",
+    "enabled": true,
+    "platforms": [
+      "mercadolibre"
+    ]
+  },
+  {
+    "id": "4aa10433-5bee-4935-8800-04fb3742f236",
+    "nombre": "ap1",
+    "busqueda": "antiguedad 0 2 dormitorios libertador",
+    "filtros": {
+      "departamento": "Montevideo",
+      "ciudad": "",
+      "operacion": "",
+      "tipo": "",
+      "precio_min": "20000",
+      "precio_max": "35000",
+      "moneda": "UYU"
+    },
+    "resultados": [],
+    "links_visitados": [],
+    "ultima_revision": "2025-08-13 17:28:03",
+    "enabled": true,
+    "platforms": [
+      "mercadolibre"
+    ]
+  },
+  {
+    "id": "4dfd538d-225b-4cde-9f73-2744c5c26c93",
+    "nombre": "ap 2",
+    "busqueda": "antiguedad 0 2 dormitorios libertador",
+    "filtros": {
+      "departamento": "Montevideo",
+      "ciudad": "Aguada",
+      "operacion": "Alquiler",
+      "tipo": "Apartamentos",
+      "precio_min": "20000",
+      "precio_max": "35000",
+      "moneda": "UYU"
+    },
+    "resultados": [],
+    "links_visitados": [],
+    "ultima_revision": "2025-08-13 17:28:34",
+    "enabled": true,
+    "platforms": [
+      "mercadolibre"
+    ]
+  },
+  {
+    "id": "64474790-8e9d-4b2d-b299-605cc7ba4596",
+    "nombre": "yi",
+    "busqueda": "antiguedad 0 2 dormitorios yi",
+    "filtros": {
+      "departamento": "Montevideo",
+      "ciudad": "Aguada",
+      "operacion": "Alquiler",
+      "tipo": "Apartamentos",
+      "precio_min": "15000",
+      "precio_max": "30000",
+      "moneda": "UYU"
+    },
+    "resultados": [],
+    "links_visitados": [],
+    "ultima_revision": "2025-08-13 17:41:19",
+    "enabled": true,
+    "platforms": [
+      "mercadolibre"
+    ]
+  },
+  {
+    "id": "43e6fbae-e684-4089-9f7c-8a87ef89a40b",
+    "nombre": "yi 2",
+    "busqueda": "antiguedad 0 2 dormitorios yi",
+    "filtros": {
+      "departamento": "Montevideo",
+      "ciudad": "Aguada",
+      "operacion": "Alquiler",
+      "tipo": "Apartamentos",
+      "precio_min": "15000",
+      "precio_max": "30000",
+      "moneda": "UYU"
+    },
+    "resultados": [],
+    "links_visitados": [],
+    "ultima_revision": "2025-08-13 17:42:25",
     "enabled": true,
     "platforms": [
       "mercadolibre"

@@ -1,3 +1,23 @@
+from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse
+
+@csrf_exempt
+def detener_busqueda_view(request):
+    if request.method == 'POST':
+        # Aquí deberías agregar la lógica real para detener la búsqueda (por ejemplo, señal a un thread)
+        return JsonResponse({'status': 'ok', 'message': 'La búsqueda ha sido detenida.'})
+    return JsonResponse({'status': 'error', 'message': 'Método no permitido.'}, status=405)
+from django.template.loader import render_to_string
+from django.http import JsonResponse
+def search_detail_ajax(request, search_id):
+    search = get_search(search_id)
+    results = load_results(search_id)
+    advertencias = ["El texto de la búsqueda encuentra las palabras por separado en las publicaciones."]
+    html = render_to_string('core/search_detail_partial.html', {'search': search, 'results': results, 'advertencias': advertencias})
+    return JsonResponse({'html': html})
+
+
+
 from django.shortcuts import render, redirect
 from .search_manager import get_all_searches, create_search, get_search, delete_search
 from .storage import load_results
@@ -37,8 +57,18 @@ def home(request):
         results = scrape_mercadolibre(filters, keywords)
         search_data = {'name': name, 'filters': filters, 'keywords': keywords}
         if request.POST.get('guardar') == '1' and name:
-            # Pasar el texto original para que el procesamiento sea correcto
-            create_search({'name': name, 'filters': filters, 'keywords': keywords_text, 'enabled': True, 'platforms': ['mercadolibre']})
+            from core.search_manager import update_search
+            import datetime
+            # Crear la búsqueda y obtener el id
+            new_search = create_search({'name': name, 'filters': filters, 'keywords': keywords_text, 'enabled': True, 'platforms': ['mercadolibre']})
+            # Guardar resultados y links visitados
+            titulos = [r.get('titulo', r.get('url', '')) for r in results]
+            links = [r.get('url') for r in results]
+            update_search(new_search['id'], {
+                'resultados': titulos,
+                'links_visitados': links,
+                'ultima_revision': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            })
             mensaje_guardado = f"Búsqueda '{name}' guardada correctamente."
             searches = get_all_searches()
     return render(request, 'core/home.html', {
@@ -52,7 +82,8 @@ def home(request):
 def search_detail_view(request, search_id):
     search = get_search(search_id)
     results = load_results(search_id)
-    return render(request, 'core/search_detail.html', {'search': search, 'results': results})
+    advertencias = ["El texto de la búsqueda encuentra las palabras por separado en las publicaciones."]
+    return render(request, 'core/search_detail.html', {'search': search, 'results': results, 'advertencias': advertencias})
 
 def delete_search_view(request, search_id):
     delete_search(search_id)

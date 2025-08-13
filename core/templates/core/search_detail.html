@@ -1,3 +1,10 @@
+{% if advertencias %}
+  <div style="color: orange; margin-bottom: 1em;">
+    {% for adv in advertencias %}
+      <p>{{ adv }}</p>
+    {% endfor %}
+  </div>
+{% endif %}
 <h2>{{ search.name }}</h2>
 <p>Ciudad: {{ search.filters.ciudad }}<br>
 Tipo: {{ search.filters.tipo }}<br>
@@ -5,9 +12,13 @@ Palabras clave: {{ search.keywords|join:', ' }}</p>
 <h3>Resultados</h3>
 <ul>
   {% for r in results %}
-    <li><a href="{{ r.url }}" target="_blank">{{ r.url }}</a></li>
+  <li><a href="{{ r.url }}" target="_blank">{{ r.titulo }}</a></li>
   {% empty %}
     <li>No hay resultados.</li>
   {% endfor %}
 </ul>
+<form method="post" action="{% url 'core:stop_search' search.id %}" style="display:inline;">
+  {% csrf_token %}
+  <button type="submit">Detener búsqueda</button>
+</form>
 <a href="{% url 'core:home' %}">Volver</a>

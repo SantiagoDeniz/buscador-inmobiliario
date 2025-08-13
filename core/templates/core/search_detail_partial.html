@@ -1,0 +1,37 @@
+{% if advertencias %}
+  <div class="alert alert-warning mb-3">
+    {% for adv in advertencias %}
+      <p class="mb-0">{{ adv }}</p>
+    {% endfor %}
+  </div>
+{% endif %}
+<div class="row">
+  <div class="col-md-6">
+    <h2 class="mb-2">{{ search.nombre }}</h2>
+    <p class="mb-1"><strong>Búsqueda:</strong> {{ search.busqueda }}</p>
+    <p class="mb-1"><strong>Filtros:</strong>
+      <ul class="mb-1">
+        {% for k, v in search.filtros.items %}
+          <li><strong>{{ k|capfirst }}:</strong> {{ v }}</li>
+        {% endfor %}
+      </ul>
+    </p>
+    <p class="mb-1"><strong>Última revisión:</strong> {{ search.ultima_revision }}</p>
+  </div>
+  <div class="col-md-6">
+    <h3 class="mb-2">Resultados</h3>
+    <ul>
+      {% for titulo in search.resultados %}
+        {% if search.links_visitados and search.links_visitados|length > forloop.counter0 %}
+          {% with link=search.links_visitados|slice:forloop.counter0|stringformat:'s' %}
+            <li><a href="{{ link }}" target="_blank">{{ titulo }}</a></li>
+          {% endwith %}
+        {% else %}
+          <li>{{ titulo }}</li>
+        {% endif %}
+      {% empty %}
+        <li>No hay resultados.</li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>

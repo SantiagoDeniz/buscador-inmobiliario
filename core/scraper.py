@@ -41,6 +41,30 @@ def build_mercadolibre_url(filters: Dict[str, Any]) -> str:
 
 
 def scrape_mercadolibre(filters: Dict[str, Any], keywords: List[str], max_pages: int = 3) -> List[Dict[str, Any]]:
+    def cargar_cookies(driver, cookies_path):
+        import json
+        import os
+        if not os.path.exists(cookies_path):
+            print(f"[scraper] Archivo de cookies no encontrado: {cookies_path}")
+            return
+        with open(cookies_path, 'r', encoding='utf-8') as f:
+            cookies = json.load(f)
+        driver.get('https://www.mercadolibre.com.uy')
+        for cookie in cookies:
+            # Selenium espera 'expiry' como int, no float
+            if 'expiry' in cookie:
+                try:
+                    cookie['expiry'] = int(cookie['expiry'])
+                except:
+                    del cookie['expiry']
+            # Elimina campos incompatibles
+            for k in ['sameSite', 'storeId']:
+                cookie.pop(k, None)
+            try:
+                driver.add_cookie(cookie)
+            except Exception as e:
+                print(f"[scraper] Error al agregar cookie: {e}")
+
     import re
     # Importar aquí para evitar dependencias cruzadas
     from core.search_manager import procesar_keywords
@@ -50,7 +74,7 @@ def scrape_mercadolibre(filters: Dict[str, Any], keywords: List[str], max_pages:
     print(f"[scraper] Palabras clave filtradas: {keywords_filtradas}")
 
     chrome_options = Options()
-    chrome_options.add_argument('--headless')
+#   chrome_options.add_argument('--headless')
     chrome_options.add_argument('--no-sandbox')
     chrome_options.add_argument('--disable-dev-shm-usage')
     chrome_options.add_argument('--disable-gpu')
@@ -59,8 +83,32 @@ def scrape_mercadolibre(filters: Dict[str, Any], keywords: List[str], max_pages:
     chrome_options.add_argument('--start-maximized')
     chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36')
     driver = webdriver.Chrome(options=chrome_options)
+    # Cargar cookies de sesión si existen
+    cargar_cookies(driver, 'mercadolibre_cookies.json')
 
     links = []
+    # Patrones prohibidos por robots.txt
+    import fnmatch
+    def url_prohibida(url):
+        # Solo bloquear si el path después del dominio coincide exactamente con los patrones prohibidos
+        prohibidos = [
+            '/jms/',
+            '/adn/api',
+        ]
+        # Extraer solo el path después del dominio
+        try:
+            path = '/' + '/'.join(url.split('/')[3:])
+        except Exception:
+            path = url
+        # Permitir links de publicaciones normales (que suelen ser /MLU-...)
+        if path.startswith('/MLU-'):
+            return False
+        # Bloquear solo si el path empieza por los patrones prohibidos
+        for patron in prohibidos:
+            if path.startswith(patron):
+                return True
+        return False
+
     for page in range(max_pages):
         if page == 0:
             url = base_url
@@ -70,10 +118,8 @@ def scrape_mercadolibre(filters: Dict[str, Any], keywords: List[str], max_pages:
         print(f"[scraper] Selenium visitando: {url}")
         driver.get(url)
         time.sleep(3)
-        # Selector robusto para los items de publicación (div.poly-card--grid-card)
         items = driver.find_elements(By.CSS_SELECTOR, 'div.poly-card--grid-card')
         print(f"Se han encontrado {len(items)} propiedades en la página {page+1}")
-        # Primero recolectar todos los links y títulos de la página
         publicaciones = []
         for idx, item in enumerate(items, 1):
             try:
@@ -81,37 +127,62 @@ def scrape_mercadolibre(filters: Dict[str, Any], keywords: List[str], max_pages:
                 link = link_tag.get_attribute('href')
                 titulo = link_tag.text.strip()
                 link_limpio = link.split('#')[0].split('?')[0]
-                publicaciones.append({'idx': idx + page*48, 'titulo': titulo, 'url': link_limpio})
+                # Filtrar links prohibidos
+                if not url_prohibida(link_limpio):
+                    publicaciones.append({'idx': idx + page*48, 'titulo': titulo, 'url': link_limpio})
+                else:
+                    print(f"[scraper] Link prohibido por robots.txt: {link_limpio}")
             except Exception as e:
                 print(f"[scraper] No se pudo obtener el link/título de la propiedad {idx}: {e}")
-        # Ahora visitar cada publicación y analizar
         for pub in publicaciones:
             print(f"propiedad {pub['idx']}: {pub['titulo']} - {pub['url']}")
             cumple = False
             try:
+                if url_prohibida(pub['url']):
+                    print(f"[scraper] Saltando análisis de URL prohibida: {pub['url']}")
+                    continue
                 driver.get(pub['url'])
                 time.sleep(2)
+                # Título
                 try:
                     titulo_text = driver.find_element(By.CSS_SELECTOR, 'h1').text.lower()
                 except:
                     titulo_text = ''
+                # Descripción
                 try:
-                    desc_tag = driver.find_element(By.CSS_SELECTOR, 'div.ui-pdp-description, div.description')
+                    desc_tag = driver.find_element(By.CSS_SELECTOR, 'p.ui-pdp-description__content[data-testid="content"]')
                     descripcion = desc_tag.text.lower()
                 except:
                     descripcion = ''
+                # Características clave-valor
+                caracteristicas_kv = []
                 try:
-                    carac_tag = driver.find_element(By.CSS_SELECTOR, 'ul.ui-pdp-features, ul.characteristics, ul.attributes')
-                    caracteristicas = carac_tag.text.lower()
+                    claves = driver.find_elements(By.CSS_SELECTOR, 'div.andes-table__header__container')
+                    valores = driver.find_elements(By.CSS_SELECTOR, 'span.andes-table__column--value')
+                    for k, v in zip(claves, valores):
+                        caracteristicas_kv.append(f"{k.text.strip().lower()}: {v.text.strip().lower()}")
                 except:
-                    caracteristicas = ''
-                texto_total = f"{titulo_text} {descripcion} {caracteristicas}"
-                encontrados = [kw for kw in keywords_filtradas if kw in texto_total]
-                no_encontrados = [kw for kw in keywords_filtradas if kw not in texto_total]
+                    pass
+                # Características sueltas
+                caracteristicas_sueltas = []
+                try:
+                    sueltas = driver.find_elements(By.CSS_SELECTOR, 'span.ui-pdp-color--BLACK.ui-pdp-size--XSMALL.ui-pdp-family--REGULAR')
+                    for s in sueltas:
+                        caracteristicas_sueltas.append(s.text.strip().lower())
+                except:
+                    pass
+                caracteristicas = ' '.join(caracteristicas_kv + caracteristicas_sueltas)
+                import unicodedata
+                def normalizar(texto):
+                    return unicodedata.normalize('NFKD', texto).encode('ASCII', 'ignore').decode('ASCII').lower()
+                texto_total_norm = normalizar(f"{titulo_text} {descripcion} {caracteristicas}")
+                keywords_norm = [normalizar(kw) for kw in keywords_filtradas]
+                encontrados = [kw for kw in keywords_filtradas if normalizar(kw) in texto_total_norm]
+                no_encontrados = [kw for kw in keywords_filtradas if normalizar(kw) not in texto_total_norm]
                 if not keywords_filtradas:
                     print("⚠️  No se especificaron palabras clave para filtrar.\n")
                     cumple = True
-                elif all(kw in texto_total for kw in keywords_filtradas):
+                elif all(normalizar(kw) in texto_total_norm for kw in keywords_filtradas):
                     print(f"✅ Cumple todos los requisitos. Palabras encontradas: {encontrados}\n")
                     cumple = True
                 else:
