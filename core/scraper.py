@@ -50,11 +50,14 @@ def scrape_mercadolibre(filters: Dict[str, Any], keywords: List[str], max_pages:
     print(f"[scraper] Palabras clave filtradas: {keywords_filtradas}")
 
     chrome_options = Options()
-#    chrome_options.add_argument('--headless')
+    chrome_options.add_argument('--headless')
     chrome_options.add_argument('--no-sandbox')
     chrome_options.add_argument('--disable-dev-shm-usage')
     chrome_options.add_argument('--disable-gpu')
     chrome_options.add_argument('--window-size=1920x1080')
+    chrome_options.add_argument('--disable-blink-features=AutomationControlled')
+    chrome_options.add_argument('--start-maximized')
+    chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36')
     driver = webdriver.Chrome(options=chrome_options)
 
     links = []
@@ -106,13 +109,13 @@ def scrape_mercadolibre(filters: Dict[str, Any], keywords: List[str], max_pages:
                 encontrados = [kw for kw in keywords_filtradas if kw in texto_total]
                 no_encontrados = [kw for kw in keywords_filtradas if kw not in texto_total]
                 if not keywords_filtradas:
-                    print("⚠️  No se especificaron palabras clave para filtrar.")
+                    print("⚠️  No se especificaron palabras clave para filtrar.\n")
                     cumple = True
                 elif all(kw in texto_total for kw in keywords_filtradas):
-                    print(f"✅ Cumple todos los requisitos. Palabras encontradas: {encontrados}")
+                    print(f"✅ Cumple todos los requisitos. Palabras encontradas: {encontrados}\n")
                     cumple = True
                 else:
-                    print(f"❌ No se encontraron todas las palabras clave. Encontradas: {encontrados} | Faltantes: {no_encontrados}")
+                    print(f"❌ No se encontraron todas las palabras clave. Encontradas: {encontrados} | Faltantes: {no_encontrados}\n")
             except Exception as e:
                 print(f"[scraper] Error al analizar publicación {pub['url']}: {e}")
             if cumple:

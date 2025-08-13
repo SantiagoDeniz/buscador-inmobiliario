@@ -16,5 +16,91 @@
     "platforms": [
       "mercadolibre"
     ]
+  },
+  {
+    "id": "eac2f65c-6952-4872-b25b-9b9e6a1a93e6",
+    "name": "l1",
+    "filters": {
+      "departamento": "Montevideo",
+      "ciudad": "Aguada",
+      "operacion": "Alquiler",
+      "tipo": "Locales",
+      "precio_min": "20000",
+      "precio_max": "30000",
+      "moneda": "USD"
+    },
+    "keywords": [
+      "1 bano",
+      "luminoso",
+      "1",
+      "bano"
+    ],
+    "enabled": true,
+    "platforms": [
+      "mercadolibre"
+    ]
+  },
+  {
+    "id": "ee3a1438-1af5-4d9e-a45b-32dbcc90a20c",
+    "name": "l2",
+    "filters": {
+      "departamento": "Montevideo",
+      "ciudad": "Aguada",
+      "operacion": "Alquiler",
+      "tipo": "Locales",
+      "precio_min": "20000",
+      "precio_max": "30000",
+      "moneda": "USD"
+    },
+    "keywords": [
+      "ruta",
+      "1"
+    ],
+    "enabled": true,
+    "platforms": [
+      "mercadolibre"
+    ]
+  },
+  {
+    "id": "1fc2be54-e014-49e2-9142-6b11cbc87ec4",
+    "name": "l3",
+    "filters": {
+      "departamento": "Montevideo",
+      "ciudad": "Aguada",
+      "operacion": "Alquiler",
+      "tipo": "Locales",
+      "precio_min": "20000",
+      "precio_max": "30000",
+      "moneda": "USD"
+    },
+    "keywords": [
+      "ruta",
+      "1"
+    ],
+    "enabled": true,
+    "platforms": [
+      "mercadolibre"
+    ]
+  },
+  {
+    "id": "36e8ef1d-73d9-4662-b735-a8104bad93be",
+    "name": "l4",
+    "filters": {
+      "departamento": "Montevideo",
+      "ciudad": "Aguada",
+      "operacion": "Alquiler",
+      "tipo": "Locales",
+      "precio_min": "20000",
+      "precio_max": "30000",
+      "moneda": "USD"
+    },
+    "keywords": [
+      "ruta",
+      "1"
+    ],
+    "enabled": true,
+    "platforms": [
+      "mercadolibre"
+    ]
   }
 ]
