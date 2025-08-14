@@ -9,6 +9,26 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 import time
+# Imports faltantes y definiciones globales
+import os
+import re
+import concurrent.futures
+from core.models import Propiedad
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.chrome.service import Service as ChromeService
+from webdriver_manager.chrome import ChromeDriverManager
+try:
+    from selenium_stealth import stealth
+except ImportError:
+    # Si selenium-stealth no está instalado, define un stub
+    def stealth(*args, **kwargs):
+        pass
+# HEADERS para requests
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36",
+    "Accept-Language": "es-ES,es;q=0.9,en;q=0.8"
+}
 
 def build_mercadolibre_url(filters: Dict[str, Any]) -> str:
     base = 'https://listado.mercadolibre.com.uy/inmuebles/'
@@ -74,7 +94,7 @@ def scrape_mercadolibre(filters: Dict[str, Any], keywords: List[str], max_pages:
     print(f"[scraper] Palabras clave filtradas: {keywords_filtradas}")
 
     chrome_options = Options()
-#   chrome_options.add_argument('--headless')
+    chrome_options.add_argument('--headless')
     chrome_options.add_argument('--no-sandbox')
     chrome_options.add_argument('--disable-dev-shm-usage')
     chrome_options.add_argument('--disable-gpu')
@@ -82,6 +102,7 @@ def scrape_mercadolibre(filters: Dict[str, Any], keywords: List[str], max_pages:
     chrome_options.add_argument('--disable-blink-features=AutomationControlled')
     chrome_options.add_argument('--start-maximized')
     chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36')
+    # Eliminar cualquier uso de --user-data-dir para evitar conflictos en servidores
     driver = webdriver.Chrome(options=chrome_options)
     # Cargar cookies de sesión si existen
     cargar_cookies(driver, 'mercadolibre_cookies.json')
