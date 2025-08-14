@@ -17,7 +17,7 @@ from core.models import Propiedad
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.service import Service as ChromeService
-from webdriver_manager.chrome import ChromeDriverManager
+
 try:
     from selenium_stealth import stealth
 except ImportError:
@@ -94,16 +94,23 @@ def scrape_mercadolibre(filters: Dict[str, Any], keywords: List[str], max_pages:
     print(f"[scraper] Palabras clave filtradas: {keywords_filtradas}")
 
     chrome_options = Options()
-    chrome_options.add_argument('--headless')
-    chrome_options.add_argument('--no-sandbox')
-    chrome_options.add_argument('--disable-dev-shm-usage')
-    chrome_options.add_argument('--disable-gpu')
-    chrome_options.add_argument('--window-size=1920x1080')
-    chrome_options.add_argument('--disable-blink-features=AutomationControlled')
-    chrome_options.add_argument('--start-maximized')
-    chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36')
-    # Eliminar cualquier uso de --user-data-dir para evitar conflictos en servidores
-    driver = webdriver.Chrome(options=chrome_options)
+    chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--window-size=1920x1080")
+    chrome_options.add_argument("start-maximized")
+    chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    chrome_options.add_experimental_option('useAutomationExtension', False)
+    
+    # Usar el servicio de Chrome sin especificar un ejecutable,
+    # para que Selenium lo busque en el PATH del sistema.
+    service = ChromeService()
+    driver = webdriver.Chrome(service=service, options=chrome_options)
+
+    stealth(driver, languages=["es-ES", "es"], vendor="Google Inc.", platform="Win32",
+            webgl_vendor="Intel Inc.", renderer="Intel Iris OpenGL Engine", fix_hairline=True)
+
     # Cargar cookies de sesión si existen
     cargar_cookies(driver, 'mercadolibre_cookies.json')
 
@@ -229,11 +236,16 @@ def iniciar_driver():
     chrome_options.add_argument("start-maximized")
     chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
     chrome_options.add_experimental_option('useAutomationExtension', False)
-    service = ChromeService(ChromeDriverManager().install())
+    
+    # Usar el servicio de Chrome sin especificar un ejecutable,
+    # para que Selenium lo busque en el PATH del sistema.
+    service = ChromeService()
     driver = webdriver.Chrome(service=service, options=chrome_options)
+    
     stealth(driver, languages=["es-ES", "es"], vendor="Google Inc.", platform="Win32",
             webgl_vendor="Intel Inc.", renderer="Intel Iris OpenGL Engine", fix_hairline=True)
     return driver
+
 
 def parse_rango(texto):
     texto = texto.lower()
