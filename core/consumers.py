@@ -67,7 +67,7 @@ class SearchProgressConsumer(WebsocketConsumer):
                     return
                 
                 ia_result = async_to_sync(analyze_query_with_ia)(query_text)
-                print(f'🤖 [DEPURACIÓN] Resultado IA: {ia_result}')
+                print(f'\n🤖 [DEPURACIÓN] Resultado IA: {ia_result}\n')
                 self.send(text_data=json.dumps({'message': 'Texto procesado por IA', 'ia_result': ia_result}))
             except Exception as e:
                 print(f'🤖 [DEPURACIÓN] Error procesando texto con IA: {e}')
@@ -132,53 +132,18 @@ class SearchProgressConsumer(WebsocketConsumer):
                 if isinstance(keywords, str):
                     keywords = [keywords] if keywords else []
                 print(f'🔍 [DEPURACIÓN] Ejecutando scraper con filtros: {filtros} y keywords: {keywords}')
-
-                # Extraer parámetros de los filtros para run_scraper con mapeo mejorado
-                tipo_raw = filtros.get('tipo_inmueble') or filtros.get('tipo')
-                print(f'🔍 [DEBUG] tipo_raw extraído: {tipo_raw}')
                 
-                # Normalizar tipo de inmueble para MercadoLibre (singular → plural minúscula)
-                if tipo_raw:
-                    tipo_map = {
-                        'apartamento': 'apartamentos',
-                        'casa': 'casas', 
-                        'terreno': 'terrenos',
-                        'oficina': 'oficinas',
-                        'local': 'locales'
-                    }
-                    tipo_inmueble = tipo_map.get(tipo_raw.lower(), tipo_raw.lower())
-                    print(f'🔍 [DEBUG] tipo_raw.lower(): {tipo_raw.lower()}, mapeado a: {tipo_inmueble}')
-                else:
-                    tipo_inmueble = None
-                    print(f'🔍 [DEBUG] tipo_raw es None o vacío, tipo_inmueble = None')
-                
-                operacion = filtros.get('operacion', 'venta')
-                
-                # Usar ciudad si está disponible, sino departamento
-                ubicacion = filtros.get('ciudad') or filtros.get('departamento', 'montevideo')
-                
-                # Mapear precios desde diferentes campos posibles
-                precio_min = filtros.get('precio_min') or filtros.get('precio_desde')
-                precio_max = filtros.get('precio_max') or filtros.get('precio_hasta')
-                
-                print(f'🚀 [DEPURACIÓN] Mapeo de filtros:')
-                print(f'   - tipo_raw: {tipo_raw} → tipo_inmueble: {tipo_inmueble}')
-                print(f'   - ciudad: {filtros.get("ciudad")}, departamento: {filtros.get("departamento")} → ubicacion: {ubicacion}')
-                print(f'   - precio_min: {precio_min}, precio_max: {precio_max}')
-                print(f'🚀 [DEPURACIÓN] Llamando run_scraper con: tipo={tipo_inmueble}, operacion={operacion}, ubicacion={ubicacion}, precio_min={precio_min}, precio_max={precio_max}')
+                print(f'🚀 [DEPURACIÓN] Llamando run_scraper con TODOS los filtros')
                 print(f'⚠️  [MODO SECUENCIAL] Usando 1 worker por fase para evitar problemas de concurrencia')
                 
-                # Llamar al scraper (esto ejecutará todo el proceso con logs)
+                # Llamar al scraper con todos los filtros (nueva signatura)
                 # TEMPORAL: Usando 1 worker para evitar problemas de concurrencia
                 run_scraper(
-                    tipo_inmueble=tipo_inmueble,
-                    operacion=operacion, 
-                    ubicacion=ubicacion,
-                    max_paginas=2,  # Limitamos para pruebas
-                    precio_min=precio_min,
-                    precio_max=precio_max,
-                    workers_fase1=1,  # DESHABILITAR CONCURRENCIA: era 3, ahora 1
-                    workers_fase2=1   # DESHABILITAR CONCURRENCIA: era 3, ahora 1
+                    filters=filtros,           # Pasar TODOS los filtros
+                    keywords=keywords,         # Pasar las keywords
+                    max_paginas=2,            # Limitamos para pruebas
+                    workers_fase1=1,          # DESHABILITAR CONCURRENCIA: era 3, ahora 1
+                    workers_fase2=1           # DESHABILITAR CONCURRENCIA: era 3, ahora 1
                 )
                 
                 print(f'✅ [DEPURACIÓN] run_scraper completado exitosamente')

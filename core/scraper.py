@@ -1,5 +1,19 @@
-
-
+# --- Función iniciar_driver restaurada para uso externo ---
+def iniciar_driver():
+    chrome_options = Options()
+    chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--window-size=1920x1080")
+    chrome_options.add_argument("start-maximized")
+    chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    chrome_options.add_experimental_option('useAutomationExtension', False)
+    service = ChromeService()
+    driver = webdriver.Chrome(service=service, options=chrome_options)
+    stealth(driver, languages=["es-ES", "es"], vendor="Google Inc.", platform="Win32",
+        webgl_vendor="Intel Inc.", renderer="Intel Iris OpenGL Engine", fix_hairline=True)
+    return driver
 
 # --- Scraper con Selenium y filtrado detallado para MercadoLibre ---
 import requests
@@ -113,16 +127,16 @@ def build_mercadolibre_url(filters: Dict[str, Any]) -> str:
     def add_range_filter(param_name, min_key, max_key, unit=''):
         min_val = filters.get(min_key, '')
         max_val = filters.get(max_key, '')
-        if min_val or max_val:
-            # Si solo hay precio máximo, usar 0 como mínimo
-            if min_key == 'precio_min' and not min_val and max_val:
-                min_str = '0'
-            else:
-                min_str = str(min_val) if min_val else '*'
-            max_str = str(max_val) if max_val else '*'
-            # Evitar rangos como "*-*"
-            if min_str != '*' or max_str != '*':
-                filter_segments.append(f'_{param_name}_{min_str}{unit}-{max_str}{unit}')
+        # Si ambos son 0, agregar el filtro explícitamente
+        if str(min_val) == '0' and str(max_val) == '0':
+            filter_segments.append(f'_{param_name}_0{unit}-0{unit}')
+            return
+        # Agregar el filtro si alguno de los dos está presente (no solo si ambos)
+        if min_val != '' or max_val != '':
+            min_str = str(min_val) if min_val != '' else '0'
+            max_str = str(max_val) if max_val != '' else '0'
+            # Solo números, sin texto extra
+            filter_segments.append(f'_{param_name}_{min_str}{unit}-{max_str}{unit}')
 
     moneda = filters.get('moneda', 'USD').upper()
     add_range_filter('PriceRange', 'precio_min', 'precio_max', unit=moneda)
@@ -133,13 +147,16 @@ def build_mercadolibre_url(filters: Dict[str, Any]) -> str:
     if filters.get('terraza'):
         filter_segments.append('_HAS*TERRACE_242085')
     if filters.get('aire_acondicionado'):
-        filter_segments.append('_HAS*AIRC*ONDITIONING_242085')
+        filter_segments.append('_HAS*AIR*CONDITIONING_242085')
     if filters.get('piscina'):
         filter_segments.append('_HAS*SWIMMING*POOL_242085')
     if filters.get('jardin'):
         filter_segments.append('_HAS*GARDEN_242085')
     if filters.get('ascensor'):
         filter_segments.append('_HAS*LIFT_242085')
+
+    # Añadir _NoIndex_True una sola vez después de filtros booleanos
+    filter_segments.append('_NoIndex_True')
 
     add_range_filter('PARKING*LOTS', 'cocheras_min', 'cocheras_max')
     add_range_filter('PROPERTY*AGE', 'antiguedad_min', 'antiguedad_max')
@@ -157,10 +174,6 @@ def build_mercadolibre_url(filters: Dict[str, Any]) -> str:
     # Asegurarse de que siempre haya un / al final del path si hay partes
     if path_str:
         path_str += '/'
-
-    # Añadir NoIndex=True si hay filtros aplicados
-    if filter_segments:
-        filter_segments.append('_NoIndex_True')
 
     filter_str = ''.join(filter_segments)
 
@@ -208,23 +221,9 @@ def scrape_mercadolibre(filters: Dict[str, Any], keywords: List[str], max_pages:
     print(f"[scraper] URL base de búsqueda: {base_url}")
     print(f"[scraper] Palabras clave filtradas: {keywords_filtradas}")
 
-    chrome_options = Options()
-    chrome_options.add_argument("--headless")
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage")
-    chrome_options.add_argument("--disable-gpu")
-    chrome_options.add_argument("--window-size=1920x1080")
-    chrome_options.add_argument("start-maximized")
-    chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
-    chrome_options.add_experimental_option('useAutomationExtension', False)
-    
-    # Usar el servicio de Chrome sin especificar un ejecutable,
-    # para que Selenium lo busque en el PATH del sistema.
-    service = ChromeService()
-    driver = webdriver.Chrome(service=service, options=chrome_options)
 
-    stealth(driver, languages=["es-ES", "es"], vendor="Google Inc.", platform="Win32",
-            webgl_vendor="Intel Inc.", renderer="Intel Iris OpenGL Engine", fix_hairline=True)
+    # Usar la función centralizada para iniciar el driver
+    driver = iniciar_driver()
 
     # Cargar cookies de sesión si existen
     cargar_cookies(driver, 'mercadolibre_cookies.json')
@@ -261,12 +260,16 @@ def scrape_mercadolibre(filters: Dict[str, Any], keywords: List[str], max_pages:
             print(f"[scraper] Búsqueda detenida por el usuario en página {page + 1}")
             send_progress_update(final_message="Búsqueda detenida por el usuario")
             break
-            
+
         if page == 0:
             url = base_url
         else:
             desde = 1 + 48 * page
-            url = f"{base_url}_Desde_{desde}_NoIndex_True"
+            # No duplicar _NoIndex_True si ya está en base_url
+            if '_NoIndex_True' in base_url:
+                url = f"{base_url}_Desde_{desde}"
+            else:
+                url = f"{base_url}_Desde_{desde}_NoIndex_True"
         print(f"[scraper] Selenium visitando: {url}")
         send_progress_update(current_search_item=f"Visitando página {page + 1}...")
         driver.get(url)
@@ -382,25 +385,7 @@ def scrape_mercadolibre(filters: Dict[str, Any], keywords: List[str], max_pages:
     all_links_with_titles = [{'url': p['url'], 'titulo': p['titulo']} for p in all_publications]
     return {"matched": links, "all": all_links_with_titles}
 
-def iniciar_driver():
-    chrome_options = Options()
-    chrome_options.add_argument("--headless")
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage")
-    chrome_options.add_argument("--disable-gpu")
-    chrome_options.add_argument("--window-size=1920x1080")
-    chrome_options.add_argument("start-maximized")
-    chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
-    chrome_options.add_experimental_option('useAutomationExtension', False)
-    
-    # Usar el servicio de Chrome sin especificar un ejecutable,
-    # para que Selenium lo busque en el PATH del sistema.
-    service = ChromeService()
-    driver = webdriver.Chrome(service=service, options=chrome_options)
-    
-    stealth(driver, languages=["es-ES", "es"], vendor="Google Inc.", platform="Win32",
-            webgl_vendor="Intel Inc.", renderer="Intel Iris OpenGL Engine", fix_hairline=True)
-    return driver
+
 
 
 def parse_rango(texto):
@@ -411,13 +396,19 @@ def parse_rango(texto):
     if len(numeros) >= 2: return min(numeros), max(numeros)
     return None, None
 
-def scrape_detalle_con_requests(url, api_key):
+def scrape_detalle_con_requests(url, api_key=None, use_scrapingbee=False):
     """
-    Scrapea detalles con una lógica de extracción de características renovada y robusta.
+    Scrapea detalles usando ScrapingBee o requests directo según la configuración.
     """
     try:
-        params = {'api_key': api_key, 'url': url}
-        response = requests.get('https://app.scrapingbee.com/api/v1/', params=params, timeout=90)
+        if use_scrapingbee and api_key:
+            # Usar ScrapingBee
+            params = {'api_key': api_key, 'url': url}
+            response = requests.get('https://app.scrapingbee.com/api/v1/', params=params, timeout=90)
+        else:
+            # Usar requests directo
+            response = requests.get(url, headers=HEADERS, timeout=90)
+        
         response.raise_for_status()
         
         soup = BeautifulSoup(response.content, 'lxml')
@@ -484,52 +475,38 @@ def scrape_detalle_con_requests(url, api_key):
         return None
 
 
-def recolectar_urls_de_pagina(url_target, api_key, ubicacion):
+def recolectar_urls_de_pagina(url_target, api_key=None, ubicacion=None, use_scrapingbee=False):
     """
-    Función de recolección para un hilo, AHORA CON LOGS DETALLADOS.
+    Función de recolección que usa ScrapingBee o requests directo según la configuración.
     """
-    print(f"  [Hilo] Iniciando recolección para: {url_target}")
+    print(f"  [Recolector] Iniciando recolección para: {url_target} (ScrapingBee: {'Sí' if use_scrapingbee else 'No'})")
     try:
-        url_proxy = f'https://app.scrapingbee.com/api/v1/?api_key={api_key}&url={url_target}'
-        response = requests.get(url_proxy, headers=HEADERS, timeout=60)
+        if use_scrapingbee and api_key:
+            # Usar ScrapingBee
+            params = {'api_key': api_key, 'url': url_target}
+            response = requests.get('https://app.scrapingbee.com/api/v1/', params=params, headers=HEADERS, timeout=60)
+        else:
+            # Usar requests directo
+            response = requests.get(url_target, headers=HEADERS, timeout=60)
         
         if response.status_code >= 400:
-            print(f"  [Hilo] ERROR: Status {response.status_code} para {url_proxy}")
+            print(f"  [Recolector] ERROR: Status {response.status_code} para {url_target}")
             return set(), 0
 
         soup = BeautifulSoup(response.text, 'lxml')
         items = soup.find_all('li', class_='ui-search-layout__item')
         if not items:
-            print(f"  [Hilo] ADVERTENCIA: No se encontraron items en {url_target}")
+            print(f"  [Recolector] ADVERTENCIA: No se encontraron items en {url_target}")
             return set(), 0
 
         urls_de_pagina = {link['href'].split('#')[0] for item in items if (link := item.find('a', class_='poly-component__title') or item.find('a', class_='ui-search-link')) and link.has_attr('href')}
-        print(f"  [Hilo] ÉXITO: Se encontraron {len(urls_de_pagina)} URLs en {url_target}")
+        print(f"  [Recolector] ÉXITO: Se encontraron {len(urls_de_pagina)} URLs en {url_target}")
         return urls_de_pagina, len(items)
     except Exception as e:
-        print(f"  [Hilo] EXCEPCIÓN: Ocurrió un error procesando {url_target}: {e}")
+        print(f"  [Recolector] EXCEPCIÓN: Ocurrió un error procesando {url_target}: {e}")
         return set(), 0
 
-def recolectar_urls_selenium(paginas_de_resultados):
-    # (Esta función no cambia, es idéntica a la que me pasaste)
-    urls_encontradas = set()
-    driver = iniciar_driver()
-    try:
-        for i, url in enumerate(paginas_de_resultados):
-            print(f"  Procesando página {i+1}/{len(paginas_de_resultados)} con Selenium...")
-            driver.get(url)
-            try:
-                WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.CLASS_NAME, "ui-search-results")))
-            except:
-                break
-            soup = BeautifulSoup(driver.page_source, 'lxml')
-            items = soup.find_all('li', class_='ui-search-layout__item')
-            if not items:
-                break
-            urls_encontradas.update({link['href'].split('#')[0] for item in items if (link := item.find('a', 'ui-search-link')) and link.has_attr('href')})
-    finally:
-        driver.quit()
-    return urls_encontradas
+
 
 def extraer_total_resultados_mercadolibre(url_base_con_filtros):
     """
@@ -537,7 +514,11 @@ def extraer_total_resultados_mercadolibre(url_base_con_filtros):
     """
     driver = iniciar_driver()
     try:
-        url_primera_pagina = f"{url_base_con_filtros}_NoIndex_True"
+        # No duplicar _NoIndex_True si ya está en la URL base
+        if '_NoIndex_True' in url_base_con_filtros:
+            url_primera_pagina = url_base_con_filtros
+        else:
+            url_primera_pagina = f"{url_base_con_filtros}_NoIndex_True"
         print(f"🔍 [TOTAL ML] Accediendo a: {url_primera_pagina}")
         driver.get(url_primera_pagina)
         time.sleep(3)
@@ -556,6 +537,7 @@ def extraer_total_resultados_mercadolibre(url_base_con_filtros):
             for selector in selectores:
                 try:
                     total_element = driver.find_element(By.CSS_SELECTOR, selector)
+                    print(f"🔍 [TOTAL ML] Elemento encontrado con selector '{selector}'")
                     if total_element:
                         break
                 except:
@@ -581,27 +563,47 @@ def extraer_total_resultados_mercadolibre(url_base_con_filtros):
                 print("❌ [TOTAL ML] No se encontró elemento con total de resultados")
                 return None
         except Exception as e:
-            print(f"❌ [TOTAL ML] Error al extraer total de resultados: {e}")
+            print(f"🛑 [TOTAL ML] Error al extraer total de resultados: {e}")
             return None
     finally:
         driver.quit()
 
-def run_scraper(tipo_inmueble=None, operacion='venta', ubicacion='montevideo', max_paginas=42, precio_min=None, precio_max=None, workers_fase1=5, workers_fase2=5):
-    API_KEY = os.getenv('SCRAPINGBEE_API_KEY')
-    if not API_KEY: print("ERROR: SCRAPINGBEE_API_KEY no definida."); return
+def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, workers_fase1: int = 1, workers_fase2: int = 1):
+    """
+    Ejecuta el scraper con todos los filtros posibles usando build_mercadolibre_url
+    """
+    print(f"🚀 [RUN_SCRAPER] Iniciando scraper con filtros completos: {filters}")
+    print(f"🚀 [RUN_SCRAPER] Keywords: {keywords}")
+    print(f"⚠️  [MODO SECUENCIAL] Usando {workers_fase1} worker(s) por fase")
+    
+    USE_THREADS = False  # Cambia a True para habilitar hilos y ScrapingBee
+    
+    # Solo verificar API key si se van a usar hilos (ScrapingBee)
+    API_KEY = None
+    if USE_THREADS:
+        API_KEY = os.getenv('SCRAPINGBEE_API_KEY')
+        if not API_KEY: 
+            print("❌ ERROR: SCRAPINGBEE_API_KEY no definida pero USE_THREADS=True.")
+            send_progress_update(final_message="❌ Error: API key no configurada")
+            return
+        print("🔧 [CONFIG] Modo concurrente activado - usando ScrapingBee")
+    else:
+        print("🔧 [CONFIG] Modo secuencial activado - usando requests directo")
     
     propiedades_omitidas = 0
     nuevas_propiedades_guardadas = 0
     urls_a_visitar_final = set()
     
-    # --- CONSTRUCCIÓN DE URL BASE ---
-    path_segment = f"inmuebles/{tipo_inmueble}" if tipo_inmueble else "inmuebles"
-    base_path = f"https://listado.mercadolibre.com.uy/{path_segment}/{operacion}/{ubicacion.lower().replace(' ', '-')}/"
-    price_filter = f"_PriceRange_{(precio_min or 0)}USD-{(precio_max or '*')}USD" if precio_min is not None or precio_max is not None else ""
-    url_base_con_filtros = f"{base_path}{price_filter}"
-    
-    print(f"\n[Principal] URL Base construida: {url_base_con_filtros}")
-    send_progress_update(current_search_item=f"🏠 Iniciando búsqueda con URL base: {url_base_con_filtros}")
+    # --- CONSTRUCCIÓN DE URL COMPLETA CON TODOS LOS FILTROS ---
+    print("\n🔗 [URL BUILD] Construyendo URL con build_mercadolibre_url...")
+    try:
+        url_base_con_filtros = build_mercadolibre_url(filters)
+        print(f"🔗 [URL GENERADA] {url_base_con_filtros}")
+        send_progress_update(current_search_item=f"🏠 URL generada con filtros: {url_base_con_filtros[:100]}{'...' if len(url_base_con_filtros) > 100 else ''}")
+    except Exception as e:
+        print(f"❌ [URL BUILD] Error construyendo URL: {e}")
+        send_progress_update(final_message=f"❌ Error construyendo URL: {e}")
+        return
     
     # --- EXTRACCIÓN DEL TOTAL DE RESULTADOS ---
     print("\n[Principal] Extrayendo total de resultados desde MercadoLibre...")
@@ -615,17 +617,35 @@ def run_scraper(tipo_inmueble=None, operacion='venta', ubicacion='montevideo', m
         send_progress_update(current_search_item="❌ No se pudo obtener el total de resultados")
     
     # --- FASE 1: RECOLECCIÓN ---
-    paginas_de_resultados = [f"{url_base_con_filtros}_Desde_{1 + (i * 48)}_NoIndex_True" if i > 0 else f"{url_base_con_filtros}_NoIndex_True" for i in range(max_paginas)]
-    
-    print(f"\n--- FASE 1: Se intentarán recolectar {len(paginas_de_resultados)} páginas con {workers_fase1} hilos... ---")
-    send_progress_update(current_search_item=f"FASE 1: Recolectando URLs de {len(paginas_de_resultados)} páginas con {workers_fase1} hilos...")
-    
+    # Calcular cantidad de páginas según total_ml y 48 por página
+    if total_ml:
+        paginas_a_buscar = min(max_paginas, (total_ml // 48) + (1 if total_ml % 48 else 0))
+    else:
+        paginas_a_buscar = max_paginas
+    # Construir URLs de páginas sin duplicar '_NoIndex_True'
+    paginas_de_resultados = []
+    for i in range(paginas_a_buscar):
+        if i == 0:
+            page_url = url_base_con_filtros
+        else:
+            desde = 1 + (i * 48)
+            page_url = f"{url_base_con_filtros}_Desde_{desde}"
+        paginas_de_resultados.append(page_url)
+
+    modo = 'concurrencia (ScrapingBee)' if USE_THREADS else 'secuencial (requests)'
+    print(f"\n--- FASE 1: Se intentarán recolectar {len(paginas_de_resultados)} páginas (modo: {modo}, workers: {workers_fase1 if USE_THREADS else 1}) ---")
+    send_progress_update(current_search_item=f"FASE 1: Recolectando URLs de {len(paginas_de_resultados)} páginas ({modo})...")
     urls_recolectadas_bruto = set()
-    with concurrent.futures.ThreadPoolExecutor(max_workers=workers_fase1) as executor:
-        # (La lógica de hilos no cambia)
-        mapa_futuros = {executor.submit(recolectar_urls_de_pagina, url, API_KEY, ubicacion): url for url in paginas_de_resultados}
-        for futuro in concurrent.futures.as_completed(mapa_futuros):
-            urls_nuevas, _ = futuro.result()
+    ubicacion_param = filters.get('ciudad', filters.get('departamento', 'montevideo'))
+    if USE_THREADS:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=workers_fase1) as executor:
+            mapa_futuros = {executor.submit(recolectar_urls_de_pagina, url, API_KEY, ubicacion_param, True): url for url in paginas_de_resultados}
+            for futuro in concurrent.futures.as_completed(mapa_futuros):
+                urls_nuevas, _ = futuro.result()
+                urls_recolectadas_bruto.update(urls_nuevas)
+    else:
+        for url in paginas_de_resultados:
+            urls_nuevas, _ = recolectar_urls_de_pagina(url, API_KEY, ubicacion_param, False)
             urls_recolectadas_bruto.update(urls_nuevas)
 
     print(f"\n[Principal] FASE 1 Recolección Bruta Finalizada. Se obtuvieron {len(urls_recolectadas_bruto)} URLs en total.")
@@ -656,7 +676,7 @@ def run_scraper(tipo_inmueble=None, operacion='venta', ubicacion='montevideo', m
         urls_lista = list(urls_a_visitar_final)
         matched_publications_titles = [] # New: To store titles of matched publications
         with concurrent.futures.ThreadPoolExecutor(max_workers=workers_fase2) as executor:
-            mapa_futuros = {executor.submit(scrape_detalle_con_requests, url, API_KEY): url for url in urls_lista}
+            mapa_futuros = {executor.submit(scrape_detalle_con_requests, url, API_KEY, USE_THREADS): url for url in urls_lista}
             for i, futuro in enumerate(concurrent.futures.as_completed(mapa_futuros)):
                 url_original = mapa_futuros[futuro]
                 print(f"Procesando resultado {i+1}/{len(urls_lista)}...")
@@ -672,14 +692,14 @@ def run_scraper(tipo_inmueble=None, operacion='venta', ubicacion='montevideo', m
                         else:
                             send_progress_update(current_search_item=f"Procesando publicación {i+1}/{len(urls_lista)}: {titulo_propiedad}")
                         
-                        # --- ¡AQUÍ ESTÁ LA MEJORA! ---
-                        # Pre-rellenamos con los datos que ya conocemos de la búsqueda
-                        datos_propiedad['operacion'] = operacion
-                        datos_propiedad['departamento'] = ubicacion.replace('-', ' ').title() # Capitalizamos
+                        # --- MEJORAR CON DATOS DE LOS FILTROS ---
+                        # Pre-rellenamos con los datos que ya conocemos de los filtros
+                        datos_propiedad['operacion'] = filters.get('operacion', 'venta')
+                        datos_propiedad['departamento'] = filters.get('departamento', filters.get('ciudad', 'N/A'))
                         
-                        # Si el scraper no encontró un tipo de inmueble, usamos el de la búsqueda
+                        # Si el scraper no encontró un tipo de inmueble, usamos el de los filtros
                         if not datos_propiedad.get('tipo_inmueble'):
-                           datos_propiedad['tipo_inmueble'] = tipo_inmueble if tipo_inmueble else 'N/A'
+                           datos_propiedad['tipo_inmueble'] = filters.get('tipo', 'N/A')
                         
                         Propiedad.objects.create(**datos_propiedad)
                         nuevas_propiedades_guardadas += 1
@@ -695,7 +715,4 @@ def run_scraper(tipo_inmueble=None, operacion='venta', ubicacion='montevideo', m
                     print(f'URL {url_original[:50]}... generó una excepción al guardar: {exc}')
 
     print("\n--- RESUMEN ---")
-    print(f"Propiedades omitidas (ya en BD): {propiedades_omitidas}")
-    print(f"Nuevas propiedades guardadas: {nuevas_propiedades_guardadas}")
-    print(f"Total de propiedades en la base de datos: {Propiedad.objects.count()}\n")
-    send_progress_update(final_message=f"✅ Búsqueda completada. Resumen: {nuevas_propiedades_guardadas} nuevas propiedades guardadas, {propiedades_omitidas} propiedades omitidas.")
+    send_progress_update(final_message=f"✅ Búsqueda completada. Resumen: {nuevas_propiedades_guardadas} nuevas propiedades guardadas.")
