@@ -34,12 +34,11 @@ El proyecto es una aplicación web en Django para búsqueda y gestión de propie
 ## Principales Funcionalidades
 
 ### Funcionalidades principales
-- Búsqueda de propiedades por criterios flexibles.
-- Scraping de portales externos (MercadoLibre, etc.).
-- Enriquecimiento y almacenamiento de resultados.
-- Panel de administración para gestión de datos.
-- Interfaz web para usuarios.
-- Comandos custom para automatización.
+### Nueva funcionalidad: Búsqueda inteligente con IA
+
+Al realizar una búsqueda, el texto libre ingresado por el usuario se envía a un modelo de IA (Gemini 2.5 Flash, gratuito) que interpreta el texto y completa automáticamente los filtros del formulario. El resto del texto se transforma en palabras clave para la búsqueda. Esto permite búsquedas más naturales y rápidas.
+
+Además, la interfaz minimiza los filtros con una animación mientras se realiza la búsqueda, restaurándolos al finalizar o detener la búsqueda.
 
 ## Instalación y Ejecución
 
@@ -57,6 +56,13 @@ El proyecto es una aplicación web en Django para búsqueda y gestión de propie
    ```bash
    python manage.py runserver
    ```
+
+### Configuración de la API de Gemini
+Para usar la búsqueda inteligente, necesitas una clave de API gratuita de Gemini. Regístrate en https://aistudio.google.com/ y obtén tu clave. Luego, crea una variable de entorno:
+```bash
+set GEMINI_API_KEY=tu_clave_aqui
+```
+O agrégala en tu archivo `.env` si usas dotenv.
 
 ## Uso de Comandos Personalizados
 

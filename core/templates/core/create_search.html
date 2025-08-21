@@ -1,135 +1,183 @@
-<h2>Nueva búsqueda</h2>
-<form method="post" style="max-width: 500px; margin: 0 auto; background: #f9f9f9; padding: 20px; border-radius: 8px;">
+<h2 style="font-size: 1.3rem; margin-bottom: 1rem;">Nueva búsqueda</h2>
+<form method="post" style="max-width: 350px; margin: 0 auto; background: #f9f9f9; padding: 12px 16px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
   {% csrf_token %}
-  <label for="name"><b>Nombre:</b></label><br>
-  <input type="text" name="name" id="name" class="form-control mb-2"><br>
+  <div id="filtros-busqueda">
+    <label for="name"><b>Nombre:</b></label><br>
+    <input type="text" name="name" id="name" class="form-control mb-2"><br>
 
-  <label for="departamento"><b>Departamento:</b></label><br>
-  <select name="departamento" id="departamento" class="form-select mb-2" onchange="mostrarCiudades()">
-    <option value="">Todos</option>
-    <option>Artigas</option>
-    <option>Canelones</option>
-    <option>Cerro Largo</option>
-    <option>Colonia</option>
-    <option>Durazno</option>
-    <option>Flores</option>
-    <option>Florida</option>
-    <option>Lavalleja</option>
-    <option>Maldonado</option>
-    <option>Montevideo</option>
-    <option>Paysandú</option>
-    <option>Rivera</option>
-    <option>Rocha</option>
-    <option>Río Negro</option>
-    <option>Salto</option>
-    <option>San José</option>
-    <option>Soriano</option>
-    <option>Tacuarembó</option>
-    <option>Treinta y Tres</option>
-  </select><br>
-
-  <div id="ciudad_div" style="display:none">
-    <label for="ciudad"><b>Ciudad (solo Montevideo):</b></label><br>
-    <select name="ciudad" id="ciudad" class="form-select mb-2">
-      <option value="">Todas</option>
-      <option>Aguada</option>
-      <option>Aires Puros</option>
-      <option>Arroyo Seco</option>
-      <option>Atahualpa</option>
-      <option>Barrio Sur</option>
-      <option>Bella Vista</option>
-      <option>Belvedere</option>
-      <option>Bolivar</option>
-      <option>Brazo Oriental</option>
-      <option>Buceo</option>
-      <option>Capurro</option>
-      <option>Carrasco</option>
-      <option>Carrasco Norte</option>
-      <option>Casavalle</option>
-      <option>Centro</option>
-      <option>Cerrito</option>
-      <option>Cerro</option>
-      <option>Ciudad Vieja</option>
-      <option>Colón</option>
-      <option>Cordón</option>
-      <option>Flor de Maroñas</option>
-      <option>Goes</option>
-      <option>Ituzaingó</option>
-      <option>Jacinto Vera</option>
-      <option>Jardines Hipódromo</option>
-      <option>La Blanqueada</option>
-      <option>La Comercial</option>
-      <option>La Figurita</option>
-      <option>La Teja</option>
-      <option>Larrañaga</option>
-      <option>Las Acacias</option>
-      <option>Lezica</option>
-      <option>Malvin</option>
-      <option>Malvin Norte</option>
-      <option>Manga</option>
-      <option>Marconi</option>
-      <option>Maroñas</option>
-      <option>Maroñas, Curva</option>
-      <option>Melilla</option>
-      <option>Mercado Modelo</option>
+    <label for="departamento"><b>Departamento:</b></label><br>
+    <select name="departamento" id="departamento" class="form-select mb-2" onchange="mostrarCiudades()">
+      <option value="">Todos</option>
+      <option>Artigas</option>
+      <option>Canelones</option>
+      <option>Cerro Largo</option>
+      <option>Colonia</option>
+      <option>Durazno</option>
+      <option>Flores</option>
+      <option>Florida</option>
+      <option>Lavalleja</option>
+      <option>Maldonado</option>
       <option>Montevideo</option>
-      <option>Nuevo París</option>
-      <option>Palermo</option>
-      <option>Parque Batlle</option>
-      <option>Parque Rodó</option>
-      <option>Paso de la Arena</option>
-      <option>Paso Molino</option>
-      <option>Peñarol</option>
-      <option>Perez Castellanos</option>
-      <option>Piedras Blancas</option>
-      <option>Pocitos</option>
-      <option>Pocitos Nuevo</option>
-      <option>Prado</option>
-      <option>Puerto Buceo</option>
-      <option>Punta Carretas</option>
-      <option>Punta Gorda</option>
-      <option>Punta Rieles</option>
-      <option>Reducto</option>
-      <option>Santiago Vázquez</option>
-      <option>Sayago</option>
-      <option>Tres Cruces</option>
-      <option>Unión</option>
-      <option>Villa Biarritz</option>
-      <option>Villa Dolores</option>
-      <option>Villa Española</option>
-      <option>Villa Muñoz</option>
+      <option>Paysandú</option>
+      <option>Rivera</option>
+      <option>Rocha</option>
+      <option>Río Negro</option>
+      <option>Salto</option>
+      <option>San José</option>
+      <option>Soriano</option>
+      <option>Tacuarembó</option>
+      <option>Treinta y Tres</option>
     </select><br>
+
+    <div id="ciudad_div" style="display:none">
+      <label for="ciudad"><b>Ciudad (solo Montevideo):</b></label><br>
+      <select name="ciudad" id="ciudad" class="form-select mb-2">
+        <option value="">Todas</option>
+        <option>Aguada</option>
+        <option>Aires Puros</option>
+        <option>Arroyo Seco</option>
+        <option>Atahualpa</option>
+        <option>Barrio Sur</option>
+        <option>Bella Vista</option>
+        <option>Belvedere</option>
+        <option>Bolivar</option>
+        <option>Brazo Oriental</option>
+        <option>Buceo</option>
+        <option>Capurro</option>
+        <option>Carrasco</option>
+        <option>Carrasco Norte</option>
+        <option>Casavalle</option>
+        <option>Centro</option>
+        <option>Cerrito</option>
+        <option>Cerro</option>
+        <option>Ciudad Vieja</option>
+        <option>Colón</option>
+        <option>Cordón</option>
+        <option>Flor de Maroñas</option>
+        <option>Goes</option>
+        <option>Ituzaingó</option>
+        <option>Jacinto Vera</option>
+        <option>Jardines Hipódromo</option>
+        <option>La Blanqueada</option>
+        <option>La Comercial</option>
+        <option>La Figurita</option>
+        <option>La Teja</option>
+        <option>Larrañaga</option>
+        <option>Las Acacias</option>
+        <option>Lezica</option>
+        <option>Malvin</option>
+        <option>Malvin Norte</option>
+        <option>Manga</option>
+        <option>Marconi</option>
+        <option>Maroñas</option>
+        <option>Maroñas, Curva</option>
+        <option>Melilla</option>
+        <option>Mercado Modelo</option>
+        <option>Montevideo</option>
+        <option>Nuevo París</option>
+        <option>Palermo</option>
+        <option>Parque Batlle</option>
+        <option>Parque Rodó</option>
+        <option>Paso de la Arena</option>
+        <option>Paso Molino</option>
+        <option>Peñarol</option>
+        <option>Perez Castellanos</option>
+        <option>Piedras Blancas</option>
+        <option>Pocitos</option>
+        <option>Pocitos Nuevo</option>
+        <option>Prado</option>
+        <option>Puerto Buceo</option>
+        <option>Punta Carretas</option>
+        <option>Punta Gorda</option>
+        <option>Punta Rieles</option>
+        <option>Reducto</option>
+        <option>Santiago Vázquez</option>
+        <option>Sayago</option>
+        <option>Tres Cruces</option>
+        <option>Unión</option>
+        <option>Villa Biarritz</option>
+        <option>Villa Dolores</option>
+        <option>Villa Española</option>
+        <option>Villa Muñoz</option>
+      </select><br>
+    </div>
+
+    <label for="operacion"><b>Tipo de operación:</b></label><br>
+    <select name="operacion" id="operacion" class="form-select mb-2">
+      <option value="">Todas</option>
+      <option>Venta</option>
+      <option>Alquiler</option>
+    </select><br>
+
+    <label for="tipo"><b>Tipo de inmueble:</b></label><br>
+    <select name="tipo" id="tipo" class="form-select mb-2">
+      <option value="">Todos</option>
+      <option>Apartamento</option>
+      <option>Campos</option>
+      <option>Casas</option>
+      <option>Cocheras</option>
+      <option>Depósitos y galpones</option>
+      <option>Llave de negocio</option>
+      <option>Locales</option>
+      <option>Oficinas</option>
+      <option>Quintas</option>
+      <option>Terrenos</option>
+      <option>Otros inmuebles</option>
+    </select><br>
+
+    <label for="condicion"><b>Condición:</b></label><br>
+    <select name="condicion" id="condicion" class="form-select mb-2">
+      <option value="">Todos</option>
+      <option>Nuevo</option>
+      <option>Usado</option>
+    </select><br>
+
+    <h6><b>Otras características</b></h6>
+    <div class="form-check">
+      <input class="form-check-input" type="checkbox" name="amoblado" id="amoblado">
+      <label class="form-check-label" for="amoblado">
+        Amoblado
+      </label>
+    </div>
+    <div class="form-check">
+      <input class="form-check-input" type="checkbox" name="terraza" id="terraza">
+      <label class="form-check-label" for="terraza">
+        Terraza
+      </label>
+    </div>
+    <div class="form-check">
+      <input class="form-check-input" type="checkbox" name="aire_acondicionado" id="aire_acondicionado">
+      <label class="form-check-label" for="aire_acondicionado">
+        Aire acondicionado
+      </label>
+    </div>
+    <div class="form-check">
+      <input class="form-check-input" type="checkbox" name="piscina" id="piscina">
+      <label class="form-check-label" for="piscina">
+        Piscina
+      </label>
+    </div>
+    <div class="form-check">
+      <input class="form-check-input" type="checkbox" name="jardin" id="jardin">
+      <label class="form-check-label" for="jardin">
+        Jardín
+      </label>
+    </div>
+    <div class="form-check mb-2">
+      <input class="form-check-input" type="checkbox" name="ascensor" id="ascensor">
+      <label class="form-check-label" for="ascensor">
+        Ascensor
+      </label>
+    </div>
+
+    <label for="keywords"><b>Palabras clave (separadas por coma):</b></label><br>
+    <input type="text" name="keywords" id="keywords" class="form-control mb-2"><br>
   </div>
 
-  <label for="operacion"><b>Tipo de operación:</b></label><br>
-  <select name="operacion" id="operacion" class="form-select mb-2">
-    <option value="">Todas</option>
-    <option>Venta</option>
-    <option>Alquiler</option>
-  </select><br>
-
-  <label for="tipo"><b>Tipo de inmueble:</b></label><br>
-  <select name="tipo" id="tipo" class="form-select mb-2">
-    <option value="">Todos</option>
-    <option>Apartamento</option>
-    <option>Campos</option>
-    <option>Casas</option>
-    <option>Cocheras</option>
-    <option>Depósitos y galpones</option>
-    <option>Llave de negocio</option>
-    <option>Locales</option>
-    <option>Oficinas</option>
-    <option>Quintas</option>
-    <option>Terrenos</option>
-    <option>Otros inmuebles</option>
-  </select><br>
-
-  <label for="keywords"><b>Palabras clave (separadas por coma):</b></label><br>
-  <input type="text" name="keywords" id="keywords" class="form-control mb-2"><br>
-
-  <button type="submit" class="btn btn-primary">Guardar</button>
+  <button type="submit" class="btn btn-primary" onclick="onBuscarClick();">Buscar</button>
 </form>
 <a href="{% url 'core:home' %}" class="btn btn-link">Volver</a>
+<script src="/static/core/search_ui.js"></script>
 <script>
 function mostrarCiudades() {
   var dep = document.getElementById('departamento').value;

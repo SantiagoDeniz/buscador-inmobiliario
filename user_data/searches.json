@@ -1,217 +1,377 @@
 [
   {
-    "id": "721a32bb-ca89-4fd2-ae06-ffc088fe4865",
-    "nombre": "aaa",
-    "busqueda": "antiguedad 0 legislativo",
+    "id": "2b56e00e-7e93-4f46-9fe2-62725ea8ba5d",
+    "nombre": "libertador",
+    "busqueda": "libertador",
     "filtros": {
       "departamento": "Montevideo",
       "ciudad": "Aguada",
       "operacion": "Alquiler",
-      "tipo": "Locales",
+      "tipo": "Apartamentos",
+      "condicion": "",
       "precio_min": "20000",
       "precio_max": "30000",
-      "moneda": "USD"
+      "moneda": "USD",
+      "dormitorios_min": "2",
+      "dormitorios_max": "3",
+      "banos_min": "2",
+      "banos_max": "2",
+      "cocheras_min": "1",
+      "cocheras_max": "1",
+      "antiguedad_min": "0",
+      "antiguedad_max": "0",
+      "superficie_total_min": "",
+      "superficie_total_max": "",
+      "superficie_cubierta_min": "",
+      "superficie_cubierta_max": "",
+      "amoblado": "",
+      "terraza": "",
+      "aire_acondicionado": "",
+      "piscina": "",
+      "jardin": "",
+      "ascensor": ""
+    },
+    "resultados": [],
+    "links_visitados": [],
+    "ultima_revision": "2025-08-18 11:38:14",
+    "enabled": true,
+    "platforms": [
+      "mercadolibre"
+    ]
+  },
+  {
+    "id": "4f922fb0-6e84-4cff-9136-2ecdd9a78a53",
+    "nombre": "libertador 2",
+    "busqueda": "Libertador",
+    "filtros": {
+      "departamento": "Montevideo",
+      "ciudad": "Aguada",
+      "operacion": "Alquiler",
+      "tipo": "Apartamentos",
+      "condicion": "",
+      "precio_min": "700",
+      "precio_max": "3000",
+      "moneda": "USD",
+      "dormitorios_min": "2",
+      "dormitorios_max": "3",
+      "banos_min": "",
+      "banos_max": "",
+      "cocheras_min": "1",
+      "cocheras_max": "1",
+      "antiguedad_min": "0",
+      "antiguedad_max": "0",
+      "superficie_total_min": "",
+      "superficie_total_max": "",
+      "superficie_cubierta_min": "",
+      "superficie_cubierta_max": "",
+      "amoblado": "",
+      "terraza": "",
+      "aire_acondicionado": "",
+      "piscina": "",
+      "jardin": "",
+      "ascensor": ""
     },
     "resultados": [
-      "https://inmueble.mercadolibre.com.uy/MLU-748534160-frente-palacio-legislativo-50-mts-de-frente-1894-m2-entrada-autos--_JM"
+      "Alquilo Precioso Aparatamento De 2 Dormitorios, Balcon, Terraza Lavadero, Garaje, Aguada."
     ],
     "links_visitados": [
-      "https://inmueble.mercadolibre.com.uy/MLU-748534160-frente-palacio-legislativo-50-mts-de-frente-1894-m2-entrada-autos--_JM"
+      "https://apartamento.mercadolibre.com.uy/MLU-824773926-aguada-se-alquila-apartamento-de-2-dormitorios-con-balcon-y-garage-_JM",
+      "https://apartamento.mercadolibre.com.uy/MLU-824708962-aguada-alquila-amplio-apartamento-de-2-dormitorios-c-balcon-y-garage-_JM",
+      "https://apartamento.mercadolibre.com.uy/MLU-811826394-alquilo-precioso-aparatamento-de-2-dormitorios-balcon-terraza-lavadero-garaje-aguada-_JM",
+      "https://apartamento.mercadolibre.com.uy/MLU-748535104-alquilo-comodo-y-luminoso-apartamento-de-2-dormitorios-y-terraza-lavadero-cochera-opcional-centro-_JM"
     ],
-    "ultima_revision": "2025-08-13 13:04:08",
+    "ultima_revision": "2025-08-18 11:55:30",
     "enabled": true,
     "platforms": [
       "mercadolibre"
     ]
   },
   {
-    "id": "19a76108-92e6-4383-8879-203a39614703",
-    "nombre": "a",
-    "busqueda": "antiguedad 0 legislativo",
+    "id": "d7ecd646-0825-4f9c-8765-0ece0a2fea44",
+    "nombre": "Libertador 3",
+    "busqueda": "libertador",
     "filtros": {
       "departamento": "Montevideo",
       "ciudad": "Aguada",
       "operacion": "Alquiler",
-      "tipo": "Locales",
-      "precio_min": "20000",
-      "precio_max": "30000",
-      "moneda": "USD"
+      "tipo": "Apartamentos",
+      "condicion": "",
+      "precio_min": "750",
+      "precio_max": "3000",
+      "moneda": "USD",
+      "dormitorios_min": "2",
+      "dormitorios_max": "3",
+      "banos_min": "",
+      "banos_max": "",
+      "cocheras_min": "1",
+      "cocheras_max": "1",
+      "antiguedad_min": "",
+      "antiguedad_max": "0",
+      "superficie_total_min": "",
+      "superficie_total_max": "",
+      "superficie_cubierta_min": "",
+      "superficie_cubierta_max": "",
+      "amoblado": "",
+      "terraza": "",
+      "aire_acondicionado": "",
+      "piscina": "",
+      "jardin": "",
+      "ascensor": ""
     },
     "resultados": [
-      "https://inmueble.mercadolibre.com.uy/MLU-748534160-frente-palacio-legislativo-50-mts-de-frente-1894-m2-entrada-autos--_JM"
+      "Alquilo Precioso Aparatamento De 2 Dormitorios, Balcon, Terraza Lavadero, Garaje, Aguada."
     ],
     "links_visitados": [
-      "https://inmueble.mercadolibre.com.uy/MLU-748534160-frente-palacio-legislativo-50-mts-de-frente-1894-m2-entrada-autos--_JM"
+      "https://apartamento.mercadolibre.com.uy/MLU-824773926-aguada-se-alquila-apartamento-de-2-dormitorios-con-balcon-y-garage-_JM",
+      "https://apartamento.mercadolibre.com.uy/MLU-824708962-aguada-alquila-amplio-apartamento-de-2-dormitorios-c-balcon-y-garage-_JM",
+      "https://apartamento.mercadolibre.com.uy/MLU-811826394-alquilo-precioso-aparatamento-de-2-dormitorios-balcon-terraza-lavadero-garaje-aguada-_JM"
     ],
-    "ultima_revision": "2025-08-13 14:32:11",
+    "ultima_revision": "2025-08-18 12:00:19",
     "enabled": true,
     "platforms": [
       "mercadolibre"
     ]
   },
   {
-    "id": "6a5199c6-d1ed-4f96-8dc7-398367dd6221",
-    "nombre": "b",
-    "busqueda": "antiguedad 0 legislativo",
+    "id": "eb313cfd-7255-43b6-8751-1fa5f9bf5dac",
+    "nombre": "libertador 4",
+    "busqueda": "libertador",
     "filtros": {
       "departamento": "Montevideo",
-      "ciudad": "",
+      "ciudad": "Aguada",
       "operacion": "Alquiler",
       "tipo": "Apartamentos",
-      "precio_min": "20000",
+      "condicion": "",
+      "precio_min": "750",
+      "precio_max": "3000",
+      "moneda": "USD",
+      "dormitorios_min": "2",
+      "dormitorios_max": "3",
+      "banos_min": "",
+      "banos_max": "",
+      "cocheras_min": "",
+      "cocheras_max": "1",
+      "antiguedad_min": "",
+      "antiguedad_max": "0",
+      "superficie_total_min": "",
+      "superficie_total_max": "",
+      "superficie_cubierta_min": "",
+      "superficie_cubierta_max": "",
+      "amoblado": "",
+      "terraza": "",
+      "aire_acondicionado": "",
+      "piscina": "",
+      "jardin": "",
+      "ascensor": ""
+    },
+    "resultados": [
+      "Alquilo Precioso Aparatamento De 2 Dormitorios, Balcon, Terraza Lavadero, Garaje, Aguada."
+    ],
+    "links_visitados": [
+      "https://apartamento.mercadolibre.com.uy/MLU-826997584-alquilo-excelente-apartamento-al-frente-amplio-y-luminoso-3-dormitorios-2-banos-balcon-y-lavadero-zona-centro-_JM",
+      "https://apartamento.mercadolibre.com.uy/MLU-824773926-aguada-se-alquila-apartamento-de-2-dormitorios-con-balcon-y-garage-_JM",
+      "https://apartamento.mercadolibre.com.uy/MLU-824708962-aguada-alquila-amplio-apartamento-de-2-dormitorios-c-balcon-y-garage-_JM",
+      "https://apartamento.mercadolibre.com.uy/MLU-811826394-alquilo-precioso-aparatamento-de-2-dormitorios-balcon-terraza-lavadero-garaje-aguada-_JM",
+      "https://apartamento.mercadolibre.com.uy/MLU-760293944-apartamento-en-alquiler-en-aguada-de-2-dormitorios-refd1748-_JM"
+    ],
+    "ultima_revision": "2025-08-18 12:30:07",
+    "enabled": true,
+    "platforms": [
+      "mercadolibre"
+    ]
+  },
+  {
+    "id": "03bab47c-7063-4b89-86b9-d3a405022b38",
+    "nombre": "libertador 5",
+    "busqueda": "precioso",
+    "filtros": {
+      "departamento": "Montevideo",
+      "ciudad": "Aguada",
+      "operacion": "Alquiler",
+      "tipo": "Apartamentos",
+      "condicion": "",
+      "precio_min": "750",
+      "precio_max": "3000",
+      "moneda": "USD",
+      "dormitorios_min": "2",
+      "dormitorios_max": "3",
+      "banos_min": "",
+      "banos_max": "",
+      "cocheras_min": "",
+      "cocheras_max": "1",
+      "antiguedad_min": "",
+      "antiguedad_max": "0",
+      "superficie_total_min": "",
+      "superficie_total_max": "",
+      "superficie_cubierta_min": "",
+      "superficie_cubierta_max": "",
+      "amoblado": "",
+      "terraza": "",
+      "aire_acondicionado": "",
+      "piscina": "",
+      "jardin": "",
+      "ascensor": ""
+    },
+    "resultados": [],
+    "links_visitados": [
+      "https://apartamento.mercadolibre.com.uy/MLU-826997584-alquilo-excelente-apartamento-al-frente-amplio-y-luminoso-3-dormitorios-2-banos-balcon-y-lavadero-zona-centro-_JM"
+    ],
+    "ultima_revision": "2025-08-18 12:41:24",
+    "enabled": true,
+    "platforms": [
+      "mercadolibre"
+    ]
+  },
+  {
+    "id": "7384bc5a-e309-461d-b9fd-4777cf975602",
+    "nombre": "precioso 2",
+    "busqueda": "precioso",
+    "filtros": {
+      "departamento": "Montevideo",
+      "ciudad": "Aguada",
+      "operacion": "Alquiler",
+      "tipo": "Apartamentos",
+      "condicion": "",
+      "precio_min": "700",
       "precio_max": "30000",
-      "moneda": "USD"
+      "moneda": "USD",
+      "dormitorios_min": "2",
+      "dormitorios_max": "3",
+      "banos_min": "",
+      "banos_max": "",
+      "cocheras_min": "",
+      "cocheras_max": "1",
+      "antiguedad_min": "",
+      "antiguedad_max": "0",
+      "superficie_total_min": "",
+      "superficie_total_max": "",
+      "superficie_cubierta_min": "",
+      "superficie_cubierta_max": "",
+      "amoblado": "",
+      "terraza": "",
+      "aire_acondicionado": "",
+      "piscina": "",
+      "jardin": "",
+      "ascensor": ""
     },
-    "resultados": [],
-    "links_visitados": [],
-    "ultima_revision": "2025-08-13 14:46:26",
+    "resultados": [
+      "Alquilo Precioso Aparatamento De 2 Dormitorios, Balcon, Terraza Lavadero, Garaje, Aguada."
+    ],
+    "links_visitados": [
+      "https://apartamento.mercadolibre.com.uy/MLU-651744017-alquiler-apartamento-2-dormitorios-terraza-aa-y-amenities-zona-aguada-centro-_JM",
+      "https://apartamento.mercadolibre.com.uy/MLU-826997584-alquilo-excelente-apartamento-al-frente-amplio-y-luminoso-3-dormitorios-2-banos-balcon-y-lavadero-zona-centro-_JM",
+      "https://apartamento.mercadolibre.com.uy/MLU-824773926-aguada-se-alquila-apartamento-de-2-dormitorios-con-balcon-y-garage-_JM",
+      "https://apartamento.mercadolibre.com.uy/MLU-824708962-aguada-alquila-amplio-apartamento-de-2-dormitorios-c-balcon-y-garage-_JM",
+      "https://apartamento.mercadolibre.com.uy/MLU-811826394-alquilo-precioso-aparatamento-de-2-dormitorios-balcon-terraza-lavadero-garaje-aguada-_JM",
+      "https://apartamento.mercadolibre.com.uy/MLU-748535104-alquilo-comodo-y-luminoso-apartamento-de-2-dormitorios-y-terraza-lavadero-cochera-opcional-centro-_JM",
+      "https://apartamento.mercadolibre.com.uy/MLU-760293944-apartamento-en-alquiler-en-aguada-de-2-dormitorios-refd1748-_JM"
+    ],
+    "ultima_revision": "2025-08-18 13:05:09",
     "enabled": true,
     "platforms": [
       "mercadolibre"
     ]
   },
   {
-    "id": "613de9ad-90a2-421a-89a8-17fb13def01b",
-    "nombre": "c",
-    "busqueda": "antiguedad 0 libertador",
-    "filtros": {
-      "departamento": "Montevideo",
-      "ciudad": "Aguada",
-      "operacion": "Alquiler",
-      "tipo": "",
-      "precio_min": "20000",
-      "precio_max": "",
-      "moneda": "USD"
-    },
-    "resultados": [],
-    "links_visitados": [],
-    "ultima_revision": "2025-08-13 15:18:38",
-    "enabled": true,
-    "platforms": [
-      "mercadolibre"
-    ]
-  },
-  {
-    "id": "558da39e-4ff2-4120-b99b-500fc70b5f4e",
-    "nombre": "c",
-    "busqueda": "antiguedad 0 libertador",
-    "filtros": {
-      "departamento": "",
-      "ciudad": "",
-      "operacion": "",
-      "tipo": "",
-      "precio_min": "20000",
-      "precio_max": "",
-      "moneda": "USD"
-    },
-    "resultados": [],
-    "links_visitados": [],
-    "ultima_revision": "2025-08-13 15:26:20",
-    "enabled": true,
-    "platforms": [
-      "mercadolibre"
-    ]
-  },
-  {
-    "id": "683b7569-203d-4c4f-9477-7c5ff8ee2b31",
-    "nombre": "ap1",
-    "busqueda": "antiguedad 0 2 dormitorios libertador",
+    "id": "119a188c-4506-4768-bc44-e7eb22926620",
+    "nombre": "balcon aguada 1",
+    "busqueda": "balcon",
     "filtros": {
       "departamento": "Montevideo",
       "ciudad": "Aguada",
       "operacion": "Alquiler",
       "tipo": "Apartamentos",
-      "precio_min": "20000",
-      "precio_max": "35000",
-      "moneda": "UYU"
+      "condicion": "",
+      "precio_min": "700",
+      "precio_max": "3000",
+      "moneda": "USD",
+      "dormitorios_min": "2",
+      "dormitorios_max": "3",
+      "banos_min": "",
+      "banos_max": "",
+      "cocheras_min": "",
+      "cocheras_max": "1",
+      "antiguedad_min": "",
+      "antiguedad_max": "0",
+      "superficie_total_min": "",
+      "superficie_total_max": "",
+      "superficie_cubierta_min": "",
+      "superficie_cubierta_max": "",
+      "amoblado": "",
+      "terraza": "",
+      "aire_acondicionado": "",
+      "piscina": "",
+      "jardin": "",
+      "ascensor": ""
     },
-    "resultados": [],
-    "links_visitados": [],
-    "ultima_revision": "2025-08-13 17:27:23",
+    "resultados": [
+      "Alquilo Excelente Apartamento Al Frente, Amplio Y Luminoso, 3 Dormitorios, 2 Baños, Balcón Y Lavadero, Zona Centro.",
+      "Aguada: Se Alquila Apartamento De 2 Dormitorios Con Balcon Y Garage",
+      "Aguada: Alquila Amplio Apartamento De 2 Dormitorios C/ Balcon Y Garage",
+      "Alquilo Precioso Aparatamento De 2 Dormitorios, Balcon, Terraza Lavadero, Garaje, Aguada.",
+      "Apartamento En Alquiler En Aguada De 2 Dormitorios Ref.d1748"
+    ],
+    "links_visitados": [
+      "https://apartamento.mercadolibre.com.uy/MLU-651744017-alquiler-apartamento-2-dormitorios-terraza-aa-y-amenities-zona-aguada-centro-_JM",
+      "https://apartamento.mercadolibre.com.uy/MLU-826997584-alquilo-excelente-apartamento-al-frente-amplio-y-luminoso-3-dormitorios-2-banos-balcon-y-lavadero-zona-centro-_JM",
+      "https://apartamento.mercadolibre.com.uy/MLU-824773926-aguada-se-alquila-apartamento-de-2-dormitorios-con-balcon-y-garage-_JM",
+      "https://apartamento.mercadolibre.com.uy/MLU-824708962-aguada-alquila-amplio-apartamento-de-2-dormitorios-c-balcon-y-garage-_JM",
+      "https://apartamento.mercadolibre.com.uy/MLU-811826394-alquilo-precioso-aparatamento-de-2-dormitorios-balcon-terraza-lavadero-garaje-aguada-_JM",
+      "https://apartamento.mercadolibre.com.uy/MLU-748535104-alquilo-comodo-y-luminoso-apartamento-de-2-dormitorios-y-terraza-lavadero-cochera-opcional-centro-_JM",
+      "https://apartamento.mercadolibre.com.uy/MLU-760293944-apartamento-en-alquiler-en-aguada-de-2-dormitorios-refd1748-_JM"
+    ],
+    "ultima_revision": "2025-08-19 11:21:48",
     "enabled": true,
     "platforms": [
       "mercadolibre"
     ]
   },
   {
-    "id": "4aa10433-5bee-4935-8800-04fb3742f236",
-    "nombre": "ap1",
-    "busqueda": "antiguedad 0 2 dormitorios libertador",
-    "filtros": {
-      "departamento": "Montevideo",
-      "ciudad": "",
-      "operacion": "",
-      "tipo": "",
-      "precio_min": "20000",
-      "precio_max": "35000",
-      "moneda": "UYU"
-    },
-    "resultados": [],
-    "links_visitados": [],
-    "ultima_revision": "2025-08-13 17:28:03",
-    "enabled": true,
-    "platforms": [
-      "mercadolibre"
-    ]
-  },
-  {
-    "id": "4dfd538d-225b-4cde-9f73-2744c5c26c93",
-    "nombre": "ap 2",
-    "busqueda": "antiguedad 0 2 dormitorios libertador",
-    "filtros": {
-      "departamento": "Montevideo",
-      "ciudad": "Aguada",
-      "operacion": "Alquiler",
-      "tipo": "Apartamentos",
-      "precio_min": "20000",
-      "precio_max": "35000",
-      "moneda": "UYU"
-    },
-    "resultados": [],
-    "links_visitados": [],
-    "ultima_revision": "2025-08-13 17:28:34",
-    "enabled": true,
-    "platforms": [
-      "mercadolibre"
-    ]
-  },
-  {
-    "id": "64474790-8e9d-4b2d-b299-605cc7ba4596",
-    "nombre": "yi",
-    "busqueda": "antiguedad 0 2 dormitorios yi",
+    "id": "213175f3-bcca-4610-b7ff-4f924653cf2b",
+    "nombre": "balcon aguada 1",
+    "busqueda": "balcon, frente",
     "filtros": {
       "departamento": "Montevideo",
       "ciudad": "Aguada",
       "operacion": "Alquiler",
       "tipo": "Apartamentos",
-      "precio_min": "15000",
-      "precio_max": "30000",
-      "moneda": "UYU"
+      "condicion": "",
+      "precio_min": "700",
+      "precio_max": "3000",
+      "moneda": "USD",
+      "dormitorios_min": "2",
+      "dormitorios_max": "3",
+      "banos_min": "",
+      "banos_max": "",
+      "cocheras_min": "",
+      "cocheras_max": "1",
+      "antiguedad_min": "",
+      "antiguedad_max": "0",
+      "superficie_total_min": "",
+      "superficie_total_max": "",
+      "superficie_cubierta_min": "",
+      "superficie_cubierta_max": "",
+      "amoblado": "",
+      "terraza": "",
+      "aire_acondicionado": "",
+      "piscina": "",
+      "jardin": "",
+      "ascensor": ""
     },
-    "resultados": [],
-    "links_visitados": [],
-    "ultima_revision": "2025-08-13 17:41:19",
-    "enabled": true,
-    "platforms": [
-      "mercadolibre"
-    ]
-  },
-  {
-    "id": "43e6fbae-e684-4089-9f7c-8a87ef89a40b",
-    "nombre": "yi 2",
-    "busqueda": "antiguedad 0 2 dormitorios yi",
-    "filtros": {
-      "departamento": "Montevideo",
-      "ciudad": "Aguada",
-      "operacion": "Alquiler",
-      "tipo": "Apartamentos",
-      "precio_min": "15000",
-      "precio_max": "30000",
-      "moneda": "UYU"
-    },
-    "resultados": [],
-    "links_visitados": [],
-    "ultima_revision": "2025-08-13 17:42:25",
+    "resultados": [
+      "Alquilo Excelente Apartamento Al Frente, Amplio Y Luminoso, 3 Dormitorios, 2 Baños, Balcón Y Lavadero, Zona Centro.",
+      "Apartamento En Alquiler En Aguada De 2 Dormitorios Ref.d1748"
+    ],
+    "links_visitados": [
+      "https://apartamento.mercadolibre.com.uy/MLU-651744017-alquiler-apartamento-2-dormitorios-terraza-aa-y-amenities-zona-aguada-centro-_JM",
+      "https://apartamento.mercadolibre.com.uy/MLU-826997584-alquilo-excelente-apartamento-al-frente-amplio-y-luminoso-3-dormitorios-2-banos-balcon-y-lavadero-zona-centro-_JM",
+      "https://apartamento.mercadolibre.com.uy/MLU-824773926-aguada-se-alquila-apartamento-de-2-dormitorios-con-balcon-y-garage-_JM",
+      "https://apartamento.mercadolibre.com.uy/MLU-824708962-aguada-alquila-amplio-apartamento-de-2-dormitorios-c-balcon-y-garage-_JM",
+      "https://apartamento.mercadolibre.com.uy/MLU-811826394-alquilo-precioso-aparatamento-de-2-dormitorios-balcon-terraza-lavadero-garaje-aguada-_JM",
+      "https://apartamento.mercadolibre.com.uy/MLU-748535104-alquilo-comodo-y-luminoso-apartamento-de-2-dormitorios-y-terraza-lavadero-cochera-opcional-centro-_JM",
+      "https://apartamento.mercadolibre.com.uy/MLU-760293944-apartamento-en-alquiler-en-aguada-de-2-dormitorios-refd1748-_JM"
+    ],
+    "ultima_revision": "2025-08-19 11:27:05",
     "enabled": true,
     "platforms": [
       "mercadolibre"

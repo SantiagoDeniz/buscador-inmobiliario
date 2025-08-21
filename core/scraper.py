@@ -9,7 +9,8 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 import time
-# Imports faltantes y definiciones globales
+import json
+import unicodedata
 import os
 import re
 import concurrent.futures
@@ -17,6 +18,37 @@ from core.models import Propiedad
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.service import Service as ChromeService
+
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
+
+def send_progress_update(total_found=None, estimated_time=None, current_search_item=None, matched_publications=None, final_message=None, page_items_found=None):
+    # Log en servidor con formato más legible
+    if current_search_item:
+        print(f'🔄 [PROGRESO] {current_search_item}')
+    if total_found:
+        print(f'📊 [PROGRESO] Total encontrado: {total_found:,} publicaciones')
+    if final_message:
+        print(f'✅ [PROGRESO] FINAL: {final_message}')
+    
+    channel_layer = get_channel_layer()
+    if channel_layer is None:
+        print("Warning: Channel layer is not available. Skipping real-time update.")
+        return
+    async_to_sync(channel_layer.group_send)(
+        "search_progress",
+        {
+            "type": "send_progress",
+            "message": {
+                "total_found": total_found,
+                "estimated_time": estimated_time,
+                "current_search_item": current_search_item,
+                "matched_publications": matched_publications,
+                "final_message": final_message,
+                "page_items_found": page_items_found, # Nuevo parámetro
+            }
+        }
+    )
 
 try:
     from selenium_stealth import stealth
@@ -30,40 +62,124 @@ HEADERS = {
     "Accept-Language": "es-ES,es;q=0.9,en;q=0.8"
 }
 
+def normalizar_para_url(texto: str) -> str:
+    if not texto: return ''
+    # Quita tildes y caracteres especiales
+    nfkd_form = unicodedata.normalize('NFKD', texto)
+    texto_sin_tildes = "".join([c for c in nfkd_form if not unicodedata.combining(c)])
+    # Reemplaza espacios y otros separadores por guiones y convierte a minúsculas
+    return re.sub(r'[\s_]+', '-', texto_sin_tildes).lower()
+
 def build_mercadolibre_url(filters: Dict[str, Any]) -> str:
     base = 'https://listado.mercadolibre.com.uy/inmuebles/'
-    tipo = filters.get('tipo', '').replace(' ', '-').lower()
-    operacion = filters.get('operacion', '').lower()
-    departamento = filters.get('departamento', '').replace(' ', '-').lower()
-    ciudad = filters.get('ciudad', '').replace(' ', '-').lower()
-    precio_min = filters.get('precio_min', '')
-    precio_max = filters.get('precio_max', '')
-    moneda = filters.get('moneda', 'USD').upper()  # USD por defecto
+    path_parts = []
+    filter_segments = []
 
-    url = base
-    if tipo:
-        url += f'{tipo}/'
-    if operacion:
-        url += f'{operacion}/'
-    if departamento:
-        url += f'{departamento}/'
-    if departamento == 'montevideo' and ciudad:
-        url += f'{ciudad}/'
+    # --- 1. Segmentos de Path --- 
+    if tipo := filters.get('tipo'):
+        # Salvedad: si el tipo es 'apartamento', usar 'apartamentos/', lo mismo con 'casa'
+        if tipo.strip().lower() == 'apartamento':
+            path_parts.append('apartamentos')
+        elif tipo.strip().lower() == 'casa':
+            path_parts.append('casas')
+        else:
+            path_parts.append(normalizar_para_url(tipo))
 
-    # El segmento de rango de precios se agrega después de la ruta principal
-    price_segment = ''
-    if precio_min or precio_max:
-        min_val = str(precio_min) if precio_min else '0'
-        max_val = str(precio_max) if precio_max else '0'
-        price_segment = f'_PriceRange_{min_val}{moneda}-{max_val}{moneda}'
-    url += price_segment
-    return url
+    if operacion := filters.get('operacion'):
+        path_parts.append(normalizar_para_url(operacion))
+
+    # Lógica para dormitorios como parte del path
+    dormitorios_min = filters.get('dormitorios_min')
+    dormitorios_max = filters.get('dormitorios_max')
+    if dormitorios_min and dormitorios_max:
+        if str(dormitorios_min) == str(dormitorios_max):
+            path_parts.append(f'{dormitorios_min}-dormitorios')
+        else:
+            path_parts.append(f'{dormitorios_min}-a-{dormitorios_max}-dormitorios')
+    elif dormitorios_min:
+        path_parts.append(f'{dormitorios_min}-o-mas-dormitorios')
+    elif dormitorios_max:
+        # MercadoLibre no parece tener un formato claro para "hasta X dormitorios" en el path
+        # Se omite del path y se podría manejar como filtro si se descubre el formato
+        pass
+
+    if departamento := filters.get('departamento'):
+        path_parts.append(normalizar_para_url(departamento))
+    
+    if filters.get('departamento') == 'Montevideo' and (ciudad := filters.get('ciudad')):
+        path_parts.append(normalizar_para_url(ciudad))
+
+    # --- 2. Segmentos de Filtro (estilo _Clave_Valor) ---
+    def add_range_filter(param_name, min_key, max_key, unit=''):
+        min_val = filters.get(min_key, '')
+        max_val = filters.get(max_key, '')
+        if min_val or max_val:
+            # Si solo hay precio máximo, usar 0 como mínimo
+            if min_key == 'precio_min' and not min_val and max_val:
+                min_str = '0'
+            else:
+                min_str = str(min_val) if min_val else '*'
+            max_str = str(max_val) if max_val else '*'
+            # Evitar rangos como "*-*"
+            if min_str != '*' or max_str != '*':
+                filter_segments.append(f'_{param_name}_{min_str}{unit}-{max_str}{unit}')
+
+    moneda = filters.get('moneda', 'USD').upper()
+    add_range_filter('PriceRange', 'precio_min', 'precio_max', unit=moneda)
+    add_range_filter('FULL*BATHROOMS', 'banos_min', 'banos_max')
+
+    if filters.get('amoblado'):
+        filter_segments.append('_FURNISHED_242085')
+    if filters.get('terraza'):
+        filter_segments.append('_HAS*TERRACE_242085')
+    if filters.get('aire_acondicionado'):
+        filter_segments.append('_HAS*AIRC*ONDITIONING_242085')
+    if filters.get('piscina'):
+        filter_segments.append('_HAS*SWIMMING*POOL_242085')
+    if filters.get('jardin'):
+        filter_segments.append('_HAS*GARDEN_242085')
+    if filters.get('ascensor'):
+        filter_segments.append('_HAS*LIFT_242085')
+
+    add_range_filter('PARKING*LOTS', 'cocheras_min', 'cocheras_max')
+    add_range_filter('PROPERTY*AGE', 'antiguedad_min', 'antiguedad_max')
+    add_range_filter('TOTAL*AREA', 'superficie_total_min', 'superficie_total_max')
+    add_range_filter('COVERED*AREA', 'superficie_cubierta_min', 'superficie_cubierta_max')
+
+    if condicion := filters.get('condicion'):
+        if condicion == 'Nuevo':
+            filter_segments.append('_ITEM*CONDITION_2230284')
+        elif condicion == 'Usado':
+            filter_segments.append('_ITEM*CONDITION_2230581')
+
+    # --- 3. Ensamblaje Final --- 
+    path_str = '/'.join(filter(None, path_parts))
+    # Asegurarse de que siempre haya un / al final del path si hay partes
+    if path_str:
+        path_str += '/'
+
+    # Añadir NoIndex=True si hay filtros aplicados
+    if filter_segments:
+        filter_segments.append('_NoIndex_True')
+
+    filter_str = ''.join(filter_segments)
+
+    return base + path_str + filter_str
 
 
-def scrape_mercadolibre(filters: Dict[str, Any], keywords: List[str], max_pages: int = 3) -> List[Dict[str, Any]]:
+def scrape_mercadolibre(filters: Dict[str, Any], keywords: List[str], max_pages: int = 3, search_id: str = None) -> Dict[str, List[Dict[str, Any]]]:
+    print(f"[DEPURACIÓN] Iniciando scraping MercadoLibre con filtros: {filters} y keywords: {keywords}")
+    
+    # Función para verificar si la búsqueda debe detenerse
+    def should_stop():
+        if search_id:
+            try:
+                from core.views import is_search_stopped
+                return is_search_stopped(search_id)
+            except:
+                return False
+        return False
     def cargar_cookies(driver, cookies_path):
-        import json
-        import os
         if not os.path.exists(cookies_path):
             print(f"[scraper] Archivo de cookies no encontrado: {cookies_path}")
             return
@@ -85,7 +201,6 @@ def scrape_mercadolibre(filters: Dict[str, Any], keywords: List[str], max_pages:
             except Exception as e:
                 print(f"[scraper] Error al agregar cookie: {e}")
 
-    import re
     # Importar aquí para evitar dependencias cruzadas
     from core.search_manager import procesar_keywords
     keywords_filtradas = procesar_keywords(' '.join(keywords))
@@ -115,8 +230,11 @@ def scrape_mercadolibre(filters: Dict[str, Any], keywords: List[str], max_pages:
     cargar_cookies(driver, 'mercadolibre_cookies.json')
 
     links = []
+    all_publications = []
+    matched_publications_titles = [] # New: To store titles of matched publications
+    matched_publications_links = [] # New: To store links of matched publications
+    current_pub_index = 0  # Contador global para las publicaciones procesadas
     # Patrones prohibidos por robots.txt
-    import fnmatch
     def url_prohibida(url):
         # Solo bloquear si el path después del dominio coincide exactamente con los patrones prohibidos
         prohibidos = [
@@ -138,18 +256,39 @@ def scrape_mercadolibre(filters: Dict[str, Any], keywords: List[str], max_pages:
         return False
 
     for page in range(max_pages):
+        # Verificar si debe detenerse antes de cada página
+        if should_stop():
+            print(f"[scraper] Búsqueda detenida por el usuario en página {page + 1}")
+            send_progress_update(final_message="Búsqueda detenida por el usuario")
+            break
+            
         if page == 0:
             url = base_url
         else:
             desde = 1 + 48 * page
             url = f"{base_url}_Desde_{desde}_NoIndex_True"
         print(f"[scraper] Selenium visitando: {url}")
+        send_progress_update(current_search_item=f"Visitando página {page + 1}...")
         driver.get(url)
         time.sleep(3)
+        
+        # Verificar parada después de cargar la página
+        if should_stop():
+            print(f"[scraper] Búsqueda detenida por el usuario después de cargar página {page + 1}")
+            send_progress_update(final_message="Búsqueda detenida por el usuario")
+            break
+            
         items = driver.find_elements(By.CSS_SELECTOR, 'div.poly-card--grid-card')
-        print(f"Se han encontrado {len(items)} propiedades en la página {page+1}")
+        print(f"\nSe han encontrado {len(items)} propiedades en la página {page+1}\n")
+        send_progress_update(current_search_item=f"Página {page+1}: Se encontraron {len(items)} publicaciones.", page_items_found=len(items))
         publicaciones = []
         for idx, item in enumerate(items, 1):
+            # Verificar parada durante el procesamiento de cada item
+            if should_stop():
+                print(f"[scraper] Búsqueda detenida por el usuario en item {idx} de página {page + 1}")
+                send_progress_update(final_message="Búsqueda detenida por el usuario")
+                break
+                
             try:
                 link_tag = item.find_element(By.CSS_SELECTOR, 'h3.poly-component__title-wrapper > a.poly-component__title')
                 link = link_tag.get_attribute('href')
@@ -162,8 +301,22 @@ def scrape_mercadolibre(filters: Dict[str, Any], keywords: List[str], max_pages:
                     print(f"[scraper] Link prohibido por robots.txt: {link_limpio}")
             except Exception as e:
                 print(f"[scraper] No se pudo obtener el link/título de la propiedad {idx}: {e}")
+        
+        all_publications.extend(publicaciones)
+
+        total_publications_found = len(all_publications)
+        estimated_time = total_publications_found * 20
+        send_progress_update(total_found=total_publications_found, estimated_time=estimated_time)
+
+        # Procesar cada publicación individualmente
         for pub in publicaciones:
-            print(f"propiedad {pub['idx']}: {pub['titulo']} - {pub['url']}")
+            current_pub_index += 1
+            
+            # Enviar progreso con formato "x/y"
+            send_progress_update(
+                current_search_item=f"Búsqueda actual ({current_pub_index}/{total_publications_found}): {pub['titulo']}"
+            )
+            print(f"➡️  propiedad {pub['idx']}: {pub['titulo']} - {pub['url']}")
             cumple = False
             try:
                 if url_prohibida(pub['url']):
@@ -200,7 +353,6 @@ def scrape_mercadolibre(filters: Dict[str, Any], keywords: List[str], max_pages:
                 except:
                     pass
                 caracteristicas = ' '.join(caracteristicas_kv + caracteristicas_sueltas)
-                import unicodedata
                 def normalizar(texto):
                     return unicodedata.normalize('NFKD', texto).encode('ASCII', 'ignore').decode('ASCII').lower()
                 texto_total_norm = normalizar(f"{titulo_text} {descripcion} {caracteristicas}")
@@ -218,13 +370,17 @@ def scrape_mercadolibre(filters: Dict[str, Any], keywords: List[str], max_pages:
             except Exception as e:
                 print(f"[scraper] Error al analizar publicación {pub['url']}: {e}")
             if cumple:
-                links.append({'url': pub['url']})
+                links.append({'url': pub['url'], 'titulo': pub['titulo']})
+                matched_publications_titles.append({'title': pub['titulo'], 'url': pub['url']}) # New: Add matched title and URL
+                send_progress_update(matched_publications=matched_publications_titles) # New: Send updated matched publications
         if len(items) < 48:
             print(f"Última página detectada (menos de 48 propiedades). Se detiene la búsqueda.")
             break
     driver.quit()
     print(f"[scraper] Resultados encontrados: {len(links)}")
-    return links
+    send_progress_update(final_message=f"¡Búsqueda finalizada! Se encontraron {len(links)} publicaciones coincidentes.")
+    all_links_with_titles = [{'url': p['url'], 'titulo': p['titulo']} for p in all_publications]
+    return {"matched": links, "all": all_links_with_titles}
 
 def iniciar_driver():
     chrome_options = Options()
@@ -375,6 +531,61 @@ def recolectar_urls_selenium(paginas_de_resultados):
         driver.quit()
     return urls_encontradas
 
+def extraer_total_resultados_mercadolibre(url_base_con_filtros):
+    """
+    Extrae el número total de resultados de MercadoLibre desde la primera página de resultados
+    """
+    driver = iniciar_driver()
+    try:
+        url_primera_pagina = f"{url_base_con_filtros}_NoIndex_True"
+        print(f"🔍 [TOTAL ML] Accediendo a: {url_primera_pagina}")
+        driver.get(url_primera_pagina)
+        time.sleep(3)
+        
+        # Buscar el elemento que contiene el total de resultados
+        try:
+            # Múltiples selectores para diferentes versiones de MercadoLibre
+            selectores = [
+                ".ui-search-search-result__quantity-results",
+                ".ui-search-results__quantity-results", 
+                ".ui-search-breadcrumb__title",
+                ".ui-search-results-header__title"
+            ]
+            
+            total_element = None
+            for selector in selectores:
+                try:
+                    total_element = driver.find_element(By.CSS_SELECTOR, selector)
+                    if total_element:
+                        break
+                except:
+                    continue
+            
+            if total_element:
+                total_text = total_element.text
+                print(f"📊 [TOTAL ML] Texto encontrado: '{total_text}'")
+                
+                # Extraer número del texto (ej: "212.158 resultados" -> 212158)
+                import re
+                numeros = re.findall(r'[\d.,]+', total_text)
+                if numeros:
+                    # Quitar puntos y comas de los números y convertir
+                    total_str = numeros[0].replace('.', '').replace(',', '')
+                    total = int(total_str)
+                    print(f"✅ [TOTAL ML] Total extraído exitosamente: {total:,}")
+                    return total
+                else:
+                    print("❌ [TOTAL ML] No se encontraron números en el texto")
+                    return None
+            else:
+                print("❌ [TOTAL ML] No se encontró elemento con total de resultados")
+                return None
+        except Exception as e:
+            print(f"❌ [TOTAL ML] Error al extraer total de resultados: {e}")
+            return None
+    finally:
+        driver.quit()
+
 def run_scraper(tipo_inmueble=None, operacion='venta', ubicacion='montevideo', max_paginas=42, precio_min=None, precio_max=None, workers_fase1=5, workers_fase2=5):
     API_KEY = os.getenv('SCRAPINGBEE_API_KEY')
     if not API_KEY: print("ERROR: SCRAPINGBEE_API_KEY no definida."); return
@@ -390,11 +601,24 @@ def run_scraper(tipo_inmueble=None, operacion='venta', ubicacion='montevideo', m
     url_base_con_filtros = f"{base_path}{price_filter}"
     
     print(f"\n[Principal] URL Base construida: {url_base_con_filtros}")
+    send_progress_update(current_search_item=f"🏠 Iniciando búsqueda con URL base: {url_base_con_filtros}")
+    
+    # --- EXTRACCIÓN DEL TOTAL DE RESULTADOS ---
+    print("\n[Principal] Extrayendo total de resultados desde MercadoLibre...")
+    send_progress_update(current_search_item="🔍 Extrayendo total de resultados de MercadoLibre...")
+    total_ml = extraer_total_resultados_mercadolibre(url_base_con_filtros)
+    if total_ml:
+        print(f"[Principal] Total de publicaciones en MercadoLibre: {total_ml:,}")
+        send_progress_update(total_found=total_ml, current_search_item=f"📊 Total de publicaciones encontradas: {total_ml:,}")
+    else:
+        print("[Principal] No se pudo extraer el total de MercadoLibre")
+        send_progress_update(current_search_item="❌ No se pudo obtener el total de resultados")
     
     # --- FASE 1: RECOLECCIÓN ---
     paginas_de_resultados = [f"{url_base_con_filtros}_Desde_{1 + (i * 48)}_NoIndex_True" if i > 0 else f"{url_base_con_filtros}_NoIndex_True" for i in range(max_paginas)]
     
     print(f"\n--- FASE 1: Se intentarán recolectar {len(paginas_de_resultados)} páginas con {workers_fase1} hilos... ---")
+    send_progress_update(current_search_item=f"FASE 1: Recolectando URLs de {len(paginas_de_resultados)} páginas con {workers_fase1} hilos...")
     
     urls_recolectadas_bruto = set()
     with concurrent.futures.ThreadPoolExecutor(max_workers=workers_fase1) as executor:
@@ -405,9 +629,11 @@ def run_scraper(tipo_inmueble=None, operacion='venta', ubicacion='montevideo', m
             urls_recolectadas_bruto.update(urls_nuevas)
 
     print(f"\n[Principal] FASE 1 Recolección Bruta Finalizada. Se obtuvieron {len(urls_recolectadas_bruto)} URLs en total.")
+    send_progress_update(current_search_item=f"FASE 1 completada. Se encontraron {len(urls_recolectadas_bruto)} URLs de publicaciones.")
 
     # --- LÓGICA DE DEDUPLICACIÓN (con logs) ---
     print("\n[Principal] Iniciando chequeo de duplicados contra la base de datos...")
+    send_progress_update(current_search_item="Chequeando publicaciones existentes en la base de datos...")
     if urls_recolectadas_bruto:
         # Consultamos a la BD una sola vez por todas las URLs encontradas
         urls_existentes = set(Propiedad.objects.filter(url_publicacion__in=list(urls_recolectadas_bruto)).values_list('url_publicacion', flat=True))
@@ -418,20 +644,34 @@ def run_scraper(tipo_inmueble=None, operacion='venta', ubicacion='montevideo', m
         
         print(f"[Principal] URLs existentes en BD: {propiedades_omitidas}")
         print(f"[Principal] URLs nuevas para procesar: {len(urls_a_visitar_final)}")
+        send_progress_update(current_search_item=f"Publicaciones ya existentes: {propiedades_omitidas}. Nuevas publicaciones a procesar: {len(urls_a_visitar_final)}.")
     else:
         print("[Principal] No se recolectaron URLs para chequear.")
+        send_progress_update(current_search_item="No se encontraron URLs para procesar.")
 
     if urls_a_visitar_final:
         print(f"\n--- FASE 2: Scrapeo de detalles en paralelo (hasta {workers_fase2} hilos)... ---")
+        send_progress_update(current_search_item=f"FASE 2: Scrapeando detalles de {len(urls_a_visitar_final)} publicaciones...")
         # ... (inicio FASE 2)
         urls_lista = list(urls_a_visitar_final)
+        matched_publications_titles = [] # New: To store titles of matched publications
         with concurrent.futures.ThreadPoolExecutor(max_workers=workers_fase2) as executor:
             mapa_futuros = {executor.submit(scrape_detalle_con_requests, url, API_KEY): url for url in urls_lista}
             for i, futuro in enumerate(concurrent.futures.as_completed(mapa_futuros)):
                 url_original = mapa_futuros[futuro]
                 print(f"Procesando resultado {i+1}/{len(urls_lista)}...")
+                
                 try:
                     if datos_propiedad := futuro.result():
+                        # Extraer título para mostrar en progreso
+                        titulo_propiedad = datos_propiedad.get('titulo', 'Sin título')
+                        
+                        # Mostrar progreso con formato "Búsqueda actual (a/total_ml): Título" 
+                        if total_ml:
+                            send_progress_update(current_search_item=f"Búsqueda actual ({i+1}/{total_ml:,}): {titulo_propiedad}")
+                        else:
+                            send_progress_update(current_search_item=f"Procesando publicación {i+1}/{len(urls_lista)}: {titulo_propiedad}")
+                        
                         # --- ¡AQUÍ ESTÁ LA MEJORA! ---
                         # Pre-rellenamos con los datos que ya conocemos de la búsqueda
                         datos_propiedad['operacion'] = operacion
@@ -443,10 +683,19 @@ def run_scraper(tipo_inmueble=None, operacion='venta', ubicacion='montevideo', m
                         
                         Propiedad.objects.create(**datos_propiedad)
                         nuevas_propiedades_guardadas += 1
+                        # For run_scraper, we don't have keywords to match, so all saved are 'matched'
+                        matched_publications_titles.append({'title': datos_propiedad.get('titulo', url_original), 'url': url_original})
+                    else:
+                        # Cuando no se pueden extraer datos, aún mostrar progreso
+                        if total_ml:
+                            send_progress_update(current_search_item=f"Búsqueda actual ({i+1}/{total_ml:,}): Error al procesar")
+                        else:
+                            send_progress_update(current_search_item=f"Procesando publicación {i+1}/{len(urls_lista)}: Error al procesar")
                 except Exception as exc:
                     print(f'URL {url_original[:50]}... generó una excepción al guardar: {exc}')
 
     print("\n--- RESUMEN ---")
     print(f"Propiedades omitidas (ya en BD): {propiedades_omitidas}")
     print(f"Nuevas propiedades guardadas: {nuevas_propiedades_guardadas}")
-    print(f"Total de propiedades en la base de datos: {Propiedad.objects.count()}")
+    print(f"Total de propiedades en la base de datos: {Propiedad.objects.count()}\n")
+    send_progress_update(final_message=f"✅ Búsqueda completada. Resumen: {nuevas_propiedades_guardadas} nuevas propiedades guardadas, {propiedades_omitidas} propiedades omitidas.")

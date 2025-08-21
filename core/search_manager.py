@@ -197,11 +197,13 @@ def procesar_keywords(texto: str) -> list:
 
 def create_search(data: Dict[str, Any]) -> Dict[str, Any]:
 	import datetime
+	print(f"[DEPURACIÓN] Creando nueva búsqueda con datos: {data}")
 	searches = load_searches()
 	raw_keywords = data.get('keywords', [])
 	if isinstance(raw_keywords, list):
 		raw_keywords = ' '.join(raw_keywords)
 	keywords = procesar_keywords(raw_keywords)
+	print(f"[DEPURACIÓN] Palabras clave procesadas: {keywords}")
 	# Los resultados y links visitados se inicializan vacíos
 	new_search = {
 		'id': str(uuid.uuid4()),
@@ -214,8 +216,10 @@ def create_search(data: Dict[str, Any]) -> Dict[str, Any]:
 		'enabled': data.get('enabled', True),
 		'platforms': data.get('platforms', ['mercadolibre']),
 	}
+	print(f"[DEPURACIÓN] Nueva búsqueda creada: {new_search}")
 	searches.append(new_search)
 	save_searches(searches)
+	print(f"[DEPURACIÓN] Búsqueda guardada. Total búsquedas: {len(searches)}")
 	return new_search
 
 def update_search(search_id: str, data: Dict[str, Any]) -> bool:

@@ -52,7 +52,7 @@
                 {% csrf_token %}
                 <div class="row g-3 mb-2">
                     <div class="col-md-12">
-                        <label for="keywords" class="form-label fw-bold">¿Qué estás buscando?</label>
+                        <label for="keywords" class="form-label fw-bold text-center">¿Qué estás buscando?</label>
                         {% if search_data %}
                         <input type="text" name="keywords" id="keywords" class="form-control form-control-lg" placeholder="Ej: parrillero, luminoso, cerca de la rambla..." value="{{ search_data.keywords|join:', ' }}">
                         {% else %}
@@ -60,16 +60,13 @@
                         {% endif %}
                     </div>
                 </div>
-                <div class="text-center mb-3">
-                    <button type="button" class="btn btn-secondary btn-sm" onclick="toggleFilters()">Filtros</button>
-                </div>
                 <div id="filter-container" class="collapsed">
                     <div class="row g-3 mb-2">
                         <div class="col-md-3">
                             <label for="departamento" class="form-label">Departamento</label>
                             <select name="departamento" id="departamento" class="form-select" onchange="mostrarCiudades()">
-                                <option>Montevideo</option>
                                 <option value="">Todos</option>
+                                <option>Montevideo</option>
                                 <option>Artigas</option>
                                 <option>Canelones</option>
                                 <option>Cerro Largo</option>
@@ -213,19 +210,108 @@
                             {% endif %}
                         </div>
                     </div>
+                    <div class="row g-3 mb-2">
+                        <div class="col-md-2">
+                            <label for="dormitorios_min" class="form-label">Dorm. min</label>
+                            <input type="number" min="0" name="dormitorios_min" id="dormitorios_min" class="form-control" placeholder="Ej: 2" value="{{ search_data.filters.dormitorios_min|default:'' }}">
+                        </div>
+                        <div class="col-md-2">
+                            <label for="dormitorios_max" class="form-label">Dorm. max</label>
+                            <input type="number" min="0" name="dormitorios_max" id="dormitorios_max" class="form-control" placeholder="Ej: 4" value="{{ search_data.filters.dormitorios_max|default:'' }}">
+                        </div>
+                        <div class="col-md-2">
+                            <label for="banos_min" class="form-label">Baños min</label>
+                            <input type="number" min="0" name="banos_min" id="banos_min" class="form-control" placeholder="Ej: 1" value="{{ search_data.filters.banos_min|default:'' }}">
+                        </div>
+                        <div class="col-md-2">
+                            <label for="banos_max" class="form-label">Baños max</label>
+                            <input type="number" min="0" name="banos_max" id="banos_max" class="form-control" placeholder="Ej: 3" value="{{ search_data.filters.banos_max|default:'' }}">
+                        </div>
+                        <div class="col-md-2">
+                            <label for="cocheras_min" class="form-label">Coch. min</label>
+                            <input type="number" min="0" name="cocheras_min" id="cocheras_min" class="form-control" placeholder="Ej: 1" value="{{ search_data.filters.cocheras_min|default:'' }}">
+                        </div>
+                        <div class="col-md-2">
+                            <label for="cocheras_max" class="form-label">Coch. max</label>
+                            <input type="number" min="0" name="cocheras_max" id="cocheras_max" class="form-control" placeholder="Ej: 2" value="{{ search_data.filters.cocheras_max|default:'' }}">
+                        </div>
+                    </div>
+                    <div class="row g-3 mb-2">
+                        <div class="col-md-3">
+                            <label for="antiguedad_min" class="form-label">Antigüedad min</label>
+                            <input type="number" min="0" name="antiguedad_min" id="antiguedad_min" class="form-control" placeholder="Ej: 0" value="{{ search_data.filters.antiguedad_min|default:'' }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="antiguedad_max" class="form-label">Antigüedad max</label>
+                            <input type="number" min="0" name="antiguedad_max" id="antiguedad_max" class="form-control" placeholder="Ej: 20" value="{{ search_data.filters.antiguedad_max|default:'' }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="superficie_total_min" class="form-label">Sup. total min</label>
+                            <input type="number" min="0" step="any" name="superficie_total_min" id="superficie_total_min" class="form-control" placeholder="Ej: 100" value="{{ search_data.filters.superficie_total_min|default:'' }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="superficie_total_max" class="form-label">Sup. total max</label>
+                            <input type="number" min="0" step="any" name="superficie_total_max" id="superficie_total_max" class="form-control" placeholder="Ej: 500" value="{{ search_data.filters.superficie_total_max|default:'' }}">
+                        </div>
+                    </div>
+                    <div class="row g-3 mb-2">
+                        <div class="col-md-3">
+                            <label for="superficie_cubierta_min" class="form-label">Sup. cubierta min</label>
+                            <input type="number" min="0" step="any" name="superficie_cubierta_min" id="superficie_cubierta_min" class="form-control" placeholder="Ej: 80" value="{{ search_data.filters.superficie_cubierta_min|default:'' }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="superficie_cubierta_max" class="form-label">Sup. cubierta max</label>
+                            <input type="number" min="0" step="any" name="superficie_cubierta_max" id="superficie_cubierta_max" class="form-control" placeholder="Ej: 300" value="{{ search_data.filters.superficie_cubierta_max|default:'' }}">
+                        </div>
+                    </div>
+                    <div class="row g-3 mb-2">
+                        <div class="col-12">
+                            <h6><b>Otras características</b></h6>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="checkbox" name="amoblado" id="amoblado" {% if search_data.filters.amoblado %}checked{% endif %}>
+                                <label class="form-check-label" for="amoblado">Amoblado</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="checkbox" name="terraza" id="terraza" {% if search_data.filters.terraza %}checked{% endif %}>
+                                <label class="form-check-label" for="terraza">Terraza</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="checkbox" name="aire_acondicionado" id="aire_acondicionado" {% if search_data.filters.aire_acondicionado %}checked{% endif %}>
+                                <label class="form-check-label" for="aire_acondicionado">Aire acondicionado</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="checkbox" name="piscina" id="piscina" {% if search_data.filters.piscina %}checked{% endif %}>
+                                <label class="form-check-label" for="piscina">Piscina</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="checkbox" name="jardin" id="jardin" {% if search_data.filters.jardin %}checked{% endif %}>
+                                <label class="form-check-label" for="jardin">Jardín</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="checkbox" name="ascensor" id="ascensor" {% if search_data.filters.ascensor %}checked{% endif %}>
+                                <label class="form-check-label" for="ascensor">Ascensor</label>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div class="row mb-3">
                     <div class="col-12 text-center">
-                        <div id="botones-busqueda">
-                            <button type="submit" class="btn btn-primary mx-2">Buscar</button>
-                            <button type="submit" name="guardar" value="1" class="btn btn-success mx-2">Buscar y Guardar</button>
+                        <div id="botones-busqueda" class="d-flex justify-content-center flex-wrap">
+                            <button type="button" class="btn btn-secondary mx-2 mb-2" onclick="toggleFilters()">Filtros</button>
+                            <button type="submit" class="btn btn-primary mx-2 mb-2">Buscar</button>
+                            <button type="submit" name="guardar" value="1" class="btn btn-success mx-2 mb-2">Buscar y Guardar</button>
                         </div>
-                        <div id="boton-detener" style="display:none;">
+                        <div id="boton-detener" style="display:none;" class="mt-2">
                             <button type="button" class="btn btn-warning mx-2" onclick="detenerBusqueda()">Detener búsqueda</button>
                         </div>
                     </div>
                 </div>
             </form>
+        </div>
+
+        <div id="search-progress" class="card p-4 shadow-sm mb-4" style="display:none;">
+            <h3 class="mb-3">Progreso de la búsqueda</h3>
+            <p><strong>Búsqueda actual:</strong> <span id="current-search-item">Iniciando...</span></p>
         </div>
 
         {% if results is not None %}
@@ -295,6 +381,11 @@
         document.getElementById('botones-busqueda').style.display = 'none';
         document.getElementById('boton-detener').style.display = 'block';
         document.getElementById('filter-container').classList.add('collapsed');
+
+        // Mostrar y resetear solo la sección de progreso simplificada
+        const searchProgressDiv = document.getElementById('search-progress');
+        searchProgressDiv.style.display = 'block';
+        document.getElementById('current-search-item').textContent = 'Iniciando...';
     }
 
     function finalizarBusqueda() {
@@ -306,7 +397,7 @@
     }
 
     function detenerBusqueda() {
-        fetch('/detener-busqueda/', {method: 'POST', headers: {'X-CSRFToken': '{{ csrf_token }}'}})
+        fetch('/detener_busqueda/', {method: 'POST', headers: {'X-CSRFToken': '{{ csrf_token }}'}})
             .then(() => {
                 finalizarBusqueda();
             });
@@ -314,9 +405,82 @@
 
     document.addEventListener('DOMContentLoaded', function() {
         mostrarCiudades();
+        
+        // WebSocket setup PRIMERO
+        const searchProgressSocket = new WebSocket(
+            'ws://' +
+            window.location.host +
+            '/ws/search_progress/'
+        );
+
+        const searchProgressDiv = document.getElementById('search-progress');
+        const currentSearchItemSpan = document.getElementById('current-search-item');
+
+        searchProgressSocket.onmessage = function(e) {
+            const data = JSON.parse(e.data);
+            const message = data.message;
+
+            searchProgressDiv.style.display = 'block'; // Show progress div
+
+            // Manejar tanto objetos como strings en el mensaje
+            if (typeof message === 'object') {
+                if (message.current_search_item !== undefined && message.current_search_item !== null) {
+                    currentSearchItemSpan.textContent = message.current_search_item;
+                }
+                if (message.final_message !== undefined && message.final_message !== null) {
+                    currentSearchItemSpan.textContent = message.final_message;
+                    searchProgressDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    finalizarBusqueda(); // Call finalizarBusqueda when search is done
+                }
+            } else if (typeof message === 'string') {
+                // Manejar mensajes de string simples (para compatibilidad)
+                currentSearchItemSpan.textContent = message;
+                // Si el mensaje indica finalización, finalizar búsqueda
+                if (message.includes('finalizada') || message.includes('detenida') || message.includes('Error')) {
+                    searchProgressDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    finalizarBusqueda();
+                }
+            }
+        };
+
+        searchProgressSocket.onclose = function(e) {
+            console.error('Search progress socket closed unexpectedly', e);
+            finalizarBusqueda();
+        };
+
+        searchProgressSocket.onerror = function(e) {
+            console.error('Search progress socket error', e);
+            finalizarBusqueda();
+        };
+        
+        // Configurar formulario DESPUÉS de definir el WebSocket
         var form = document.querySelector('form');
         form.addEventListener('submit', function(e) {
+            e.preventDefault(); // Evita la recarga de la página
             iniciarBusqueda();
+            // Recolectar datos del formulario
+            const formData = new FormData(form);
+            let texto = '';
+            const filtros = {};
+            for (const [key, value] of formData.entries()) {
+                if (key === 'csrfmiddlewaretoken') continue;
+                if (key === 'keywords') {
+                    texto = value;
+                } else if (value !== '') {
+                    filtros[key] = value;
+                }
+            }
+            const payload = {
+                texto: texto,
+                filtros: filtros
+            };
+            // Enviar por WebSocket
+            if (searchProgressSocket.readyState === WebSocket.OPEN) {
+                console.log('🚀 [FRONTEND] Enviando búsqueda por WebSocket:', payload);
+                searchProgressSocket.send(JSON.stringify(payload));
+            } else {
+                console.warn('❌ [FRONTEND] WebSocket no está abierto, estado:', searchProgressSocket.readyState);
+            }
         });
     });
     </script>
