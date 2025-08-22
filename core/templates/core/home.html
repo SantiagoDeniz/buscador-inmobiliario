@@ -60,6 +60,15 @@
                         {% endif %}
                     </div>
                 </div>
+                <div class="row mb-3 justify-content-center">
+                    <div class="col-12 d-flex justify-content-center align-items-center flex-wrap gap-2" id="botones-busqueda">
+                        <button type="button" class="btn btn-secondary mx-1" onclick="toggleFilters()">Filtros</button>
+                        <button type="submit" class="btn btn-primary mx-1">Buscar</button>
+                        <button type="submit" name="guardar" value="1" class="btn btn-success mx-1">Buscar y Guardar</button>
+                        <input type="text" name="name" id="name" class="form-control me-2" style="max-width: 200px;" placeholder="Título para la búsqueda"
+                            {% if search_data %} value="{{ search_data.name }}" {% endif %}>
+                    </div>
+                </div>
                 <div id="filter-container" class="collapsed">
                     <div class="row g-3 mb-2">
                         <div class="col-md-3">
@@ -296,11 +305,6 @@
                 </div>
                 <div class="row mb-3">
                     <div class="col-12 text-center">
-                        <div id="botones-busqueda" class="d-flex justify-content-center flex-wrap">
-                            <button type="button" class="btn btn-secondary mx-2 mb-2" onclick="toggleFilters()">Filtros</button>
-                            <button type="submit" class="btn btn-primary mx-2 mb-2">Buscar</button>
-                            <button type="submit" name="guardar" value="1" class="btn btn-success mx-2 mb-2">Buscar y Guardar</button>
-                        </div>
                         <div id="boton-detener" style="display:none;" class="mt-2">
                             <button type="button" class="btn btn-warning mx-2" onclick="detenerBusqueda()">Detener búsqueda</button>
                         </div>
@@ -310,8 +314,13 @@
         </div>
 
         <div id="search-progress" class="card p-4 shadow-sm mb-4" style="display:none;">
-            <h3 class="mb-3">Progreso de la búsqueda</h3>
-            <p><strong>Búsqueda actual:</strong> <span id="current-search-item">Iniciando...</span></p>
+            <h3 class="mb-3" id="progress-title">Progreso de la búsqueda</h3>
+            <p id="progress-status"><strong>Estado:</strong> <span id="current-search-item">Iniciando...</span></p>
+            <div id="results-list" style="display:none;">
+                <ul class="list-group" id="matched-properties-list">
+                    <!-- Los resultados se llenarán dinámicamente -->
+                </ul>
+            </div>
         </div>
 
         {% if results is not None %}
@@ -382,10 +391,10 @@
         document.getElementById('boton-detener').style.display = 'block';
         document.getElementById('filter-container').classList.add('collapsed');
 
-        // Mostrar y resetear solo la sección de progreso simplificada
+        // Mostrar y resetear la sección de progreso
         const searchProgressDiv = document.getElementById('search-progress');
         searchProgressDiv.style.display = 'block';
-        document.getElementById('current-search-item').textContent = 'Iniciando...';
+        resetProgressView(); // Resetear a vista de progreso
     }
 
     function finalizarBusqueda() {
@@ -401,6 +410,52 @@
             .then(() => {
                 finalizarBusqueda();
             });
+    }
+
+    function updateMatchedPublications(matchedPublications) {
+        const resultsList = document.getElementById('matched-properties-list');
+        resultsList.innerHTML = ''; // Limpiar lista anterior
+        
+        matchedPublications.forEach(publication => {
+            const li = document.createElement('li');
+            li.className = 'list-group-item animate__animated animate__fadeInUp';
+            li.innerHTML = `<a href="${publication.url}" target="_blank" class="fw-bold text-decoration-none">${publication.title}</a>`;
+            resultsList.appendChild(li);
+        });
+    }
+
+    function showResults(matchedPublications) {
+        const progressTitle = document.getElementById('progress-title');
+        const progressStatus = document.getElementById('progress-status');
+        const resultsList = document.getElementById('results-list');
+        
+        // Cambiar título y ocultar estado de progreso
+        const count = matchedPublications ? matchedPublications.length : 0;
+        progressTitle.textContent = `Resultados encontrados: ${count}`;
+        progressStatus.style.display = 'none';
+        
+        // Mostrar lista de resultados
+        if (matchedPublications && matchedPublications.length > 0) {
+            updateMatchedPublications(matchedPublications);
+            resultsList.style.display = 'block';
+        } else {
+            // Mostrar mensaje cuando no hay resultados
+            const resultsList = document.getElementById('matched-properties-list');
+            resultsList.innerHTML = '<li class="list-group-item">No se encontraron propiedades con los criterios seleccionados.</li>';
+            document.getElementById('results-list').style.display = 'block';
+        }
+    }
+
+    function resetProgressView() {
+        const progressTitle = document.getElementById('progress-title');
+        const progressStatus = document.getElementById('progress-status');
+        const resultsList = document.getElementById('results-list');
+        
+        // Restaurar vista de progreso
+        progressTitle.textContent = 'Progreso de la búsqueda';
+        progressStatus.style.display = 'block';
+        resultsList.style.display = 'none';
+        document.getElementById('current-search-item').textContent = 'Iniciando...';
     }
 
     document.addEventListener('DOMContentLoaded', function() {
@@ -419,6 +474,7 @@
         searchProgressSocket.onmessage = function(e) {
             const data = JSON.parse(e.data);
             const message = data.message;
+            console.log('🔍 [DEBUG] Mensaje recibido:', message); // Debug
 
             searchProgressDiv.style.display = 'block'; // Show progress div
 
@@ -427,8 +483,17 @@
                 if (message.current_search_item !== undefined && message.current_search_item !== null) {
                     currentSearchItemSpan.textContent = message.current_search_item;
                 }
+                
+                // Actualizar lista de publicaciones coincidentes durante la búsqueda
+                if (message.matched_publications && Array.isArray(message.matched_publications)) {
+                    console.log('📝 [DEBUG] Publicaciones coincidentes:', message.matched_publications); // Debug
+                    updateMatchedPublications(message.matched_publications);
+                }
+                
                 if (message.final_message !== undefined && message.final_message !== null) {
-                    currentSearchItemSpan.textContent = message.final_message;
+                    console.log('🎯 [DEBUG] Mensaje final con publicaciones:', message.matched_publications); // Debug
+                    // Cambiar a vista de resultados
+                    showResults(message.matched_publications || []);
                     searchProgressDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
                     finalizarBusqueda(); // Call finalizarBusqueda when search is done
                 }
@@ -437,6 +502,7 @@
                 currentSearchItemSpan.textContent = message;
                 // Si el mensaje indica finalización, finalizar búsqueda
                 if (message.includes('finalizada') || message.includes('detenida') || message.includes('Error')) {
+                    showResults([]);
                     searchProgressDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
                     finalizarBusqueda();
                 }

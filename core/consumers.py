@@ -174,7 +174,10 @@ class SearchProgressConsumer(WebsocketConsumer):
 
     def send_progress(self, event):
         message = event['message']
-        print(f'📡 [WEBSOCKET] Enviando a cliente: {message.get("current_search_item", "Sin mensaje")[:100]}{"..." if len(str(message.get("current_search_item", ""))) > 100 else ""}')
+        msg = message.get("current_search_item", "Sin mensaje")
+        if msg is None:
+            msg = "Sin mensaje"
+        print(f'📡 [WEBSOCKET] Enviando a cliente: {msg[:100]}{"..." if len(str(msg)) > 100 else ""}')
         if message.get("total_found"):
             print(f'📊 [WEBSOCKET] Total encontrado: {message["total_found"]:,}')
         self.send(text_data=json.dumps({

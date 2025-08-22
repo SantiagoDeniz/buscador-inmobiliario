@@ -576,6 +576,11 @@ def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, work
     print(f"🚀 [RUN_SCRAPER] Keywords: {keywords}")
     print(f"⚠️  [MODO SECUENCIAL] Usando {workers_fase1} worker(s) por fase")
     
+    # Procesar keywords usando la función centralizada
+    from core.search_manager import procesar_keywords
+    keywords_filtradas = procesar_keywords(' '.join(keywords)) if keywords else []
+    print(f"🚀 [RUN_SCRAPER] Keywords filtradas: {keywords_filtradas}")
+    
     USE_THREADS = False  # Cambia a True para habilitar hilos y ScrapingBee
     
     # Solo verificar API key si se van a usar hilos (ScrapingBee)
@@ -679,32 +684,54 @@ def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, work
             mapa_futuros = {executor.submit(scrape_detalle_con_requests, url, API_KEY, USE_THREADS): url for url in urls_lista}
             for i, futuro in enumerate(concurrent.futures.as_completed(mapa_futuros)):
                 url_original = mapa_futuros[futuro]
-                print(f"Procesando resultado {i+1}/{len(urls_lista)}...")
-                
+                print(f"Procesando resultado {i+1}/{len(urls_lista)}: {url_original}")
+
                 try:
                     if datos_propiedad := futuro.result():
                         # Extraer título para mostrar en progreso
                         titulo_propiedad = datos_propiedad.get('titulo', 'Sin título')
-                        
-                        # Mostrar progreso con formato "Búsqueda actual (a/total_ml): Título" 
-                        if total_ml:
-                            send_progress_update(current_search_item=f"Búsqueda actual ({i+1}/{total_ml:,}): {titulo_propiedad}")
+                        descripcion = datos_propiedad.get('descripcion', '').lower()
+                        caracteristicas = datos_propiedad.get('caracteristicas_texto', '').lower()
+                        texto_total = f"{titulo_propiedad.lower()} {descripcion} {caracteristicas}"
+
+                        cumple = True
+                        if keywords_filtradas:
+                            # Normaliza y verifica si todas las keywords están presentes
+                            import unicodedata
+                            def normalizar(texto):
+                                return unicodedata.normalize('NFKD', texto).encode('ASCII', 'ignore').decode('ASCII').lower()
+                            keywords_norm = [normalizar(kw) for kw in keywords_filtradas]
+                            texto_total_norm = normalizar(texto_total)
+                            cumple = all(kw in texto_total_norm for kw in keywords_norm)
+                            if cumple:
+                                print(f"✅ Coincide: {titulo_propiedad}")
+                                send_progress_update(current_search_item=f"✅ Coincide: {titulo_propiedad}")
+                            else:
+                                print(f"❌ No coincide: {titulo_propiedad}")
+                                send_progress_update(current_search_item=f"❌ No coincide: {titulo_propiedad}")
                         else:
-                            send_progress_update(current_search_item=f"Procesando publicación {i+1}/{len(urls_lista)}: {titulo_propiedad}")
-                        
-                        # --- MEJORAR CON DATOS DE LOS FILTROS ---
-                        # Pre-rellenamos con los datos que ya conocemos de los filtros
-                        datos_propiedad['operacion'] = filters.get('operacion', 'venta')
-                        datos_propiedad['departamento'] = filters.get('departamento', filters.get('ciudad', 'N/A'))
-                        
-                        # Si el scraper no encontró un tipo de inmueble, usamos el de los filtros
-                        if not datos_propiedad.get('tipo_inmueble'):
-                           datos_propiedad['tipo_inmueble'] = filters.get('tipo', 'N/A')
-                        
-                        Propiedad.objects.create(**datos_propiedad)
-                        nuevas_propiedades_guardadas += 1
-                        # For run_scraper, we don't have keywords to match, so all saved are 'matched'
-                        matched_publications_titles.append({'title': datos_propiedad.get('titulo', url_original), 'url': url_original})
+                            # Mostrar progreso con formato "Búsqueda actual (a/total_ml): Título" 
+                            if total_ml:
+                                send_progress_update(current_search_item=f"Búsqueda actual ({i+1}/{total_ml:,}): {titulo_propiedad}")
+                            else:
+                                send_progress_update(current_search_item=f"Procesando publicación {i+1}/{len(urls_lista)}: {titulo_propiedad}")
+
+                        if cumple:
+                            # --- MEJORAR CON DATOS DE LOS FILTROS ---
+                            # Pre-rellenamos con los datos que ya conocemos de los filtros
+                            datos_propiedad['operacion'] = filters.get('operacion', 'venta')
+                            datos_propiedad['departamento'] = filters.get('departamento', filters.get('ciudad', 'N/A'))
+                            
+                            # Si el scraper no encontró un tipo de inmueble, usamos el de los filtros
+                            if not datos_propiedad.get('tipo_inmueble'):
+                               datos_propiedad['tipo_inmueble'] = filters.get('tipo', 'N/A')
+                            
+                            Propiedad.objects.create(**datos_propiedad)
+                            nuevas_propiedades_guardadas += 1
+                            matched_publications_titles.append({'title': datos_propiedad.get('titulo', url_original), 'url': url_original})
+                            
+                            # Enviar actualización con las publicaciones coincidentes actuales
+                            send_progress_update(matched_publications=matched_publications_titles)
                     else:
                         # Cuando no se pueden extraer datos, aún mostrar progreso
                         if total_ml:
@@ -715,4 +742,7 @@ def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, work
                     print(f'URL {url_original[:50]}... generó una excepción al guardar: {exc}')
 
     print("\n--- RESUMEN ---")
-    send_progress_update(final_message=f"✅ Búsqueda completada. Resumen: {nuevas_propiedades_guardadas} nuevas propiedades guardadas.")
+    send_progress_update(
+        final_message=f"✅ Búsqueda completada. Resumen: {nuevas_propiedades_guardadas} nuevas propiedades guardadas.",
+        matched_publications=matched_publications_titles
+    )
