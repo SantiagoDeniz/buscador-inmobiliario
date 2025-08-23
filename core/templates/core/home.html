@@ -462,11 +462,13 @@
         mostrarCiudades();
         
         // WebSocket setup PRIMERO
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const searchProgressSocket = new WebSocket(
-            'ws://' +
+            protocol + '//' +
             window.location.host +
             '/ws/search_progress/'
         );
+        console.log('🔌 [WebSocket] Conectando a:', protocol + '//' + window.location.host + '/ws/search_progress/');
 
         const searchProgressDiv = document.getElementById('search-progress');
         const currentSearchItemSpan = document.getElementById('current-search-item');
@@ -509,13 +511,23 @@
             }
         };
 
+        searchProgressSocket.onopen = function(e) {
+            console.log('✅ [WebSocket] Conectado exitosamente');
+        };
+
         searchProgressSocket.onclose = function(e) {
-            console.error('Search progress socket closed unexpectedly', e);
+            console.error('❌ [WebSocket] Conexión cerrada:', e.code, e.reason);
             finalizarBusqueda();
+            // Mostrar mensaje de error al usuario
+            const searchProgressDiv = document.getElementById('search-progress');
+            const currentSearchItemSpan = document.getElementById('current-search-item');
+            if (searchProgressDiv.style.display !== 'none') {
+                currentSearchItemSpan.textContent = 'Error de conexión. La búsqueda puede no funcionar correctamente en este servidor.';
+            }
         };
 
         searchProgressSocket.onerror = function(e) {
-            console.error('Search progress socket error', e);
+            console.error('🔥 [WebSocket] Error de conexión:', e);
             finalizarBusqueda();
         };
         
@@ -546,6 +558,11 @@
                 searchProgressSocket.send(JSON.stringify(payload));
             } else {
                 console.warn('❌ [FRONTEND] WebSocket no está abierto, estado:', searchProgressSocket.readyState);
+                // Fallback: mostrar mensaje de error
+                document.getElementById('current-search-item').textContent = 'Error: No se pudo establecer conexión en tiempo real. WebSockets no disponibles.';
+                setTimeout(() => {
+                    finalizarBusqueda();
+                }, 3000);
             }
         });
     });
