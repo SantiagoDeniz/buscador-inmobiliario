@@ -9,16 +9,29 @@ class SearchProgressConsumer(WebsocketConsumer):
         self.room_group_name = 'search_progress'
 
     def connect(self):
-        print('[DEPURACIÓN] WebSocket conectado')
-        # Unirse al grupo para recibir actualizaciones del scraper
-        from channels.layers import get_channel_layer
-        from asgiref.sync import async_to_sync
-        channel_layer = get_channel_layer()
-        async_to_sync(channel_layer.group_add)(
-            self.room_group_name,
-            self.channel_name
-        )
-        self.accept()
+        print('[🔌 WEBSOCKET] Cliente conectando...')
+        try:
+            # Unirse al grupo para recibir actualizaciones del scraper
+            from channels.layers import get_channel_layer
+            from asgiref.sync import async_to_sync
+            channel_layer = get_channel_layer()
+            
+            # Verificar que channel_layer esté disponible
+            if channel_layer is None:
+                print('[❌ WEBSOCKET] Channel layer no disponible')
+                self.close()
+                return
+            
+            async_to_sync(channel_layer.group_add)(
+                self.room_group_name,
+                self.channel_name
+            )
+            self.accept()
+            print('[✅ WEBSOCKET] Cliente conectado exitosamente')
+            
+        except Exception as e:
+            print(f'[❌ WEBSOCKET] Error al conectar: {e}')
+            self.close()
 
     def disconnect(self, close_code):
         print(f'[DEPURACIÓN] WebSocket desconectado. Código: {close_code}')

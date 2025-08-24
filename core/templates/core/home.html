@@ -557,12 +557,34 @@
                 console.log('🚀 [FRONTEND] Enviando búsqueda por WebSocket:', payload);
                 searchProgressSocket.send(JSON.stringify(payload));
             } else {
-                console.warn('❌ [FRONTEND] WebSocket no está abierto, estado:', searchProgressSocket.readyState);
-                // Fallback: mostrar mensaje de error
-                document.getElementById('current-search-item').textContent = 'Error: No se pudo establecer conexión en tiempo real. WebSockets no disponibles.';
-                setTimeout(() => {
+                console.warn('❌ [FRONTEND] WebSocket no está abierto, usando fallback HTTP');
+                // Fallback HTTP
+                document.getElementById('current-search-item').textContent = 'Iniciando búsqueda por HTTP (WebSockets no disponibles)...';
+                
+                fetch('/http_search_fallback/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify(payload)
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        console.log('✅ [HTTP FALLBACK] Búsqueda completada:', data);
+                        showResults(data.matched_publications || []);
+                    } else {
+                        console.error('❌ [HTTP FALLBACK] Error:', data.error);
+                        document.getElementById('current-search-item').textContent = `Error: ${data.error}`;
+                    }
                     finalizarBusqueda();
-                }, 3000);
+                })
+                .catch(error => {
+                    console.error('❌ [HTTP FALLBACK] Error de red:', error);
+                    document.getElementById('current-search-item').textContent = 'Error de conexión';
+                    finalizarBusqueda();
+                });
             }
         });
     });

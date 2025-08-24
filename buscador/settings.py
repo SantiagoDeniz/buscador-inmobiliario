@@ -75,14 +75,40 @@ WSGI_APPLICATION = 'buscador.wsgi.application'
 
 ASGI_APPLICATION = 'buscador.asgi.application'
 
-CHANNEL_LAYERS = {
-    'default': {
-        'BACKEND': 'channels_redis.core.RedisChannelLayer',
-        'CONFIG': {
-            'hosts': [os.environ.get('REDIS_URL', 'redis://127.0.0.1:6379')],
+import ssl
+
+# Configuración de Channel Layers con soporte para Upstash
+redis_url = os.environ.get('REDIS_URL')
+
+if redis_url:
+    # Configuración para Redis externo (como Upstash)
+    if 'upstash.io' in redis_url:
+        CHANNEL_LAYERS = {
+            'default': {
+                'BACKEND': 'channels_redis.core.RedisChannelLayer',
+                'CONFIG': {
+                    'hosts': [redis_url],
+                    'ssl_cert_reqs': ssl.CERT_NONE,  # Para conexiones SSL de Upstash
+                },
+            },
+        }
+    else:
+        # Configuración para Redis local o sin SSL
+        CHANNEL_LAYERS = {
+            'default': {
+                'BACKEND': 'channels_redis.core.RedisChannelLayer',
+                'CONFIG': {
+                    'hosts': [redis_url],
+                },
+            },
+        }
+else:
+    # Fallback to in-memory channel layer si Redis no está disponible
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels.layers.InMemoryChannelLayer',
         },
-    },
-}
+    }
 
 
 # Database

@@ -1,9 +1,10 @@
 from django.shortcuts import render
-from django.http import JsonResponse
+from django.http import JsonResponse, StreamingHttpResponse
 from django.template.loader import render_to_string
 from django.views.decorators.http import require_POST
+from django.views.decorators.csrf import csrf_exempt
 from asgiref.sync import async_to_sync, sync_to_async
-import os, json, threading
+import os, json, threading, time
 import google.generativeai as genai
 from dotenv import load_dotenv
 
@@ -199,3 +200,101 @@ def unregister_active_search(search_id):
         if search_id in active_searches:
             del active_searches[search_id]
             print(f"[DEPURACIÓN] Búsqueda {search_id} desregistrada")
+
+@csrf_exempt
+@require_POST
+def http_search_fallback(request):
+    """Fallback HTTP para búsquedas cuando WebSockets no funcionan"""
+    try:
+        data = json.loads(request.body)
+        texto = data.get('texto', '')
+        filtros = data.get('filtros', {})
+        
+        print(f"[HTTP FALLBACK] Iniciando búsqueda HTTP: {texto}")
+        
+        # Simular la búsqueda (esto debería ejecutar tu scraper)
+        # Por ahora, retornamos un resultado de prueba
+        
+        # Aquí deberías llamar a tu función de scraping
+        from .scraper import run_scraper
+        from .search_manager import procesar_keywords
+        
+        keywords = procesar_keywords(texto) if texto else []
+        
+        # Ejecutar scraper (esto puede tomar tiempo)
+        run_scraper(filtros, keywords, max_paginas=3, workers_fase1=1, workers_fase2=1)
+        
+        # Obtener resultados de la base de datos
+        from .models import Propiedad
+        propiedades = Propiedad.objects.order_by('-id')[:20]  # Últimas 20
+        
+        resultados = []
+        for prop in propiedades:
+            if texto:  # Si hay texto de búsqueda, filtrar por keywords
+                import unicodedata
+                def normalizar(texto):
+                    return unicodedata.normalize('NFKD', texto).encode('ASCII', 'ignore').decode('ASCII').lower()
+                
+                texto_propiedad = f"{prop.titulo} {prop.descripcion} {prop.caracteristicas_texto}".lower()
+                texto_norm = normalizar(texto_propiedad)
+                keywords_norm = [normalizar(kw) for kw in keywords]
+                
+                if all(kw in texto_norm for kw in keywords_norm):
+                    resultados.append({
+                        'title': prop.titulo,
+                        'url': prop.url_publicacion
+                    })
+            else:
+                resultados.append({
+                    'title': prop.titulo,
+                    'url': prop.url_publicacion
+                })
+        
+        return JsonResponse({
+            'success': True,
+            'matched_publications': resultados[:10],  # Limitar a 10 para no sobrecargar
+            'total': len(resultados)
+        })
+        
+    except Exception as e:
+        print(f"[HTTP FALLBACK] Error: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e),
+            'matched_publications': []
+        })
+
+def redis_diagnostic(request):
+    """Vista de diagnóstico para verificar Redis y WebSockets"""
+    try:
+        from channels.layers import get_channel_layer
+        import os
+        
+        channel_layer = get_channel_layer()
+        redis_url = os.environ.get('REDIS_URL', 'No configurada')
+        
+        diagnostics = {
+            'redis_url': redis_url[:50] + '...' if len(redis_url) > 50 else redis_url,
+            'channel_layer': str(type(channel_layer)) if channel_layer else None,
+            'channel_layer_available': channel_layer is not None,
+        }
+        
+        # Intentar una operación simple con channel_layer
+        if channel_layer:
+            try:
+                from asgiref.sync import async_to_sync
+                async_to_sync(channel_layer.group_send)("test_group", {
+                    "type": "test_message",
+                    "message": "test"
+                })
+                diagnostics['channel_layer_test'] = 'SUCCESS'
+            except Exception as e:
+                diagnostics['channel_layer_test'] = f'ERROR: {str(e)}'
+        
+        return JsonResponse(diagnostics)
+        
+    except Exception as e:
+        return JsonResponse({
+            'error': str(e),
+            'redis_url': os.environ.get('REDIS_URL', 'No configurada')[:50] + '...'
+        })
