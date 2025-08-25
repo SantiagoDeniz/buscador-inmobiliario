@@ -548,7 +548,19 @@ def extraer_total_resultados_mercadolibre(url_base_con_filtros):
     Extrae el número total de resultados de MercadoLibre desde la primera página de resultados
     Primero intenta con requests, si falla usa Chrome como fallback
     """
-    print(f"🔍 [TOTAL ML] Iniciando extracción para URL: {url_base_con_filtros[:100]}...")
+    print(f"🔍 [TOTAL ML] Iniciando extracción para URL: {url_base_con_filtros}")
+    
+    # Test: Verificar la URL primero
+    print(f"🔗 [URL TEST] URL completa: {url_base_con_filtros}")
+    
+    # Test de conectividad básica
+    try:
+        print("🌐 [CONECTIVIDAD] Probando acceso básico a MercadoLibre...")
+        test_response = requests.get("https://www.mercadolibre.com.uy/", headers=HEADERS, timeout=10)
+        print(f"✅ [CONECTIVIDAD] MercadoLibre accesible - Status: {test_response.status_code}")
+    except Exception as e:
+        print(f"❌ [CONECTIVIDAD] No se puede acceder a MercadoLibre: {e}")
+        return None
     
     # Primera tentativa: Usar requests (más rápido y menos detectable)
     try:
@@ -562,6 +574,11 @@ def extraer_total_resultados_mercadolibre(url_base_con_filtros):
         print(f"📡 [TOTAL ML] Solicitando: {url_primera_pagina}")
         
         response = requests.get(url_primera_pagina, headers=HEADERS, timeout=15)
+        
+        print(f"📊 [TOTAL ML] Status code: {response.status_code}")
+        print(f"📊 [TOTAL ML] Response headers: {dict(response.headers)}")
+        print(f"📊 [TOTAL ML] Response length: {len(response.text)}")
+        print(f"📊 [TOTAL ML] First 500 chars: {response.text[:500]}")
         
         if response.status_code == 200:
             html_content = response.text
@@ -627,16 +644,18 @@ def extraer_total_resultados_mercadolibre(url_base_con_filtros):
         
         # Verificar que la página se cargó correctamente
         page_title = driver.title
+        current_url = driver.current_url
+        page_source_length = len(driver.page_source)
         print(f"📄 [TOTAL ML] Título de página: {page_title}")
+        print(f"🔗 [TOTAL ML] URL actual: {current_url}")
+        print(f"📏 [TOTAL ML] Longitud del HTML: {page_source_length}")
         
-        if "mercadolibre" not in page_title.lower():
+        # Mostrar primeros 1000 caracteres del HTML para debugging
+        page_preview = driver.page_source[:1000]
+        print(f"📄 [TOTAL ML] Previsualización HTML: {page_preview}")
+        
+        if "mercadolibre" not in page_title.lower() and "mercadolibre" not in current_url.lower():
             print("❌ [TOTAL ML] La página no parece ser de MercadoLibre")
-            # Intentar obtener el contenido de la página para debug
-            try:
-                page_source_preview = driver.page_source[:500]
-                print(f"📄 [TOTAL ML] Preview del contenido: {page_source_preview}")
-            except:
-                pass
             return None
         
         # Buscar el elemento que contiene el total de resultados
