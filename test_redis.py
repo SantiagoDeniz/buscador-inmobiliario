@@ -5,6 +5,10 @@ Script de prueba para verificar la conexión Redis en Render
 import os
 import sys
 import django
+from dotenv import load_dotenv
+
+# Cargar variables de entorno ANTES de configurar Django
+load_dotenv()
 
 # Configurar Django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'buscador.settings')

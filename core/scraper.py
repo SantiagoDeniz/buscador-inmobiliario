@@ -45,24 +45,29 @@ def send_progress_update(total_found=None, estimated_time=None, current_search_i
     if final_message:
         print(f'✅ [PROGRESO] FINAL: {final_message}')
     
-    channel_layer = get_channel_layer()
-    if channel_layer is None:
-        print("Warning: Channel layer is not available. Skipping real-time update.")
-        return
-    async_to_sync(channel_layer.group_send)(
-        "search_progress",
-        {
-            "type": "send_progress",
-            "message": {
-                "total_found": total_found,
-                "estimated_time": estimated_time,
-                "current_search_item": current_search_item,
-                "matched_publications": matched_publications,
-                "final_message": final_message,
-                "page_items_found": page_items_found, # Nuevo parámetro
+    try:
+        channel_layer = get_channel_layer()
+        if channel_layer is None:
+            print("⚠️ [PROGRESO] Channel layer no disponible. Usando solo logs.")
+            return
+        
+        async_to_sync(channel_layer.group_send)(
+            "search_progress",
+            {
+                "type": "send_progress",
+                "message": {
+                    "total_found": total_found,
+                    "estimated_time": estimated_time,
+                    "current_search_item": current_search_item,
+                    "matched_publications": matched_publications,
+                    "final_message": final_message,
+                    "page_items_found": page_items_found, # Nuevo parámetro
+                }
             }
-        }
-    )
+        )
+    except Exception as e:
+        print(f"⚠️ [PROGRESO] Error enviando actualización WebSocket: {e}")
+        print("⚠️ [PROGRESO] Continuando con solo logs...")
 
 try:
     from selenium_stealth import stealth

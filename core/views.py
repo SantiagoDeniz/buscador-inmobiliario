@@ -208,21 +208,39 @@ def http_search_fallback(request):
     try:
         data = json.loads(request.body)
         texto = data.get('texto', '')
-        filtros = data.get('filtros', {})
+        filtros_manual = data.get('filtros', {})
         
         print(f"[HTTP FALLBACK] Iniciando búsqueda HTTP: {texto}")
         
-        # Simular la búsqueda (esto debería ejecutar tu scraper)
-        # Por ahora, retornamos un resultado de prueba
+        # USAR IA como en el WebSocket consumer
+        print('🤖 [HTTP FALLBACK] Procesando texto con IA...')
+        try:
+            ia_result = async_to_sync(analyze_query_with_ia)(texto)
+            print(f'🤖 [HTTP FALLBACK] Resultado IA: {ia_result}')
+            
+            # Fusionar filtros como en el consumer
+            filtros_ia = ia_result.get('filters', {})
+            filtros_final = filtros_manual.copy()
+            for k, v in filtros_ia.items():
+                filtros_final[k] = v  # Prioriza IA
+            
+            keywords = ia_result.get('keywords', [])
+            if isinstance(keywords, str):
+                keywords = [keywords] if keywords else []
+                
+            print(f'🎚️ [HTTP FALLBACK] Filtros fusionados: {filtros_final}')
+            print(f'🔍 [HTTP FALLBACK] Keywords de IA: {keywords}')
+            
+        except Exception as e:
+            print(f'🤖 [HTTP FALLBACK] Error procesando con IA: {e}')
+            # Fallback al procesamiento básico
+            from .search_manager import procesar_keywords
+            keywords = procesar_keywords(texto) if texto else []
+            filtros_final = filtros_manual
         
-        # Aquí deberías llamar a tu función de scraping
+        # Ejecutar scraper con los filtros y keywords procesados
         from .scraper import run_scraper
-        from .search_manager import procesar_keywords
-        
-        keywords = procesar_keywords(texto) if texto else []
-        
-        # Ejecutar scraper (esto puede tomar tiempo)
-        run_scraper(filtros, keywords, max_paginas=3, workers_fase1=1, workers_fase2=1)
+        run_scraper(filtros_final, keywords, max_paginas=2, workers_fase1=1, workers_fase2=1)
         
         # Obtener resultados de la base de datos
         from .models import Propiedad

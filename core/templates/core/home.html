@@ -51,8 +51,8 @@
             <form method="post" action="" autocomplete="off">
                 {% csrf_token %}
                 <div class="row g-3 mb-2">
-                    <div class="col-md-12">
-                        <label for="keywords" class="form-label fw-bold text-center">¿Qué estás buscando?</label>
+                    <div class="col-md-12 text-center">
+                        <label for="keywords" class="form-label fw-bold">¿Qué estás buscando?</label>
                         {% if search_data %}
                         <input type="text" name="keywords" id="keywords" class="form-control form-control-lg" placeholder="Ej: parrillero, luminoso, cerca de la rambla..." value="{{ search_data.keywords|join:', ' }}">
                         {% else %}

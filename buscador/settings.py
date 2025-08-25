@@ -16,6 +16,22 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 import os
 from pathlib import Path
 
+# Cargar variables de entorno desde archivo .env si existe
+try:
+    from dotenv import load_dotenv
+    dotenv_path = Path(__file__).resolve().parent.parent / '.env'
+    if dotenv_path.exists():
+        load_dotenv(dotenv_path)
+        print(f"[ENV] Archivo .env cargado desde: {dotenv_path}")
+    else:
+        # Intentar cargar .env.redis para desarrollo local
+        redis_env = Path(__file__).resolve().parent.parent / '.env.redis'
+        if redis_env.exists():
+            load_dotenv(redis_env)
+            print(f"[ENV] Archivo .env.redis cargado desde: {redis_env}")
+except ImportError:
+    print("[ENV] python-dotenv no está instalado, usando solo variables del sistema")
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -75,25 +91,34 @@ WSGI_APPLICATION = 'buscador.wsgi.application'
 
 ASGI_APPLICATION = 'buscador.asgi.application'
 
-import ssl
-
-# Configuración de Channel Layers con soporte para Upstash
+# Configuración de Channel Layers con soporte para diferentes proveedores de Redis
 redis_url = os.environ.get('REDIS_URL')
 
 if redis_url:
-    # Configuración para Redis externo (como Upstash)
-    if 'upstash.io' in redis_url:
+    try:
+        # Intentar parsear la URL de Redis para extraer los componentes
+        from urllib.parse import urlparse
+        parsed_url = urlparse(redis_url)
+        
+        # Para Upstash, necesitamos SSL - convertir redis:// a rediss://
+        if redis_url.startswith('redis://') and 'upstash.io' in redis_url:
+            redis_url = redis_url.replace('redis://', 'rediss://')
+            print(f"[REDIS] Convertido a SSL para Upstash: rediss://...")
+        
+        # Configuración básica que funciona con Upstash y otros proveedores
         CHANNEL_LAYERS = {
             'default': {
                 'BACKEND': 'channels_redis.core.RedisChannelLayer',
                 'CONFIG': {
                     'hosts': [redis_url],
-                    'ssl_cert_reqs': ssl.CERT_NONE,  # Para conexiones SSL de Upstash
                 },
             },
         }
-    else:
-        # Configuración para Redis local o sin SSL
+        print(f"[REDIS] Configurado con URL: {parsed_url.hostname}:{parsed_url.port}")
+        
+    except Exception as e:
+        print(f"[REDIS] Error al parsear URL, usando configuración por defecto: {e}")
+        # Configuración simple como fallback
         CHANNEL_LAYERS = {
             'default': {
                 'BACKEND': 'channels_redis.core.RedisChannelLayer',
@@ -103,6 +128,7 @@ if redis_url:
             },
         }
 else:
+    print("[REDIS] No configurado, usando InMemoryChannelLayer")
     # Fallback to in-memory channel layer si Redis no está disponible
     CHANNEL_LAYERS = {
         'default': {
