@@ -1,19 +1,49 @@
-# --- Función iniciar_driver restaurada para uso externo ---
+# --- Función iniciar_driver mejorada para contenedores ---
 def iniciar_driver():
     chrome_options = Options()
+    
+    # Configuraciones básicas para headless
     chrome_options.add_argument("--headless")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("--disable-gpu")
+    
+    # Configuraciones adicionales para contenedores/Render
+    chrome_options.add_argument("--disable-web-security")
+    chrome_options.add_argument("--allow-running-insecure-content")
+    chrome_options.add_argument("--disable-extensions")
+    chrome_options.add_argument("--disable-plugins")
+    chrome_options.add_argument("--disable-images")  # Acelera carga
+    chrome_options.add_argument("--disable-javascript")  # Solo necesitamos HTML
     chrome_options.add_argument("--window-size=1920x1080")
-    chrome_options.add_argument("start-maximized")
+    chrome_options.add_argument("--remote-debugging-port=9222")
+    chrome_options.add_argument("--disable-background-timer-throttling")
+    chrome_options.add_argument("--disable-renderer-backgrounding")
+    chrome_options.add_argument("--disable-backgrounding-occluded-windows")
+    chrome_options.add_argument("--disable-client-side-phishing-detection")
+    chrome_options.add_argument("--disable-crash-reporter")
+    chrome_options.add_argument("--disable-oopr-debug-crash-dump")
+    chrome_options.add_argument("--no-crash-upload")
+    chrome_options.add_argument("--disable-low-res-tiling")
+    chrome_options.add_argument("--memory-pressure-off")
+    
     chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
     chrome_options.add_experimental_option('useAutomationExtension', False)
-    service = ChromeService()
-    driver = webdriver.Chrome(service=service, options=chrome_options)
-    stealth(driver, languages=["es-ES", "es"], vendor="Google Inc.", platform="Win32",
-        webgl_vendor="Intel Inc.", renderer="Intel Iris OpenGL Engine", fix_hairline=True)
-    return driver
+    
+    try:
+        service = ChromeService()
+        driver = webdriver.Chrome(service=service, options=chrome_options)
+        stealth(driver, languages=["es-ES", "es"], vendor="Google Inc.", platform="Win32",
+            webgl_vendor="Intel Inc.", renderer="Intel Iris OpenGL Engine", fix_hairline=True)
+        
+        # Verificar que el driver funciona
+        driver.set_page_load_timeout(30)
+        print("✅ [CHROME] Driver iniciado correctamente")
+        return driver
+        
+    except Exception as e:
+        print(f"❌ [CHROME] Error iniciando driver: {e}")
+        raise
 
 # --- Scraper con Selenium y filtrado detallado para MercadoLibre ---
 import requests
@@ -517,16 +547,38 @@ def extraer_total_resultados_mercadolibre(url_base_con_filtros):
     """
     Extrae el número total de resultados de MercadoLibre desde la primera página de resultados
     """
-    driver = iniciar_driver()
+    print(f"🔍 [TOTAL ML] Iniciando extracción para URL: {url_base_con_filtros[:100]}...")
+    
+    driver = None
     try:
+        print("🔍 [TOTAL ML] Iniciando driver...")
+        driver = iniciar_driver()
+        print("✅ [TOTAL ML] Driver iniciado correctamente")
+        
         # No duplicar _NoIndex_True si ya está en la URL base
         if '_NoIndex_True' in url_base_con_filtros:
             url_primera_pagina = url_base_con_filtros
         else:
             url_primera_pagina = f"{url_base_con_filtros}_NoIndex_True"
         print(f"🔍 [TOTAL ML] Accediendo a: {url_primera_pagina}")
+        
         driver.get(url_primera_pagina)
-        time.sleep(3)
+        print("✅ [TOTAL ML] Página cargada, esperando contenido...")
+        time.sleep(5)  # Aumentamos el tiempo de espera
+        
+        # Verificar que la página se cargó correctamente
+        page_title = driver.title
+        print(f"📄 [TOTAL ML] Título de página: {page_title}")
+        
+        if "mercadolibre" not in page_title.lower():
+            print("❌ [TOTAL ML] La página no parece ser de MercadoLibre")
+            # Intentar obtener el contenido de la página para debug
+            try:
+                page_source_preview = driver.page_source[:500]
+                print(f"📄 [TOTAL ML] Preview del contenido: {page_source_preview}")
+            except:
+                pass
+            return None
         
         # Buscar el elemento que contiene el total de resultados
         try:
@@ -535,17 +587,22 @@ def extraer_total_resultados_mercadolibre(url_base_con_filtros):
                 ".ui-search-search-result__quantity-results",
                 ".ui-search-results__quantity-results", 
                 ".ui-search-breadcrumb__title",
-                ".ui-search-results-header__title"
+                ".ui-search-results-header__title",
+                "[class*='quantity-results']",
+                "[class*='results-quantity']"
             ]
             
+            print(f"🔍 [TOTAL ML] Probando {len(selectores)} selectores...")
             total_element = None
-            for selector in selectores:
+            for i, selector in enumerate(selectores, 1):
                 try:
+                    print(f"🔍 [TOTAL ML] Probando selector {i}/{len(selectores)}: {selector}")
                     total_element = driver.find_element(By.CSS_SELECTOR, selector)
-                    print(f"🔍 [TOTAL ML] Elemento encontrado con selector '{selector}'")
+                    print(f"✅ [TOTAL ML] Elemento encontrado con selector '{selector}'")
                     if total_element:
                         break
-                except:
+                except Exception as e:
+                    print(f"❌ [TOTAL ML] Selector {selector} falló: {e}")
                     continue
             
             if total_element:
@@ -562,16 +619,50 @@ def extraer_total_resultados_mercadolibre(url_base_con_filtros):
                     print(f"✅ [TOTAL ML] Total extraído exitosamente: {total:,}")
                     return total
                 else:
-                    print("❌ [TOTAL ML] No se encontraron números en el texto")
+                    print(f"❌ [TOTAL ML] No se encontraron números en el texto: '{total_text}'")
                     return None
             else:
                 print("❌ [TOTAL ML] No se encontró elemento con total de resultados")
+                # Intentar encontrar cualquier elemento que contenga "resultado"
+                try:
+                    all_text = driver.find_element(By.TAG_NAME, "body").text
+                    if "resultado" in all_text.lower():
+                        print("📄 [TOTAL ML] La página contiene 'resultado', pero no se encontró el selector específico")
+                        # Buscar manualmente en el texto
+                        import re
+                        matches = re.findall(r'(\d+(?:[.,]\d+)*)\s*resultados?', all_text, re.IGNORECASE)
+                        if matches:
+                            total_str = matches[0].replace('.', '').replace(',', '')
+                            total = int(total_str)
+                            print(f"✅ [TOTAL ML] Total extraído mediante búsqueda de texto: {total:,}")
+                            return total
+                    else:
+                        print("📄 [TOTAL ML] La página no contiene 'resultado' - puede ser una página de error")
+                except Exception as e:
+                    print(f"❌ [TOTAL ML] Error al analizar contenido de página: {e}")
+                
                 return None
+                
         except Exception as e:
             print(f"🛑 [TOTAL ML] Error al extraer total de resultados: {e}")
+            print(f"🛑 [TOTAL ML] Tipo de error: {type(e).__name__}")
+            import traceback
+            print(f"🛑 [TOTAL ML] Traceback: {traceback.format_exc()}")
             return None
+            
+    except Exception as e:
+        print(f"🛑 [TOTAL ML] Error general en extracción: {e}")
+        print(f"🛑 [TOTAL ML] Tipo de error: {type(e).__name__}")
+        return None
     finally:
-        driver.quit()
+        if driver:
+            try:
+                driver.quit()
+                print("✅ [TOTAL ML] Driver cerrado correctamente")
+            except:
+                print("⚠️ [TOTAL ML] Error al cerrar driver")
+        else:
+            print("⚠️ [TOTAL ML] Driver era None, no se pudo cerrar")
 
 def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, workers_fase1: int = 1, workers_fase2: int = 1):
     """
@@ -609,12 +700,31 @@ def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, work
     
     # --- CONSTRUCCIÓN DE URL COMPLETA CON TODOS LOS FILTROS ---
     print("\n🔗 [URL BUILD] Construyendo URL con build_mercadolibre_url...")
+    print(f"🔗 [URL BUILD] Filtros recibidos: {filters}")
     try:
         url_base_con_filtros = build_mercadolibre_url(filters)
         print(f"🔗 [URL GENERADA] {url_base_con_filtros}")
+        
+        # Validar que la URL no sea la genérica (indica error en construcción)
+        if url_base_con_filtros.endswith('_NoIndex_True') and 'inmuebles/_NoIndex_True' in url_base_con_filtros:
+            print("⚠️ [URL BUILD] URL generada es demasiado genérica, puede indicar problema en filtros")
+            print(f"⚠️ [URL BUILD] Reintentando construcción de URL sin filtros complejos...")
+            # Intentar con solo filtros básicos
+            basic_filters = {}
+            for key in ['tipo', 'operacion', 'departamento', 'ciudad']:
+                if key in filters:
+                    basic_filters[key] = filters[key]
+            print(f"🔗 [URL BUILD] Filtros básicos: {basic_filters}")
+            if basic_filters:
+                url_base_con_filtros = build_mercadolibre_url(basic_filters)
+                print(f"🔗 [URL REINTENTO] {url_base_con_filtros}")
+        
         send_progress_update(current_search_item=f"🏠 URL generada con filtros: {url_base_con_filtros[:100]}{'...' if len(url_base_con_filtros) > 100 else ''}")
     except Exception as e:
         print(f"❌ [URL BUILD] Error construyendo URL: {e}")
+        print(f"❌ [URL BUILD] Tipo de error: {type(e).__name__}")
+        import traceback
+        print(f"❌ [URL BUILD] Traceback: {traceback.format_exc()}")
         send_progress_update(final_message=f"❌ Error construyendo URL: {e}")
         return
     
