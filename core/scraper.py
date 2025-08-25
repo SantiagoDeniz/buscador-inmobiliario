@@ -581,6 +581,9 @@ def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, work
     print(f"🚀 [RUN_SCRAPER] Keywords: {keywords}")
     print(f"⚠️  [MODO SECUENCIAL] Usando {workers_fase1} worker(s) por fase")
     
+    # Inicializar lista de publicaciones coincidentes al inicio
+    matched_publications_titles = []
+    
     # Procesar keywords usando la función centralizada
     from core.search_manager import procesar_keywords
     keywords_filtradas = procesar_keywords(' '.join(keywords)) if keywords else []
@@ -684,7 +687,7 @@ def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, work
         send_progress_update(current_search_item=f"FASE 2: Scrapeando detalles de {len(urls_a_visitar_final)} publicaciones...")
         # ... (inicio FASE 2)
         urls_lista = list(urls_a_visitar_final)
-        matched_publications_titles = [] # New: To store titles of matched publications
+        # matched_publications_titles ya está definida al inicio de la función
         with concurrent.futures.ThreadPoolExecutor(max_workers=workers_fase2) as executor:
             mapa_futuros = {executor.submit(scrape_detalle_con_requests, url, API_KEY, USE_THREADS): url for url in urls_lista}
             for i, futuro in enumerate(concurrent.futures.as_completed(mapa_futuros)):

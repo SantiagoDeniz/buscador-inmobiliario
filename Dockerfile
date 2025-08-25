@@ -28,5 +28,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copiamos el resto del código del proyecto
 COPY . .
 
-# Comando para iniciar la aplicación (Render usará el puerto 10000)
-CMD ["/bin/sh", "-c", "python manage.py collectstatic --noinput && python manage.py runserver 0.0.0.0:10000"]
+# Comando para iniciar la aplicación con daphne para soporte WebSocket
+CMD ["/bin/sh", "-c", "python manage.py collectstatic --noinput && daphne buscador.asgi:application --port $PORT --bind 0.0.0.0"]
