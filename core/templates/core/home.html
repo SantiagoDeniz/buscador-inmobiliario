@@ -477,6 +477,20 @@
             const data = JSON.parse(e.data);
             const message = data.message;
             console.log('🔍 [DEBUG] Mensaje recibido:', message); // Debug
+            
+            // Mostrar debug de IA si está disponible
+            if (data.debug_ia) {
+                console.log('🤖 [IA DEBUG] Texto original:', data.debug_ia.texto_original);
+                console.log('🤖 [IA DEBUG] Filtros extraídos:', data.debug_ia.filtros_extraidos);
+                console.log('🤖 [IA DEBUG] Keywords extraídas:', data.debug_ia.keywords_extraidas);
+            }
+            
+            // Mostrar debug de filtros si está disponible
+            if (data.debug_filtros) {
+                console.log('🎚️ [FILTROS DEBUG] Manuales:', data.debug_filtros.filtros_manuales);
+                console.log('🎚️ [FILTROS DEBUG] IA:', data.debug_filtros.filtros_ia);
+                console.log('🎚️ [FILTROS DEBUG] Finales:', data.debug_filtros.filtros_finales);
+            }
 
             searchProgressDiv.style.display = 'block'; // Show progress div
 

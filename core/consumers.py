@@ -81,7 +81,17 @@ class SearchProgressConsumer(WebsocketConsumer):
                 
                 ia_result = async_to_sync(analyze_query_with_ia)(query_text)
                 print(f'\n🤖 [DEPURACIÓN] Resultado IA: {ia_result}\n')
-                self.send(text_data=json.dumps({'message': 'Texto procesado por IA', 'ia_result': ia_result}))
+                
+                # Enviar resultado de IA al frontend para debugging
+                self.send(text_data=json.dumps({
+                    'message': 'Texto procesado por IA', 
+                    'ia_result': ia_result,
+                    'debug_ia': {
+                        'texto_original': query_text,
+                        'filtros_extraidos': ia_result.get('filters', {}),
+                        'keywords_extraidas': ia_result.get('keywords', [])
+                    }
+                }))
             except Exception as e:
                 print(f'🤖 [DEPURACIÓN] Error procesando texto con IA: {e}')
                 self.send(text_data=json.dumps({'message': 'Error procesando texto con IA', 'error': str(e)}))
@@ -102,7 +112,16 @@ class SearchProgressConsumer(WebsocketConsumer):
                 for k, v in filtros_ia.items():
                     filtros_final[k] = v  # Prioriza IA si hay coincidencia
                 print(f'🎚️ [DEPURACIÓN] Filtros fusionados: {filtros_final}')
-                self.send(text_data=json.dumps({'message': 'Filtros fusionados', 'filters': filtros_final}))
+                # Enviar filtros fusionados al frontend para debugging
+                self.send(text_data=json.dumps({
+                    'message': 'Filtros fusionados', 
+                    'filters': filtros_final,
+                    'debug_filtros': {
+                        'filtros_manuales': filtros_manual,
+                        'filtros_ia': filtros_ia,
+                        'filtros_finales': filtros_final
+                    }
+                }))
             except Exception as e:
                 print(f'🛑 [DEPURACIÓN] Error fusionando filtros: {e}')
                 self.send(text_data=json.dumps({'message': 'Error fusionando filtros', 'error': str(e)}))
