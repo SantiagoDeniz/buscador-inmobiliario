@@ -546,8 +546,67 @@ def recolectar_urls_de_pagina(url_target, api_key=None, ubicacion=None, use_scra
 def extraer_total_resultados_mercadolibre(url_base_con_filtros):
     """
     Extrae el número total de resultados de MercadoLibre desde la primera página de resultados
+    Primero intenta con requests, si falla usa Chrome como fallback
     """
     print(f"🔍 [TOTAL ML] Iniciando extracción para URL: {url_base_con_filtros[:100]}...")
+    
+    # Primera tentativa: Usar requests (más rápido y menos detectable)
+    try:
+        print("🌐 [TOTAL ML] Intentando con requests primero...")
+        
+        if '_NoIndex_True' in url_base_con_filtros:
+            url_primera_pagina = url_base_con_filtros
+        else:
+            url_primera_pagina = f"{url_base_con_filtros}_NoIndex_True"
+        
+        print(f"📡 [TOTAL ML] Solicitando: {url_primera_pagina}")
+        
+        response = requests.get(url_primera_pagina, headers=HEADERS, timeout=15)
+        
+        if response.status_code == 200:
+            html_content = response.text
+            print("✅ [TOTAL ML] Contenido obtenido con requests")
+            
+            # Buscar el total en el HTML usando regex
+            import re
+            patterns = [
+                r'"quantity":\s*(\d+)',  # JSON en el HTML
+                r'(\d+(?:[.,]\d+)*)\s*resultados?',  # Texto visible
+                r'"total":\s*(\d+)',  # Otro patrón JSON
+                r'ui-search-search-result__quantity-results[^>]*>([^<]*?)(\d+(?:[.,]\d+)*)',
+                r'quantity-results[^>]*>([^<]*?)(\d+(?:[.,]\d+)*)'
+            ]
+            
+            for i, pattern in enumerate(patterns, 1):
+                print(f"🔍 [TOTAL ML] Probando patrón regex {i}/{len(patterns)}")
+                matches = re.findall(pattern, html_content, re.IGNORECASE)
+                if matches:
+                    # Extraer el número más grande encontrado
+                    numeros = []
+                    for match in matches:
+                        if isinstance(match, tuple):
+                            for item in match:
+                                if re.match(r'\d+([.,]\d+)*', str(item)):
+                                    numeros.append(str(item))
+                        else:
+                            numeros.append(str(match))
+                    
+                    if numeros:
+                        # Tomar el número más grande (probablemente el total)
+                        numero_max = max(numeros, key=lambda x: int(x.replace('.', '').replace(',', '')))
+                        total = int(numero_max.replace('.', '').replace(',', ''))
+                        print(f"✅ [TOTAL ML] Total extraído con requests usando patrón {i}: {total:,}")
+                        return total
+            
+            print("⚠️ [TOTAL ML] Requests obtuvo contenido pero no encontró el total")
+        else:
+            print(f"❌ [TOTAL ML] Requests falló con código: {response.status_code}")
+            
+    except Exception as e:
+        print(f"❌ [TOTAL ML] Error con requests: {e}")
+    
+    # Fallback: Usar Chrome si requests falla
+    print("🔄 [TOTAL ML] Fallback a Chrome...")
     
     driver = None
     try:
