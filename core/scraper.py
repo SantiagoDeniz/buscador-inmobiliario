@@ -586,19 +586,34 @@ def extraer_total_resultados_mercadolibre(url_base_con_filtros):
             
             # Buscar el total en el HTML usando regex
             import re
+            
+            # Guardar muestra del HTML para análisis
+            print(f"🔍 [TOTAL ML] Buscando patrones en HTML de {len(html_content)} caracteres...")
+            
+            # Patrones mejorados para MercadoLibre
             patterns = [
-                r'"quantity":\s*(\d+)',  # JSON en el HTML
-                r'(\d+(?:[.,]\d+)*)\s*resultados?',  # Texto visible
-                r'"total":\s*(\d+)',  # Otro patrón JSON
-                r'ui-search-search-result__quantity-results[^>]*>([^<]*?)(\d+(?:[.,]\d+)*)',
-                r'quantity-results[^>]*>([^<]*?)(\d+(?:[.,]\d+)*)'
+                r'"quantity"\s*:\s*(\d+)',  # JSON: "quantity": 1234
+                r'"results_quantity"\s*:\s*(\d+)',  # JSON: "results_quantity": 1234  
+                r'"total"\s*:\s*(\d+)',  # JSON: "total": 1234
+                r'quantity[^>]*>([^<]*?)(\d+(?:[.,]\d+)*)',  # HTML con quantity class
+                r'result.*quantity[^>]*>([^<]*?)(\d+(?:[.,]\d+)*)',  # HTML result quantity
+                r'(\d+(?:[.,]\d+)*)\s*resultados?',  # Español: "1,234 resultados"
+                r'(\d+(?:[.,]\d+)*)\s*inmuebles?',  # "1,234 inmuebles"
+                r'(\d+(?:[.,]\d+)*)\s*propiedades?',  # "1,234 propiedades"
+                r'total.*?(\d+(?:[.,]\d+)*)',  # "total: 1,234" (case insensitive)
+                r'encontr.*?(\d+(?:[.,]\d+)*)',  # "encontrados 1,234"
+                r'"total_results"\s*:\s*(\d+)',  # JSON: "total_results": 1234
             ]
             
             for i, pattern in enumerate(patterns, 1):
-                print(f"🔍 [TOTAL ML] Probando patrón regex {i}/{len(patterns)}")
-                matches = re.findall(pattern, html_content, re.IGNORECASE)
+                print(f"🔍 [TOTAL ML] Probando patrón regex {i}/{len(patterns)}: {pattern}")
+                matches = re.findall(pattern, html_content, re.IGNORECASE | re.DOTALL)
+                print(f"📋 [TOTAL ML] Patrón {i} encontró {len(matches)} coincidencias")
+                
                 if matches:
-                    # Extraer el número más grande encontrado
+                    print(f"📋 [TOTAL ML] Coincidencias del patrón {i}: {matches[:5]}")  # Mostrar max 5
+                    
+                    # Extraer números de las coincidencias
                     numeros = []
                     for match in matches:
                         if isinstance(match, tuple):
@@ -606,14 +621,36 @@ def extraer_total_resultados_mercadolibre(url_base_con_filtros):
                                 if re.match(r'\d+([.,]\d+)*', str(item)):
                                     numeros.append(str(item))
                         else:
-                            numeros.append(str(match))
+                            if re.match(r'\d+([.,]\d+)*', str(match)):
+                                numeros.append(str(match))
                     
                     if numeros:
+                        print(f"📊 [TOTAL ML] Números encontrados: {numeros[:5]}")
+                        
                         # Tomar el número más grande (probablemente el total)
                         numero_max = max(numeros, key=lambda x: int(x.replace('.', '').replace(',', '')))
                         total = int(numero_max.replace('.', '').replace(',', ''))
-                        print(f"✅ [TOTAL ML] Total extraído con requests usando patrón {i}: {total:,}")
-                        return total
+                        
+                        # Validar que el número sea razonable (entre 1 y 100,000)
+                        if 1 <= total <= 100000:
+                            print(f"✅ [TOTAL ML] Total extraído con requests usando patrón {i}: {total:,}")
+                            return total
+                        else:
+                            print(f"⚠️ [TOTAL ML] Número {total:,} parece incorrecto, continuando...")
+            
+            # Si no encontramos nada, buscar cualquier número grande en el HTML
+            print("🔍 [TOTAL ML] Buscando cualquier número grande (1000+) en el HTML...")
+            all_numbers = re.findall(r'\d+(?:[.,]\d+)*', html_content)
+            large_numbers = [n for n in all_numbers if int(n.replace('.', '').replace(',', '')) >= 1000]
+            if large_numbers:
+                print(f"📊 [TOTAL ML] Números grandes encontrados: {large_numbers[:10]}")
+                # Tomar el más probable (ni muy pequeño ni muy grande)
+                reasonable_numbers = [n for n in large_numbers if 1000 <= int(n.replace('.', '').replace(',', '')) <= 50000]
+                if reasonable_numbers:
+                    numero_max = max(reasonable_numbers, key=lambda x: int(x.replace('.', '').replace(',', '')))
+                    total = int(numero_max.replace('.', '').replace(',', ''))
+                    print(f"✅ [TOTAL ML] Total estimado por análisis numérico: {total:,}")
+                    return total
             
             print("⚠️ [TOTAL ML] Requests obtuvo contenido pero no encontró el total")
         else:
@@ -622,125 +659,10 @@ def extraer_total_resultados_mercadolibre(url_base_con_filtros):
     except Exception as e:
         print(f"❌ [TOTAL ML] Error con requests: {e}")
     
-    # Fallback: Usar Chrome si requests falla
-    print("🔄 [TOTAL ML] Fallback a Chrome...")
-    
-    driver = None
-    try:
-        print("🔍 [TOTAL ML] Iniciando driver...")
-        driver = iniciar_driver()
-        print("✅ [TOTAL ML] Driver iniciado correctamente")
-        
-        # No duplicar _NoIndex_True si ya está en la URL base
-        if '_NoIndex_True' in url_base_con_filtros:
-            url_primera_pagina = url_base_con_filtros
-        else:
-            url_primera_pagina = f"{url_base_con_filtros}_NoIndex_True"
-        print(f"🔍 [TOTAL ML] Accediendo a: {url_primera_pagina}")
-        
-        driver.get(url_primera_pagina)
-        print("✅ [TOTAL ML] Página cargada, esperando contenido...")
-        time.sleep(5)  # Aumentamos el tiempo de espera
-        
-        # Verificar que la página se cargó correctamente
-        page_title = driver.title
-        current_url = driver.current_url
-        page_source_length = len(driver.page_source)
-        print(f"📄 [TOTAL ML] Título de página: {page_title}")
-        print(f"🔗 [TOTAL ML] URL actual: {current_url}")
-        print(f"📏 [TOTAL ML] Longitud del HTML: {page_source_length}")
-        
-        # Mostrar primeros 1000 caracteres del HTML para debugging
-        page_preview = driver.page_source[:1000]
-        print(f"📄 [TOTAL ML] Previsualización HTML: {page_preview}")
-        
-        if "mercadolibre" not in page_title.lower() and "mercadolibre" not in current_url.lower():
-            print("❌ [TOTAL ML] La página no parece ser de MercadoLibre")
-            return None
-        
-        # Buscar el elemento que contiene el total de resultados
-        try:
-            # Múltiples selectores para diferentes versiones de MercadoLibre
-            selectores = [
-                ".ui-search-search-result__quantity-results",
-                ".ui-search-results__quantity-results", 
-                ".ui-search-breadcrumb__title",
-                ".ui-search-results-header__title",
-                "[class*='quantity-results']",
-                "[class*='results-quantity']"
-            ]
-            
-            print(f"🔍 [TOTAL ML] Probando {len(selectores)} selectores...")
-            total_element = None
-            for i, selector in enumerate(selectores, 1):
-                try:
-                    print(f"🔍 [TOTAL ML] Probando selector {i}/{len(selectores)}: {selector}")
-                    total_element = driver.find_element(By.CSS_SELECTOR, selector)
-                    print(f"✅ [TOTAL ML] Elemento encontrado con selector '{selector}'")
-                    if total_element:
-                        break
-                except Exception as e:
-                    print(f"❌ [TOTAL ML] Selector {selector} falló: {e}")
-                    continue
-            
-            if total_element:
-                total_text = total_element.text
-                print(f"📊 [TOTAL ML] Texto encontrado: '{total_text}'")
-                
-                # Extraer número del texto (ej: "212.158 resultados" -> 212158)
-                import re
-                numeros = re.findall(r'[\d.,]+', total_text)
-                if numeros:
-                    # Quitar puntos y comas de los números y convertir
-                    total_str = numeros[0].replace('.', '').replace(',', '')
-                    total = int(total_str)
-                    print(f"✅ [TOTAL ML] Total extraído exitosamente: {total:,}")
-                    return total
-                else:
-                    print(f"❌ [TOTAL ML] No se encontraron números en el texto: '{total_text}'")
-                    return None
-            else:
-                print("❌ [TOTAL ML] No se encontró elemento con total de resultados")
-                # Intentar encontrar cualquier elemento que contenga "resultado"
-                try:
-                    all_text = driver.find_element(By.TAG_NAME, "body").text
-                    if "resultado" in all_text.lower():
-                        print("📄 [TOTAL ML] La página contiene 'resultado', pero no se encontró el selector específico")
-                        # Buscar manualmente en el texto
-                        import re
-                        matches = re.findall(r'(\d+(?:[.,]\d+)*)\s*resultados?', all_text, re.IGNORECASE)
-                        if matches:
-                            total_str = matches[0].replace('.', '').replace(',', '')
-                            total = int(total_str)
-                            print(f"✅ [TOTAL ML] Total extraído mediante búsqueda de texto: {total:,}")
-                            return total
-                    else:
-                        print("📄 [TOTAL ML] La página no contiene 'resultado' - puede ser una página de error")
-                except Exception as e:
-                    print(f"❌ [TOTAL ML] Error al analizar contenido de página: {e}")
-                
-                return None
-                
-        except Exception as e:
-            print(f"🛑 [TOTAL ML] Error al extraer total de resultados: {e}")
-            print(f"🛑 [TOTAL ML] Tipo de error: {type(e).__name__}")
-            import traceback
-            print(f"🛑 [TOTAL ML] Traceback: {traceback.format_exc()}")
-            return None
-            
-    except Exception as e:
-        print(f"🛑 [TOTAL ML] Error general en extracción: {e}")
-        print(f"🛑 [TOTAL ML] Tipo de error: {type(e).__name__}")
-        return None
-    finally:
-        if driver:
-            try:
-                driver.quit()
-                print("✅ [TOTAL ML] Driver cerrado correctamente")
-            except:
-                print("⚠️ [TOTAL ML] Error al cerrar driver")
-        else:
-            print("⚠️ [TOTAL ML] Driver era None, no se pudo cerrar")
+    # MercadoLibre bloquea Chrome con verificación de cuenta - no usar fallback
+    print("⚠️ [TOTAL ML] Chrome fallback deshabilitado (MercadoLibre requiere verificación de cuenta)")
+    print("⚠️ [TOTAL ML] No se pudo extraer el total - continuando sin esta información")
+    return None
 
 def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, workers_fase1: int = 1, workers_fase2: int = 1):
     """
