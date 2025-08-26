@@ -17,6 +17,10 @@ def iniciar_driver():
     chrome_options.add_argument("--disable-javascript")  # Solo necesitamos HTML
     chrome_options.add_argument("--window-size=1920x1080")
     chrome_options.add_argument("--remote-debugging-port=9222")
+    # Headers más realistas para evitar detección
+    chrome_options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+    chrome_options.add_argument("--accept-language=es-ES,es;q=0.9,en;q=0.8")
+    
     chrome_options.add_argument("--disable-background-timer-throttling")
     chrome_options.add_argument("--disable-renderer-backgrounding")
     chrome_options.add_argument("--disable-backgrounding-occluded-windows")
@@ -35,6 +39,11 @@ def iniciar_driver():
         driver = webdriver.Chrome(service=service, options=chrome_options)
         stealth(driver, languages=["es-ES", "es"], vendor="Google Inc.", platform="Win32",
             webgl_vendor="Intel Inc.", renderer="Intel Iris OpenGL Engine", fix_hairline=True)
+        
+        # Configurar headers adicionales después de inicializar
+        driver.execute_cdp_cmd('Network.setUserAgentOverride', {
+            "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        })
         
         # Verificar que el driver funciona
         driver.set_page_load_timeout(30)
@@ -73,31 +82,60 @@ def tomar_captura_debug(driver, motivo="debug"):
     También guarda el HTML de la página
     """
     try:
-        # Crear directorio si no existe
+        # Crear directorio si no existe - ajustado para producción
         debug_dir = os.path.join('static', 'debug_screenshots')
         os.makedirs(debug_dir, exist_ok=True)
+        
+        # También crear en staticfiles para producción
+        staticfiles_debug_dir = os.path.join('staticfiles', 'debug_screenshots')
+        os.makedirs(staticfiles_debug_dir, exist_ok=True)
         
         # Generar nombre único con timestamp
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename_base = f"{motivo}_{timestamp}"
         
-        # Captura de pantalla
+        # Captura de pantalla - guardar en ambos lugares
         screenshot_path = os.path.join(debug_dir, f"{filename_base}.png")
+        staticfiles_screenshot_path = os.path.join(staticfiles_debug_dir, f"{filename_base}.png")
+        
         driver.save_screenshot(screenshot_path)
         
-        # Guardar HTML
+        # Copiar a staticfiles también
+        try:
+            import shutil
+            shutil.copy2(screenshot_path, staticfiles_screenshot_path)
+        except:
+            pass
+        
+        # Guardar HTML - en ambos lugares
         html_path = os.path.join(debug_dir, f"{filename_base}.html")
+        staticfiles_html_path = os.path.join(staticfiles_debug_dir, f"{filename_base}.html")
+        
         with open(html_path, 'w', encoding='utf-8') as f:
             f.write(driver.page_source)
+        try:
+            with open(staticfiles_html_path, 'w', encoding='utf-8') as f:
+                f.write(driver.page_source)
+        except:
+            pass
         
-        # Guardar info adicional
+        # Guardar info adicional - en ambos lugares
         info_path = os.path.join(debug_dir, f"{filename_base}_info.txt")
+        staticfiles_info_path = os.path.join(staticfiles_debug_dir, f"{filename_base}_info.txt")
+        
+        info_content = f"Motivo: {motivo}\n"
+        info_content += f"URL: {driver.current_url}\n"
+        info_content += f"Título: {driver.title}\n"
+        info_content += f"Timestamp: {timestamp}\n"
+        info_content += f"Window Size: {driver.get_window_size()}\n"
+        
         with open(info_path, 'w', encoding='utf-8') as f:
-            f.write(f"Motivo: {motivo}\n")
-            f.write(f"URL: {driver.current_url}\n")
-            f.write(f"Título: {driver.title}\n")
-            f.write(f"Timestamp: {timestamp}\n")
-            f.write(f"Window Size: {driver.get_window_size()}\n")
+            f.write(info_content)
+        try:
+            with open(staticfiles_info_path, 'w', encoding='utf-8') as f:
+                f.write(info_content)
+        except:
+            pass
         
         print(f"📸 [DEBUG] Captura guardada: {screenshot_path}")
         print(f"📄 [DEBUG] HTML guardado: {html_path}")
@@ -714,21 +752,31 @@ def extraer_total_resultados_mercadolibre(url_base_con_filtros):
         
         driver.get(url_primera_pagina)
         print("✅ [TOTAL ML] Página cargada, esperando contenido...")
-        time.sleep(5)  # Aumentamos el tiempo de espera
+        
+        # Simular comportamiento humano más realista
+        time.sleep(2)
+        
+        # Scroll para simular usuario real
+        try:
+            driver.execute_script("window.scrollTo(0, 500);")
+            time.sleep(1)
+            driver.execute_script("window.scrollTo(0, 0);")
+            time.sleep(2)
+        except:
+            pass
         
         # Verificar que la página se cargó correctamente
         page_title = driver.title
         current_url = driver.current_url
         page_source_length = len(driver.page_source)
-        print(f"📄 [TOTAL ML] Título de página: {page_title}")
-        print(f"🔗 [TOTAL ML] URL actual: {current_url}")
-        print(f"📏 [TOTAL ML] Longitud del HTML: {page_source_length}")
+        print(f"📄 [TOTAL ML] Título: {page_title}")
+        print(f"🔗 [TOTAL ML] URL: {current_url}")
+        print(f"📏 [TOTAL ML] HTML Length: {page_source_length}")
         
-        # Mostrar primeros 1000 caracteres del HTML para debugging
-        page_preview = driver.page_source[:1000]
-        print(f"📄 [TOTAL ML] Previsualización HTML: {page_preview}")
-        
+        # Solo mostrar preview si hay error para reducir spam
         if "mercadolibre" not in page_title.lower() and "mercadolibre" not in current_url.lower():
+            page_preview = driver.page_source[:1000]
+            print(f"📄 [DEBUG] HTML Preview: {page_preview}")
             print("❌ [TOTAL ML] La página no parece ser de MercadoLibre")
             return None
         
@@ -745,6 +793,25 @@ def extraer_total_resultados_mercadolibre(url_base_con_filtros):
             ]
             
             print(f"🔍 [TOTAL ML] Probando {len(selectores)} selectores...")
+            
+            # Primero verificar si es una página de captcha o error
+            page_title = driver.title.lower()
+            page_source_sample = driver.page_source[:2000].lower()
+            
+            captcha_indicators = [
+                "captcha", "robot", "verificaci", "blocked", "security",
+                "too many requests", "rate limit", "forbidden"
+            ]
+            
+            found_captcha_indicators = [ind for ind in captcha_indicators if ind in page_source_sample or ind in page_title]
+            if found_captcha_indicators:
+                print(f"🛑 [CAPTCHA DETECTED] Indicadores encontrados: {found_captcha_indicators}")
+                screenshot_path = tomar_captura_debug(driver, f"captcha_detected_{'-'.join(found_captcha_indicators[:2])}")
+                send_progress_update(
+                    current_search_item=f"🛑 CAPTCHA/Bloqueo detectado: {found_captcha_indicators}. Ver captura.",
+                    debug_screenshot=screenshot_path
+                )
+                return None
             total_element = None
             for i, selector in enumerate(selectores, 1):
                 try:
@@ -781,6 +848,34 @@ def extraer_total_resultados_mercadolibre(url_base_con_filtros):
                     return None
             else:
                 print("❌ [TOTAL ML] No se encontró elemento con total de resultados")
+                
+                # DEBUGGING MEJORADO: Capturar más información
+                try:
+                    print("🔍 [DEBUG] Analizando qué hay en la página...")
+                    
+                    # Verificar si hay elementos de búsqueda
+                    search_elements = driver.find_elements(By.CSS_SELECTOR, "[class*='search'], [class*='result']")
+                    print(f"🔍 [DEBUG] Elementos con 'search' o 'result': {len(search_elements)}")
+                    
+                    # Verificar si hay números en el HTML
+                    page_text = driver.find_element(By.TAG_NAME, "body").text[:500]
+                    import re
+                    numbers = re.findall(r'\d{1,3}[.,]?\d{3}', page_text)
+                    print(f"🔍 [DEBUG] Números encontrados en página: {numbers[:5]}")
+                    
+                    # Verificar si es página de error o captcha
+                    error_indicators = [
+                        "captcha", "robot", "blocked", "error", "forbidden", 
+                        "not found", "maintenance", "temporarily unavailable"
+                    ]
+                    page_text_lower = page_text.lower()
+                    found_indicators = [ind for ind in error_indicators if ind in page_text_lower]
+                    if found_indicators:
+                        print(f"⚠️ [DEBUG] Indicadores de error/captcha: {found_indicators}")
+                    
+                except Exception as debug_e:
+                    print(f"❌ [DEBUG] Error en análisis debug: {debug_e}")
+                
                 # Tomar captura para debugging
                 screenshot_path = tomar_captura_debug(driver, "elemento_total_no_encontrado")
                 send_progress_update(

@@ -54,7 +54,8 @@
                                      class="screenshot-preview img-fluid"
                                      onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
                                 <div style="display:none;" class="alert alert-warning">
-                                    <small>No se pudo cargar la imagen</small>
+                                    <small>❌ No se pudo cargar la imagen desde: {{ screenshot.path }}</small>
+                                    <br><small>🔧 Puede ser un problema de paths en producción</small>
                                 </div>
                             </div>
                             
@@ -74,6 +75,12 @@
                                    class="btn btn-outline-info btn-sm">
                                     <i class="bi bi-info"></i> Info
                                 </a>
+                            </div>
+                            
+                            <div class="mt-2">
+                                <small class="text-muted">
+                                    <strong>Path:</strong> {{ screenshot.path }}
+                                </small>
                             </div>
                         {% endif %}
                     </div>
