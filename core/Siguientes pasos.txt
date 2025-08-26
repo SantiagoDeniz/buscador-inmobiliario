@@ -1,7 +1,5 @@
-Ordenar websockets junto con logs de consola.
-Hacer que aparezcan los títulos de todas las propiedades coincidentes en la interfaz como parte de los resultados encontrados.
-Sacar el campo de "título para la búsqueda" de la sección de filtros.
-
+Armar la base de datos.
+Arreglar el guardado de publicaciones.
 
 
 Cosas a tener en cuenta para deplegar el proyecto para producción:

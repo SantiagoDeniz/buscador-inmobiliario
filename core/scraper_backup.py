@@ -1367,11 +1367,11 @@ def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, work
                             texto_total_norm = normalizar(texto_total)
                             cumple = all(kw in texto_total_norm for kw in keywords_norm)
                             if cumple:
-                                print(f"✅ Coincide: {titulo_propiedad}")
-                                send_progress_update(current_search_item=f"✅ Coincide: {titulo_propiedad}")
+                                print(f"({i+1}/{len(urls_a_visitar_final)}) ✅ Coincide: {titulo_propiedad}")
+                                send_progress_update(current_search_item=f"({i+1}/{len(mapa_futuros)}) ✅ Coincide: {titulo_propiedad}")
                             else:
-                                print(f"❌ No coincide: {titulo_propiedad}")
-                                send_progress_update(current_search_item=f"❌ No coincide: {titulo_propiedad}")
+                                print(f"({i+1}/{len(urls_a_visitar_final)}) ❌ No coincide: {titulo_propiedad}")
+                                send_progress_update(current_search_item=f"({i+1}/{len(urls_a_visitar_final)}) ❌ No coincide: {titulo_propiedad}")
                         else:
                             # Mostrar progreso con formato "Búsqueda actual (a/total_ml): Título" 
                             if total_ml:
