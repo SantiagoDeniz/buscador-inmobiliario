@@ -154,7 +154,7 @@ class SearchProgressConsumer(WebsocketConsumer):
                 self.send(text_data=json.dumps({'message': 'Búsqueda detenida por el usuario'}))
                 return
 
-            # Mensaje: inicio scraper
+            # Mensaje: inicio scraper (no bloquear el hilo del WebSocket)
             print('🔍 [DEPURACIÓN] Antes de ejecutar scraper')
             self.send(text_data=json.dumps({'message': 'Ejecutando scraper...'}))
             try:
@@ -164,37 +164,46 @@ class SearchProgressConsumer(WebsocketConsumer):
                 if isinstance(keywords, str):
                     keywords = [keywords] if keywords else []
                 print(f'🔍 [DEPURACIÓN] Ejecutando scraper con filtros: {filtros} y keywords: {keywords}')
-                
-                print(f'🚀 [DEPURACIÓN] Llamando run_scraper con TODOS los filtros')
-                print(f'⚠️  [MODO SECUENCIAL] Usando 1 worker por fase para evitar problemas de concurrencia')
-                
-                # Llamar al scraper con todos los filtros (nueva signatura)
-                # TEMPORAL: Usando 1 worker para evitar problemas de concurrencia
-                run_scraper(
-                    filters=filtros,           # Pasar TODOS los filtros
-                    keywords=keywords,         # Pasar las keywords
-                    max_paginas=2,            # Limitamos para pruebas
-                    workers_fase1=1,          # DESHABILITAR CONCURRENCIA: era 3, ahora 1
-                    workers_fase2=1           # DESHABILITAR CONCURRENCIA: era 3, ahora 1
-                )
-                
-                print(f'✅ [DEPURACIÓN] run_scraper completado exitosamente')
-                
-                # Verificar una última vez si se detuvo
-                if is_search_stopped(self.search_id):
-                    self.send(text_data=json.dumps({'message': {'final_message': 'Búsqueda detenida por el usuario'}}))
-                    return
-                
-                # run_scraper ya envía el mensaje de finalización por WebSocket
-                # No necesitamos hacer nada más aquí
-                
+
+                print('🚀 [DEPURACIÓN] Lanzando run_scraper en un hilo en segundo plano')
+                print('⚠️  [MODO SECUENCIAL] Usando 1 worker por fase para evitar problemas de concurrencia')
+
+                # Ejecutar en un hilo para que el consumer quede libre y procese eventos WebSocket en tiempo real
+                import threading
+                current_search_id = self.search_id
+
+                def _background_task():
+                    try:
+                        run_scraper(
+                            filters=filtros,
+                            keywords=keywords,
+                            max_paginas=2,
+                            workers_fase1=1,
+                            workers_fase2=1
+                        )
+                        print('✅ [DEPURACIÓN] run_scraper completado (hilo)')
+                    except Exception as e:
+                        print(f'🛑 [DEPURACIÓN] Error en run_scraper (hilo): {e}')
+                        # Si falla, notificar al cliente
+                        self.send(text_data=json.dumps({
+                            'message': {'final_message': f'Error en el scraper: {str(e)}'}
+                        }))
+                    finally:
+                        # Desregistrar búsqueda al finalizar
+                        from core.views import unregister_active_search
+                        unregister_active_search(current_search_id)
+
+                t = threading.Thread(target=_background_task, daemon=True)
+                t.start()
+
+                # No bloquear: salir del receive para que el consumer atienda los eventos group_send
+                return
+
             except Exception as e:
-                print(f'🛑 [DEPURACIÓN] Error en el scraper: {e}')
+                print(f'🛑 [DEPURACIÓN] Error preparando el hilo del scraper: {e}')
                 self.send(text_data=json.dumps({
                     'message': {'final_message': f'Error en el scraper: {str(e)}'}
                 }))
-            finally:
-                # Desregistrar búsqueda al finalizar
                 from core.views import unregister_active_search
                 unregister_active_search(self.search_id)
 

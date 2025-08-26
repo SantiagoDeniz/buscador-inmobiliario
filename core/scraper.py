@@ -148,7 +148,7 @@ def tomar_captura_debug(driver, motivo="debug"):
         print(f"❌ [DEBUG] Error tomando captura: {e}")
         return None
 
-def send_progress_update(total_found=None, estimated_time=None, current_search_item=None, matched_publications=None, final_message=None, page_items_found=None, debug_screenshot=None):
+def send_progress_update(total_found=None, estimated_time=None, current_search_item=None, matched_publications=None, final_message=None, page_items_found=None, debug_screenshot=None, all_matched_properties=None):
     # Consolidar logs - solo imprimir información importante y no repetitiva
     if final_message:
         print(f'✅ [FINAL] {final_message}')
@@ -208,6 +208,7 @@ def send_progress_update(total_found=None, estimated_time=None, current_search_i
                     "final_message": final_message,
                     "page_items_found": page_items_found, # Nuevo parámetro
                     "debug_screenshot": debug_screenshot,  # Nueva funcionalidad para capturas
+                    "all_matched_properties": all_matched_properties,  # Nuevas y existentes
                 }
             }
         )
@@ -1271,13 +1272,46 @@ def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, work
     # --- LÓGICA DE DEDUPLICACIÓN (con logs) ---
     print("\n[Principal] Iniciando chequeo de duplicados contra la base de datos...")
     send_progress_update(current_search_item="Chequeando publicaciones existentes en la base de datos...")
+    existing_publications_titles = []  # Lista para propiedades existentes que coinciden
+    
     if urls_recolectadas_bruto:
         # Consultamos a la BD una sola vez por todas las URLs encontradas
         urls_existentes = set(Propiedad.objects.filter(url_publicacion__in=list(urls_recolectadas_bruto)).values_list('url_publicacion', flat=True))
         propiedades_omitidas = len(urls_existentes)
         urls_a_visitar_final = urls_recolectadas_bruto - urls_existentes
         
+        # Obtener propiedades existentes y verificar si coinciden con keywords
+        if urls_existentes and keywords_filtradas:
+            existing_properties = Propiedad.objects.filter(url_publicacion__in=urls_existentes)
+            
+            import unicodedata
+            def normalizar(texto):
+                return unicodedata.normalize('NFKD', texto).encode('ASCII', 'ignore').decode('ASCII').lower()
+            keywords_norm = [normalizar(kw) for kw in keywords_filtradas]
+            
+            for prop in existing_properties:
+                titulo_propiedad = prop.titulo or ''
+                descripcion = prop.descripcion or ''
+                caracteristicas = prop.caracteristicas_texto or ''
+                texto_total = f"{titulo_propiedad.lower()} {descripcion.lower()} {caracteristicas.lower()}"
+                texto_total_norm = normalizar(texto_total)
+                
+                if all(kw in texto_total_norm for kw in keywords_norm):
+                    existing_publications_titles.append({
+                        'title': titulo_propiedad, 
+                        'url': prop.url_publicacion
+                    })
+        elif urls_existentes and not keywords_filtradas:
+            # Si no hay keywords, todas las existentes coinciden
+            existing_properties = Propiedad.objects.filter(url_publicacion__in=urls_existentes)
+            for prop in existing_properties:
+                existing_publications_titles.append({
+                    'title': prop.titulo or 'Sin título', 
+                    'url': prop.url_publicacion
+                })
+        
         print(f"🗃️  [DEDUP] Existentes: {propiedades_omitidas} | Nuevas: {len(urls_a_visitar_final)}")
+        print(f"🗃️  [DEDUP] Coincidentes existentes: {len(existing_publications_titles)}")
         send_progress_update(current_search_item=f"Existentes: {propiedades_omitidas} | Nuevas: {len(urls_a_visitar_final)}")
     else:
         print("❌ [RECOLECCIÓN] No se obtuvieron URLs")
@@ -1353,7 +1387,18 @@ def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, work
 
     # Consolidar resumen final
     print(f"✅ [COMPLETADO] {nuevas_propiedades_guardadas} nuevas propiedades guardadas")
+    
+    # Enviar todas las propiedades coincidentes (nuevas y existentes) al frontend
+    all_matched_properties = {
+        'nuevas': matched_publications_titles,
+        'existentes': existing_publications_titles
+    }
+    
+    total_coincidentes = len(matched_publications_titles) + len(existing_publications_titles)
+    print(f"📊 [RESUMEN FINAL] Nuevas: {len(matched_publications_titles)} | Existentes: {len(existing_publications_titles)} | Total: {total_coincidentes}")
+    
     send_progress_update(
         final_message=f"✅ Búsqueda completada. {nuevas_propiedades_guardadas} nuevas propiedades guardadas.",
-        matched_publications=matched_publications_titles
+        matched_publications=matched_publications_titles,
+        all_matched_properties=all_matched_properties
     )
