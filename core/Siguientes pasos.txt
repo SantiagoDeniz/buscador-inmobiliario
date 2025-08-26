@@ -1,1 +1,7 @@
 Sacar el campo de "título para la búsqueda" de la sección de filtros.
+
+
+
+
+Cosas a tener en cuenta para deplegar el proyecto para producción:
+Cookies mias: Solucionar de otra forma (¿capaz utilizando concurrencia y proxy se soluciona?)

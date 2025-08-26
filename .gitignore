@@ -13,6 +13,11 @@ __pycache__/
 *.sqlite3
 db.sqlite3
 
+# Cookies y archivos sensibles
+mercadolibre_cookies.json
+cookies_env.txt
+convert_cookies_to_env.py
+
 # Archivos de debug
 debug_page.html
 static/debug_screenshots/*.png

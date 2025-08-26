@@ -17,10 +17,6 @@ def iniciar_driver():
     chrome_options.add_argument("--disable-javascript")  # Solo necesitamos HTML
     chrome_options.add_argument("--window-size=1920x1080")
     chrome_options.add_argument("--remote-debugging-port=9222")
-    # Headers más realistas para evitar detección
-    chrome_options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-    chrome_options.add_argument("--accept-language=es-ES,es;q=0.9,en;q=0.8")
-    
     chrome_options.add_argument("--disable-background-timer-throttling")
     chrome_options.add_argument("--disable-renderer-backgrounding")
     chrome_options.add_argument("--disable-backgrounding-occluded-windows")
@@ -39,11 +35,6 @@ def iniciar_driver():
         driver = webdriver.Chrome(service=service, options=chrome_options)
         stealth(driver, languages=["es-ES", "es"], vendor="Google Inc.", platform="Win32",
             webgl_vendor="Intel Inc.", renderer="Intel Iris OpenGL Engine", fix_hairline=True)
-        
-        # Configurar headers adicionales después de inicializar
-        driver.execute_cdp_cmd('Network.setUserAgentOverride', {
-            "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-        })
         
         # Verificar que el driver funciona
         driver.set_page_load_timeout(30)
@@ -75,6 +66,7 @@ from selenium.webdriver.chrome.service import Service as ChromeService
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from datetime import datetime
+from django.conf import settings
 
 def tomar_captura_debug(driver, motivo="debug"):
     """
@@ -331,6 +323,70 @@ def build_mercadolibre_url(filters: Dict[str, Any]) -> str:
     return base + path_str + filter_str
 
 
+def cargar_cookies(driver, cookies_path):
+    """
+    Carga cookies desde archivo local o variable de entorno para producción
+    """
+    cookies_data = None
+    
+    # Primero intentar cargar desde variable de entorno (para producción)
+    mercadolibre_cookies_env = os.environ.get('MERCADOLIBRE_COOKIES')
+    if mercadolibre_cookies_env:
+        try:
+            cookies_data = json.loads(mercadolibre_cookies_env)
+            print(f"[scraper] Cookies cargadas desde variable de entorno")
+        except json.JSONDecodeError as e:
+            print(f"[scraper] Error decodificando cookies de variable de entorno: {e}")
+    
+    # Si no hay cookies en variable de entorno, intentar archivo local
+    if not cookies_data:
+        if not os.path.exists(cookies_path):
+            print(f"[scraper] Archivo de cookies no encontrado: {cookies_path}")
+            print(f"[scraper] Tip: Para producción, configura la variable MERCADOLIBRE_COOKIES")
+            return
+        try:
+            with open(cookies_path, 'r', encoding='utf-8') as f:
+                cookies_data = json.load(f)
+            print(f"[scraper] Cookies cargadas desde archivo local: {cookies_path}")
+        except Exception as e:
+            print(f"[scraper] Error leyendo archivo de cookies: {e}")
+            return
+    
+    if not cookies_data:
+        print(f"[scraper] No se pudieron cargar las cookies")
+        return
+        
+    # Navegar a la página principal antes de agregar cookies
+    driver.get('https://www.mercadolibre.com.uy')
+    
+    cookies_agregadas = 0
+    for cookie in cookies_data:
+        try:
+            # Selenium espera 'expiry' como int, no float
+            if 'expiry' in cookie:
+                try:
+                    cookie['expiry'] = int(cookie['expiry'])
+                except:
+                    del cookie['expiry']
+            elif 'expirationDate' in cookie:
+                try:
+                    cookie['expiry'] = int(cookie['expirationDate'])
+                    del cookie['expirationDate']
+                except:
+                    pass
+            
+            # Elimina campos incompatibles con Selenium
+            for k in ['sameSite', 'storeId', 'id']:
+                cookie.pop(k, None)
+            
+            driver.add_cookie(cookie)
+            cookies_agregadas += 1
+        except Exception as e:
+            print(f"[scraper] Error al agregar cookie {cookie.get('name', 'sin_nombre')}: {e}")
+    
+    print(f"[scraper] {cookies_agregadas} cookies agregadas exitosamente")
+
+
 def scrape_mercadolibre(filters: Dict[str, Any], keywords: List[str], max_pages: int = 3, search_id: str = None) -> Dict[str, List[Dict[str, Any]]]:
     print(f"🚀 [ML SCRAPER] Iniciando búsqueda - {len(keywords)} keywords, {max_pages} páginas")
     
@@ -343,27 +399,6 @@ def scrape_mercadolibre(filters: Dict[str, Any], keywords: List[str], max_pages:
             except:
                 return False
         return False
-    def cargar_cookies(driver, cookies_path):
-        if not os.path.exists(cookies_path):
-            print(f"[scraper] Archivo de cookies no encontrado: {cookies_path}")
-            return
-        with open(cookies_path, 'r', encoding='utf-8') as f:
-            cookies = json.load(f)
-        driver.get('https://www.mercadolibre.com.uy')
-        for cookie in cookies:
-            # Selenium espera 'expiry' como int, no float
-            if 'expiry' in cookie:
-                try:
-                    cookie['expiry'] = int(cookie['expiry'])
-                except:
-                    del cookie['expiry']
-            # Elimina campos incompatibles
-            for k in ['sameSite', 'storeId']:
-                cookie.pop(k, None)
-            try:
-                driver.add_cookie(cookie)
-            except Exception as e:
-                print(f"[scraper] Error al agregar cookie: {e}")
 
     # Importar aquí para evitar dependencias cruzadas
     from core.search_manager import procesar_keywords
