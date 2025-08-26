@@ -323,125 +323,9 @@ def build_mercadolibre_url(filters: Dict[str, Any]) -> str:
     return base + path_str + filter_str
 
 
-def manejar_popups_cookies(driver):
-    """
-    Maneja popups de cookies y avisos de MercadoLibre
-    """
-    popups_manejados = 0
-    
-    try:
-        # Esperar un momento para que aparezcan los popups
-        time.sleep(3)
-        
-        # Lista de selectores para cerrar popups de cookies
-        selectores_popup_cookies = [
-            "button[data-testid='action:understood-button']",  # ML nuevo
-            "button[data-testid='cookies-policy-banner-accept']",  # ML cookies
-            ".cookie-consent-banner-opt-out__action button",  # ML cookies alternativo
-            "[data-testid='action:understood-button']",  # ML general
-            ".ui-cookie-consent__accept",  # ML viejo
-            "button:contains('Entendido')",  # Texto genérico
-            "button:contains('Aceptar')",  # Texto genérico
-            "button:contains('Continuar')",  # Texto genérico
-            ".cookie-banner button",  # Banner genérico
-            "[class*='cookie'] button[class*='accept']",  # Clases con cookie y accept
-        ]
-        
-        for selector in selectores_popup_cookies:
-            try:
-                elemento = WebDriverWait(driver, 2).until(
-                    EC.element_to_be_clickable((By.CSS_SELECTOR, selector))
-                )
-                elemento.click()
-                popups_manejados += 1
-                print(f"[scraper] Popup de cookies cerrado con selector: {selector}")
-                time.sleep(1)
-                break  # Solo cerrar un popup por vez
-            except (TimeoutException, NoSuchElementException):
-                continue
-        
-        # Manejar popup de localización si aparece
-        try:
-            location_popup = WebDriverWait(driver, 2).until(
-                EC.element_to_be_clickable((By.CSS_SELECTOR, "[data-testid='action:modal-dismissed']"))
-            )
-            location_popup.click()
-            popups_manejados += 1
-            print(f"[scraper] Popup de localización cerrado")
-            time.sleep(1)
-        except (TimeoutException, NoSuchElementException):
-            pass
-        
-        # Cerrar cualquier modal genérico
-        try:
-            modal_close = WebDriverWait(driver, 2).until(
-                EC.element_to_be_clickable((By.CSS_SELECTOR, ".ui-modal__close, [aria-label='Cerrar'], .close-button"))
-            )
-            modal_close.click()
-            popups_manejados += 1
-            print(f"[scraper] Modal genérico cerrado")
-            time.sleep(1)
-        except (TimeoutException, NoSuchElementException):
-            pass
-            
-    except Exception as e:
-        print(f"[scraper] Error manejando popups: {e}")
-    
-    if popups_manejados > 0:
-        print(f"[scraper] {popups_manejados} popups manejados exitosamente")
-    else:
-        print(f"[scraper] No se encontraron popups para cerrar")
-    
-    return popups_manejados > 0
-
-
-def verificar_necesita_login(driver):
-    """
-    Verifica si MercadoLibre está pidiendo login/registro
-    """
-    try:
-        # Selectores que indican necesidad de login
-        selectores_login = [
-            ".nav-menu-item-link[href*='registration']",  # Link de registro
-            "[data-testid='action:login-button']",  # Botón de login
-            "a[href*='login']",  # Links de login
-            "button:contains('Iniciar sesión')",  # Texto de login
-            ".login-button",  # Clase de login
-            "[class*='register']",  # Clases de registro
-        ]
-        
-        for selector in selectores_login:
-            try:
-                elemento = driver.find_element(By.CSS_SELECTOR, selector)
-                if elemento.is_displayed():
-                    print(f"[scraper] ⚠️ Detectado requerimiento de login: {selector}")
-                    return True
-            except (NoSuchElementException, TimeoutException):
-                continue
-        
-        # Verificar por URL
-        current_url = driver.current_url
-        if any(path in current_url.lower() for path in ['login', 'registration', 'signin', 'signup']):
-            print(f"[scraper] ⚠️ Detectado requerimiento de login por URL: {current_url}")
-            return True
-        
-        # Verificar por título de página
-        title = driver.title.lower()
-        if any(word in title for word in ['login', 'iniciar', 'registr', 'ingresar']):
-            print(f"[scraper] ⚠️ Detectado requerimiento de login por título: {driver.title}")
-            return True
-        
-        return False
-        
-    except Exception as e:
-        print(f"[scraper] Error verificando necesidad de login: {e}")
-        return False
-
-
 def cargar_cookies(driver, cookies_path):
     """
     Carga cookies desde archivo local o variable de entorno para producción
-    Con manejo mejorado de popups y verificación de login
     """
     cookies_data = None
     
@@ -450,7 +334,7 @@ def cargar_cookies(driver, cookies_path):
     if mercadolibre_cookies_env:
         try:
             cookies_data = json.loads(mercadolibre_cookies_env)
-            print(f"[scraper] Cookies cargadas desde variable de entorno ({len(cookies_data)} cookies)")
+            print(f"[scraper] Cookies cargadas desde variable de entorno")
         except json.JSONDecodeError as e:
             print(f"[scraper] Error decodificando cookies de variable de entorno: {e}")
     
@@ -459,185 +343,48 @@ def cargar_cookies(driver, cookies_path):
         if not os.path.exists(cookies_path):
             print(f"[scraper] Archivo de cookies no encontrado: {cookies_path}")
             print(f"[scraper] Tip: Para producción, configura la variable MERCADOLIBRE_COOKIES")
-            return False
+            return
         try:
             with open(cookies_path, 'r', encoding='utf-8') as f:
                 cookies_data = json.load(f)
-            print(f"[scraper] Cookies cargadas desde archivo local: {cookies_path} ({len(cookies_data)} cookies)")
+            print(f"[scraper] Cookies cargadas desde archivo local: {cookies_path}")
         except Exception as e:
             print(f"[scraper] Error leyendo archivo de cookies: {e}")
-            return False
+            return
     
     if not cookies_data:
         print(f"[scraper] No se pudieron cargar las cookies")
-        return False
-    
-    # Navegar a la página principal antes de agregar cookies
-    print(f"[scraper] Navegando a MercadoLibre...")
-    driver.get('https://www.mercadolibre.com.uy')
-    time.sleep(3)  # Esperar a que cargue completamente
-    
-    # Manejar popups iniciales ANTES de cargar cookies
-    print(f"[scraper] Manejando popups iniciales...")
-    manejar_popups_cookies(driver)
-    
-    # Filtrar cookies válidas (no expiradas)
-    import time as time_module
-    current_timestamp = time_module.time()
-    cookies_validas = []
-    
-    for cookie in cookies_data:
-        # Verificar si la cookie ha expirado
-        if 'expirationDate' in cookie:
-            if cookie['expirationDate'] < current_timestamp:
-                continue  # Cookie expirada, saltar
-        elif 'expiry' in cookie:
-            if cookie['expiry'] < current_timestamp:
-                continue  # Cookie expirada, saltar
+        return
         
-        cookies_validas.append(cookie)
+    # Navegar a la página principal antes de agregar cookies
+    driver.get('https://www.mercadolibre.com.uy')
     
-    print(f"[scraper] {len(cookies_validas)}/{len(cookies_data)} cookies válidas (no expiradas)")
-    
-    # Agregar cookies válidas
     cookies_agregadas = 0
-    cookies_fallidas = 0
-    
-    for cookie in cookies_validas:
+    for cookie in cookies_data:
         try:
-            # Preparar cookie para Selenium
-            cookie_selenium = cookie.copy()
-            
-            # Manejar campo de expiración
-            if 'expirationDate' in cookie_selenium:
+            # Selenium espera 'expiry' como int, no float
+            if 'expiry' in cookie:
                 try:
-                    cookie_selenium['expiry'] = int(cookie_selenium['expirationDate'])
-                    del cookie_selenium['expirationDate']
+                    cookie['expiry'] = int(cookie['expiry'])
                 except:
-                    cookie_selenium.pop('expirationDate', None)
-            elif 'expiry' in cookie_selenium:
+                    del cookie['expiry']
+            elif 'expirationDate' in cookie:
                 try:
-                    cookie_selenium['expiry'] = int(cookie_selenium['expiry'])
+                    cookie['expiry'] = int(cookie['expirationDate'])
+                    del cookie['expirationDate']
                 except:
-                    del cookie_selenium['expiry']
-            
-            # Eliminar campos incompatibles con Selenium
-            for k in ['sameSite', 'storeId', 'id', 'priority']:
-                cookie_selenium.pop(k, None)
-            
-            # Intentar agregar la cookie
-            driver.add_cookie(cookie_selenium)
-            cookies_agregadas += 1
-            
-        except Exception as e:
-            cookies_fallidas += 1
-            cookie_name = cookie.get('name', 'sin_nombre')
-            print(f"[scraper] Error agregando cookie '{cookie_name}': {e}")
-    
-    print(f"[scraper] Cookies agregadas: {cookies_agregadas}, fallidas: {cookies_fallidas}")
-    
-    # Recargar página para aplicar cookies
-    print(f"[scraper] Recargando página para aplicar cookies...")
-    driver.refresh()
-    time.sleep(3)
-    
-    # Manejar popups después de recargar
-    manejar_popups_cookies(driver)
-    
-    # Verificar si todavía necesita login
-    necesita_login = verificar_necesita_login(driver)
-    if necesita_login:
-        print(f"[scraper] ⚠️ Las cookies no fueron suficientes, MercadoLibre sigue pidiendo login")
-        return False
-    else:
-        print(f"[scraper] ✅ Cookies aplicadas correctamente, no se requiere login")
-        return True
-                # Convertir a formato Selenium
-                cookie['expiry'] = int(cookie['expirationDate'])
-                del cookie['expirationDate']
-            elif 'expiry' in cookie:
-                if cookie['expiry'] < current_timestamp:
-                    print(f"[scraper] Cookie expirada ignorada: {cookie.get('name', 'sin_nombre')}")
-                    continue
-                cookie['expiry'] = int(cookie['expiry'])
+                    pass
             
             # Elimina campos incompatibles con Selenium
             for k in ['sameSite', 'storeId', 'id']:
                 cookie.pop(k, None)
             
-            # Solo agregar cookies importantes para la sesión
-            important_cookies = [
-                '_d2id', 'ssid', 'orguseridp', 'orguserid', 'orgnickp',
-                'cookiesPreferencesLogged', '_csrf', 'ftid', 'nsa_rotok',
-                '_mldataSessionId'
-            ]
-            
-            if cookie.get('name') in important_cookies:
-                driver.add_cookie(cookie)
-                cookies_agregadas += 1
-                print(f"[scraper] Cookie importante agregada: {cookie.get('name')}")
-            
+            driver.add_cookie(cookie)
+            cookies_agregadas += 1
         except Exception as e:
-            cookies_fallidas += 1
             print(f"[scraper] Error al agregar cookie {cookie.get('name', 'sin_nombre')}: {e}")
     
-    print(f"[scraper] Resumen cookies: {cookies_agregadas} agregadas, {cookies_fallidas} fallaron")
-    
-    # Refrescar la página para que las cookies tomen efecto
-    driver.refresh()
-    time.sleep(3)
-    
-    return cookies_agregadas > 0
-
-
-def manejar_popups_cookies(driver):
-    """
-    Maneja popups de cookies y otros elementos que puedan interferir
-    """
-    try:
-        # Esperar un poco para que carguen los popups
-        time.sleep(2)
-        
-        # Intentar cerrar popup de cookies
-        selectors_popup_cookies = [
-            "button[data-testid='action:understood-button']",  # Botón "Entendido" 
-            "button[data-testid='cookies-policy-banner-accept']",  # Botón aceptar cookies
-            ".cookie-consent-banner-opt-out__action button",  # Otro selector común
-            "button.cookie-consent-banner-opt-out__action",
-            ".andes-button--loud[data-testid='action:understood-button']",
-            "[data-testid='cookies-policy-banner-accept-all']",
-            "button:contains('Acepto')",
-            "button:contains('Entendido')",
-            "button:contains('Aceptar')"
-        ]
-        
-        popup_cerrado = False
-        for selector in selectors_popup_cookies:
-            try:
-                element = WebDriverWait(driver, 2).until(
-                    EC.element_to_be_clickable((By.CSS_SELECTOR, selector))
-                )
-                element.click()
-                print(f"[scraper] Popup de cookies cerrado con selector: {selector}")
-                popup_cerrado = True
-                break
-            except:
-                continue
-        
-        if popup_cerrado:
-            time.sleep(2)  # Esperar tras cerrar popup
-        
-        # Verificar si hay redirección a login
-        current_url = driver.current_url.lower()
-        if 'login' in current_url or 'registro' in current_url or 'security' in current_url:
-            print(f"[scraper] ⚠️  Detectada redirección a login/registro: {current_url}")
-            return False
-            
-        return True
-        
-    except Exception as e:
-        print(f"[scraper] Error manejando popups: {e}")
-        return True  # Continuar aunque falle
+    print(f"[scraper] {cookies_agregadas} cookies agregadas exitosamente")
 
 
 def scrape_mercadolibre(filters: Dict[str, Any], keywords: List[str], max_pages: int = 3, search_id: str = None) -> Dict[str, List[Dict[str, Any]]]:
@@ -665,15 +412,7 @@ def scrape_mercadolibre(filters: Dict[str, Any], keywords: List[str], max_pages:
     driver = iniciar_driver()
 
     # Cargar cookies de sesión si existen
-    cookies_loaded = cargar_cookies(driver, 'mercadolibre_cookies.json')
-    
-    if not cookies_loaded:
-        print("[scraper] ⚠️  Continuando sin cookies - podría haber limitaciones")
-    
-    # Manejar popups de cookies y otros elementos
-    popup_handled = manejar_popups_cookies(driver)
-    if not popup_handled:
-        print("[scraper] ⚠️  Posible redirección a login detectada - verifica las cookies")
+    cargar_cookies(driver, 'mercadolibre_cookies.json')
 
     links = []
     all_publications = []
