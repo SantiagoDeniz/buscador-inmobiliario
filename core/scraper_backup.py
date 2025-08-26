@@ -62,18 +62,12 @@ from core.models import Propiedad
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.service import Service as ChromeService
+from selenium.common.exceptions import TimeoutException, NoSuchElementException, WebDriverException, ElementNotInteractableException, InvalidSessionIdException
 
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from datetime import datetime
 from django.conf import settings
-
-try:
-    from selenium_stealth import stealth
-except ImportError:
-    print("⚠️ selenium-stealth no está instalado, funcionará sin stealth")
-    def stealth(driver, **kwargs):
-        pass  # Función dummy si no está instalado
 
 def tomar_captura_debug(driver, motivo="debug"):
     """
@@ -329,6 +323,7 @@ def build_mercadolibre_url(filters: Dict[str, Any]) -> str:
 
     return base + path_str + filter_str
 
+
 def manejar_popups_cookies(driver):
     """
     Maneja popups de cookies y avisos de MercadoLibre
@@ -337,7 +332,7 @@ def manejar_popups_cookies(driver):
     
     try:
         # Esperar un momento para que aparezcan los popups
-        time.sleep(2)
+        time.sleep(3)
         
         # Lista de selectores para cerrar popups de cookies
         selectores_popup_cookies = [
@@ -350,17 +345,17 @@ def manejar_popups_cookies(driver):
             "button:contains('Aceptar')",  # Texto genérico
             "button:contains('Continuar')",  # Texto genérico
             ".cookie-banner button",  # Banner genérico
+            "[class*='cookie'] button[class*='accept']",  # Clases con cookie y accept
         ]
         
         for selector in selectores_popup_cookies:
             try:
-                from selenium.common.exceptions import TimeoutException, NoSuchElementException
                 elemento = WebDriverWait(driver, 2).until(
                     EC.element_to_be_clickable((By.CSS_SELECTOR, selector))
                 )
                 elemento.click()
                 popups_manejados += 1
-                print(f"[scraper] Popup de cookies cerrado: {selector}")
+                print(f"[scraper] Popup de cookies cerrado con selector: {selector}")
                 time.sleep(1)
                 break  # Solo cerrar un popup por vez
             except (TimeoutException, NoSuchElementException):
@@ -377,9 +372,26 @@ def manejar_popups_cookies(driver):
             time.sleep(1)
         except (TimeoutException, NoSuchElementException):
             pass
+        
+        # Cerrar cualquier modal genérico
+        try:
+            modal_close = WebDriverWait(driver, 2).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, ".ui-modal__close, [aria-label='Cerrar'], .close-button"))
+            )
+            modal_close.click()
+            popups_manejados += 1
+            print(f"[scraper] Modal genérico cerrado")
+            time.sleep(1)
+        except (TimeoutException, NoSuchElementException):
+            pass
             
     except Exception as e:
         print(f"[scraper] Error manejando popups: {e}")
+    
+    if popups_manejados > 0:
+        print(f"[scraper] {popups_manejados} popups manejados exitosamente")
+    else:
+        print(f"[scraper] No se encontraron popups para cerrar")
     
     return popups_manejados > 0
 
@@ -389,8 +401,6 @@ def verificar_necesita_login(driver):
     Verifica si MercadoLibre está pidiendo login/registro
     """
     try:
-        from selenium.common.exceptions import TimeoutException, NoSuchElementException
-        
         # Selectores que indican necesidad de login
         selectores_login = [
             ".nav-menu-item-link[href*='registration']",  # Link de registro
@@ -398,6 +408,7 @@ def verificar_necesita_login(driver):
             "a[href*='login']",  # Links de login
             "button:contains('Iniciar sesión')",  # Texto de login
             ".login-button",  # Clase de login
+            "[class*='register']",  # Clases de registro
         ]
         
         for selector in selectores_login:
@@ -522,8 +533,7 @@ def cargar_cookies(driver, cookies_path):
         except Exception as e:
             cookies_fallidas += 1
             cookie_name = cookie.get('name', 'sin_nombre')
-            if cookies_fallidas <= 3:  # Solo mostrar primeros 3 errores
-                print(f"[scraper] Error agregando cookie '{cookie_name}': {e}")
+            print(f"[scraper] Error agregando cookie '{cookie_name}': {e}")
     
     print(f"[scraper] Cookies agregadas: {cookies_agregadas}, fallidas: {cookies_fallidas}")
     
@@ -543,6 +553,92 @@ def cargar_cookies(driver, cookies_path):
     else:
         print(f"[scraper] ✅ Cookies aplicadas correctamente, no se requiere login")
         return True
+                # Convertir a formato Selenium
+                cookie['expiry'] = int(cookie['expirationDate'])
+                del cookie['expirationDate']
+            elif 'expiry' in cookie:
+                if cookie['expiry'] < current_timestamp:
+                    print(f"[scraper] Cookie expirada ignorada: {cookie.get('name', 'sin_nombre')}")
+                    continue
+                cookie['expiry'] = int(cookie['expiry'])
+            
+            # Elimina campos incompatibles con Selenium
+            for k in ['sameSite', 'storeId', 'id']:
+                cookie.pop(k, None)
+            
+            # Solo agregar cookies importantes para la sesión
+            important_cookies = [
+                '_d2id', 'ssid', 'orguseridp', 'orguserid', 'orgnickp',
+                'cookiesPreferencesLogged', '_csrf', 'ftid', 'nsa_rotok',
+                '_mldataSessionId'
+            ]
+            
+            if cookie.get('name') in important_cookies:
+                driver.add_cookie(cookie)
+                cookies_agregadas += 1
+                print(f"[scraper] Cookie importante agregada: {cookie.get('name')}")
+            
+        except Exception as e:
+            cookies_fallidas += 1
+            print(f"[scraper] Error al agregar cookie {cookie.get('name', 'sin_nombre')}: {e}")
+    
+    print(f"[scraper] Resumen cookies: {cookies_agregadas} agregadas, {cookies_fallidas} fallaron")
+    
+    # Refrescar la página para que las cookies tomen efecto
+    driver.refresh()
+    time.sleep(3)
+    
+    return cookies_agregadas > 0
+
+
+def manejar_popups_cookies(driver):
+    """
+    Maneja popups de cookies y otros elementos que puedan interferir
+    """
+    try:
+        # Esperar un poco para que carguen los popups
+        time.sleep(2)
+        
+        # Intentar cerrar popup de cookies
+        selectors_popup_cookies = [
+            "button[data-testid='action:understood-button']",  # Botón "Entendido" 
+            "button[data-testid='cookies-policy-banner-accept']",  # Botón aceptar cookies
+            ".cookie-consent-banner-opt-out__action button",  # Otro selector común
+            "button.cookie-consent-banner-opt-out__action",
+            ".andes-button--loud[data-testid='action:understood-button']",
+            "[data-testid='cookies-policy-banner-accept-all']",
+            "button:contains('Acepto')",
+            "button:contains('Entendido')",
+            "button:contains('Aceptar')"
+        ]
+        
+        popup_cerrado = False
+        for selector in selectors_popup_cookies:
+            try:
+                element = WebDriverWait(driver, 2).until(
+                    EC.element_to_be_clickable((By.CSS_SELECTOR, selector))
+                )
+                element.click()
+                print(f"[scraper] Popup de cookies cerrado con selector: {selector}")
+                popup_cerrado = True
+                break
+            except:
+                continue
+        
+        if popup_cerrado:
+            time.sleep(2)  # Esperar tras cerrar popup
+        
+        # Verificar si hay redirección a login
+        current_url = driver.current_url.lower()
+        if 'login' in current_url or 'registro' in current_url or 'security' in current_url:
+            print(f"[scraper] ⚠️  Detectada redirección a login/registro: {current_url}")
+            return False
+            
+        return True
+        
+    except Exception as e:
+        print(f"[scraper] Error manejando popups: {e}")
+        return True  # Continuar aunque falle
 
 
 def scrape_mercadolibre(filters: Dict[str, Any], keywords: List[str], max_pages: int = 3, search_id: str = None) -> Dict[str, List[Dict[str, Any]]]:
@@ -573,9 +669,12 @@ def scrape_mercadolibre(filters: Dict[str, Any], keywords: List[str], max_pages:
     cookies_loaded = cargar_cookies(driver, 'mercadolibre_cookies.json')
     
     if not cookies_loaded:
-        print("[scraper] ⚠️ Continuando sin cookies válidas - podría haber limitaciones de acceso")
-        # Tomar captura de debug para ver qué está pasando
-        tomar_captura_debug(driver, "cookies_fallidas")
+        print("[scraper] ⚠️  Continuando sin cookies - podría haber limitaciones")
+    
+    # Manejar popups de cookies y otros elementos
+    popup_handled = manejar_popups_cookies(driver)
+    if not popup_handled:
+        print("[scraper] ⚠️  Posible redirección a login detectada - verifica las cookies")
 
     links = []
     all_publications = []
