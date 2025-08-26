@@ -15,6 +15,9 @@ db.sqlite3
 
 # Archivos de debug
 debug_page.html
+static/debug_screenshots/*.png
+static/debug_screenshots/*.html
+static/debug_screenshots/*.txt
 
 # Archivos de IDEs
 .idea/

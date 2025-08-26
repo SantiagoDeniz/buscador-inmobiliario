@@ -316,3 +316,29 @@ def redis_diagnostic(request):
             'error': str(e),
             'redis_url': os.environ.get('REDIS_URL', 'No configurada')[:50] + '...'
         })
+
+def debug_screenshots(request):
+    """Vista para mostrar capturas de debug cuando no hay WebSockets disponibles"""
+    try:
+        debug_file = os.path.join('static', 'debug_screenshots', 'latest_screenshots.json')
+        screenshots = []
+        
+        if os.path.exists(debug_file):
+            try:
+                with open(debug_file, 'r', encoding='utf-8') as f:
+                    screenshots = json.load(f)
+            except:
+                screenshots = []
+        
+        # Ordenar por timestamp más reciente primero
+        screenshots.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+        
+        context = {
+            'screenshots': screenshots,
+            'has_screenshots': len(screenshots) > 0
+        }
+        
+        return render(request, 'core/debug_screenshots.html', context)
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)})

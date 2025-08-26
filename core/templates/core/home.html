@@ -45,6 +45,14 @@
         <header class="text-center mb-5">
             <h1>Buscador de Propiedades</h1>
             <p class="lead">Encuentra la propiedad perfecta analizando miles de publicaciones por ti.</p>
+            <div class="mt-2">
+                <a href="/debug_screenshots/" class="btn btn-outline-secondary btn-sm">
+                    📸 Ver Capturas Debug
+                </a>
+                <small class="text-muted d-block mt-1">
+                    (Útil cuando el scraper no encuentra totales)
+                </small>
+            </div>
         </header>
 
         <div class="card p-4 shadow-sm mb-5" id="search-form">
@@ -384,6 +392,41 @@
         filterContainer.classList.toggle('collapsed');
     }
 
+    function mostrarCapturaDebug(screenshotPath) {
+        console.log('📸 [DEBUG] Mostrando captura:', screenshotPath);
+        
+        // Buscar o crear el contenedor de debug
+        let debugContainer = document.getElementById('debug-screenshots-container');
+        if (!debugContainer) {
+            debugContainer = document.createElement('div');
+            debugContainer.id = 'debug-screenshots-container';
+            debugContainer.className = 'alert alert-warning mt-3';
+            debugContainer.innerHTML = `
+                <h5><i class="bi bi-camera"></i> 📸 Capturas de Debug</h5>
+                <p>Se capturó la pantalla para debugging cuando no se pudo extraer el total de resultados:</p>
+                <div id="debug-screenshots-list"></div>
+            `;
+            
+            // Insertarlo después del search-progress
+            const searchProgress = document.getElementById('search-progress');
+            searchProgress.parentNode.insertBefore(debugContainer, searchProgress.nextSibling);
+        }
+        
+        // Agregar la nueva captura
+        const screenshotsList = document.getElementById('debug-screenshots-list');
+        const screenshotItem = document.createElement('div');
+        screenshotItem.className = 'mb-2';
+        screenshotItem.innerHTML = `
+            <a href="${screenshotPath}" target="_blank" class="btn btn-outline-primary btn-sm">
+                <i class="bi bi-eye"></i> Ver Captura (${new Date().toLocaleTimeString()})
+            </a>
+        `;
+        screenshotsList.appendChild(screenshotItem);
+        
+        // Scroll hacia el debug container
+        debugContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
     let buscando = false;
     function iniciarBusqueda() {
         buscando = true;
@@ -499,9 +542,18 @@
                     currentSearchItemSpan.textContent = message.current_search_item;
                 }
                 
+                // Mostrar captura de debug si está disponible
+                if (message.debug_screenshot) {
+                    console.log('📸 [DEBUG SCREENSHOT] Captura disponible:', message.debug_screenshot);
+                    mostrarCapturaDebug(message.debug_screenshot);
+                }
+                
                 // Actualizar lista de publicaciones coincidentes durante la búsqueda
                 if (message.matched_publications && Array.isArray(message.matched_publications)) {
-                    console.log('📝 [DEBUG] Publicaciones coincidentes:', message.matched_publications); // Debug
+                    // Solo log si hay cambios significativos
+                    if (message.matched_publications.length > 0 && message.matched_publications.length % 10 === 0) {
+                        console.log(`📝 [COINCIDENCIAS] ${message.matched_publications.length} encontradas`);
+                    }
                     updateMatchedPublications(message.matched_publications);
                 }
                 
@@ -538,9 +590,33 @@
             const searchProgressDiv = document.getElementById('search-progress');
             const currentSearchItemSpan = document.getElementById('current-search-item');
             if (searchProgressDiv.style.display !== 'none') {
-                currentSearchItemSpan.textContent = 'Error de conexión. La búsqueda puede no funcionar correctamente en este servidor.';
+                currentSearchItemSpan.textContent = 'Error de conexión. Verifique capturas debug manualmente si es necesario.';
+                
+                // Mostrar enlace a capturas de debug cuando no hay WebSocket
+                setTimeout(() => {
+                    mostrarEnlaceDebugFallback();
+                }, 3000);
             }
         };
+
+        function mostrarEnlaceDebugFallback() {
+            const searchProgressDiv = document.getElementById('search-progress');
+            let debugLinkDiv = document.getElementById('debug-fallback-link');
+            
+            if (!debugLinkDiv) {
+                debugLinkDiv = document.createElement('div');
+                debugLinkDiv.id = 'debug-fallback-link';
+                debugLinkDiv.className = 'alert alert-info mt-3';
+                debugLinkDiv.innerHTML = `
+                    <h5>📸 Modo Sin WebSocket</h5>
+                    <p>Para ver capturas de debug (si las hay), visite:</p>
+                    <a href="/debug_screenshots/" class="btn btn-outline-primary" target="_blank">
+                        Ver Capturas de Debug
+                    </a>
+                `;
+                searchProgressDiv.parentNode.insertBefore(debugLinkDiv, searchProgressDiv.nextSibling);
+            }
+        }
 
         searchProgressSocket.onerror = function(e) {
             console.error('🔥 [WebSocket] Error de conexión:', e);

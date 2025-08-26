@@ -1,0 +1,1 @@
+Sacar el campo de "título para la búsqueda" de la sección de filtros.

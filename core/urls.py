@@ -13,4 +13,5 @@ urlpatterns = [
     path('ia_sugerir_filtros/', views.ia_sugerir_filtros, name='ia_sugerir_filtros'),
     path('http_search_fallback/', views.http_search_fallback, name='http_search_fallback'),
     path('redis_diagnostic/', views.redis_diagnostic, name='redis_diagnostic'),
+    path('debug_screenshots/', views.debug_screenshots, name='debug_screenshots'),
 ]

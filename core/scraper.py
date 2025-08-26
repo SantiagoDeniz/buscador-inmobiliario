@@ -65,8 +65,53 @@ from selenium.webdriver.chrome.service import Service as ChromeService
 
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
+from datetime import datetime
 
-def send_progress_update(total_found=None, estimated_time=None, current_search_item=None, matched_publications=None, final_message=None, page_items_found=None):
+def tomar_captura_debug(driver, motivo="debug"):
+    """
+    Toma una captura de pantalla para debugging y la guarda en static/debug_screenshots/
+    También guarda el HTML de la página
+    """
+    try:
+        # Crear directorio si no existe
+        debug_dir = os.path.join('static', 'debug_screenshots')
+        os.makedirs(debug_dir, exist_ok=True)
+        
+        # Generar nombre único con timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename_base = f"{motivo}_{timestamp}"
+        
+        # Captura de pantalla
+        screenshot_path = os.path.join(debug_dir, f"{filename_base}.png")
+        driver.save_screenshot(screenshot_path)
+        
+        # Guardar HTML
+        html_path = os.path.join(debug_dir, f"{filename_base}.html")
+        with open(html_path, 'w', encoding='utf-8') as f:
+            f.write(driver.page_source)
+        
+        # Guardar info adicional
+        info_path = os.path.join(debug_dir, f"{filename_base}_info.txt")
+        with open(info_path, 'w', encoding='utf-8') as f:
+            f.write(f"Motivo: {motivo}\n")
+            f.write(f"URL: {driver.current_url}\n")
+            f.write(f"Título: {driver.title}\n")
+            f.write(f"Timestamp: {timestamp}\n")
+            f.write(f"Window Size: {driver.get_window_size()}\n")
+        
+        print(f"📸 [DEBUG] Captura guardada: {screenshot_path}")
+        print(f"📄 [DEBUG] HTML guardado: {html_path}")
+        print(f"ℹ️  [DEBUG] Info guardada: {info_path}")
+        
+        # Devolver la ruta relativa para mostrar en la interfaz web
+        web_screenshot_path = f"/static/debug_screenshots/{filename_base}.png"
+        return web_screenshot_path
+        
+    except Exception as e:
+        print(f"❌ [DEBUG] Error tomando captura: {e}")
+        return None
+
+def send_progress_update(total_found=None, estimated_time=None, current_search_item=None, matched_publications=None, final_message=None, page_items_found=None, debug_screenshot=None):
     # Consolidar logs - solo imprimir información importante y no repetitiva
     if final_message:
         print(f'✅ [FINAL] {final_message}')
@@ -74,12 +119,44 @@ def send_progress_update(total_found=None, estimated_time=None, current_search_i
         # Solo mostrar progreso relevante, no cada item individual
         print(f'🔄 [PROGRESO] {current_search_item}')
     
+    # Si hay captura de debug, guardar también en archivo JSON para acceso posterior
+    if debug_screenshot:
+        try:
+            import json
+            debug_file = os.path.join('static', 'debug_screenshots', 'latest_screenshots.json')
+            screenshots = []
+            
+            # Cargar capturas existentes
+            if os.path.exists(debug_file):
+                try:
+                    with open(debug_file, 'r', encoding='utf-8') as f:
+                        screenshots = json.load(f)
+                except:
+                    screenshots = []
+            
+            # Agregar nueva captura
+            screenshots.append({
+                'path': debug_screenshot,
+                'timestamp': datetime.now().isoformat(),
+                'message': current_search_item or 'Debug screenshot'
+            })
+            
+            # Mantener solo las últimas 10 capturas
+            screenshots = screenshots[-10:]
+            
+            # Guardar
+            with open(debug_file, 'w', encoding='utf-8') as f:
+                json.dump(screenshots, f, indent=2, ensure_ascii=False)
+                
+        except Exception as e:
+            print(f"⚠️ [DEBUG] Error guardando lista de capturas: {e}")
+    
     # Remover log redundante de total_found ya que se muestra en otras partes
     
     try:
         channel_layer = get_channel_layer()
         if channel_layer is None:
-            print("⚠️ [PROGRESO] Channel layer no disponible. Usando solo logs.")
+            print("⚠️ [WebSocket] Channel layer no disponible - funciona sin Redis/Daphne")
             return
         
         async_to_sync(channel_layer.group_send)(
@@ -93,6 +170,7 @@ def send_progress_update(total_found=None, estimated_time=None, current_search_i
                     "matched_publications": matched_publications,
                     "final_message": final_message,
                     "page_items_found": page_items_found, # Nuevo parámetro
+                    "debug_screenshot": debug_screenshot,  # Nueva funcionalidad para capturas
                 }
             }
         )
@@ -694,9 +772,21 @@ def extraer_total_resultados_mercadolibre(url_base_con_filtros):
                     return total
                 else:
                     print(f"❌ [TOTAL ML] No se encontraron números en el texto: '{total_text}'")
+                    # Tomar captura para debugging
+                    screenshot_path = tomar_captura_debug(driver, "no_numeros_en_texto")
+                    send_progress_update(
+                        current_search_item="❌ No se encontraron números en el total. Ver captura debug.",
+                        debug_screenshot=screenshot_path
+                    )
                     return None
             else:
                 print("❌ [TOTAL ML] No se encontró elemento con total de resultados")
+                # Tomar captura para debugging
+                screenshot_path = tomar_captura_debug(driver, "elemento_total_no_encontrado")
+                send_progress_update(
+                    current_search_item="❌ No se encontró elemento de total. Ver captura debug.",
+                    debug_screenshot=screenshot_path
+                )
                 # Intentar encontrar cualquier elemento que contenga "resultado"
                 try:
                     all_text = driver.find_element(By.TAG_NAME, "body").text
@@ -710,10 +800,29 @@ def extraer_total_resultados_mercadolibre(url_base_con_filtros):
                             total = int(total_str)
                             print(f"✅ [TOTAL ML] Total extraído mediante búsqueda de texto: {total:,}")
                             return total
+                        else:
+                            # Tomar captura - tiene la palabra "resultado" pero no encuentra el número
+                            screenshot_path = tomar_captura_debug(driver, "tiene_resultado_sin_numero")
+                            send_progress_update(
+                                current_search_item="❌ Página tiene 'resultado' pero sin número. Ver captura debug.",
+                                debug_screenshot=screenshot_path
+                            )
                     else:
                         print("📄 [TOTAL ML] La página no contiene 'resultado' - puede ser una página de error")
+                        # Tomar captura - página sin "resultado"
+                        screenshot_path = tomar_captura_debug(driver, "pagina_sin_resultado")
+                        send_progress_update(
+                            current_search_item="❌ Página sin 'resultado' - posible error. Ver captura debug.",
+                            debug_screenshot=screenshot_path
+                        )
                 except Exception as e:
                     print(f"❌ [TOTAL ML] Error al analizar contenido de página: {e}")
+                    # Tomar captura - error al analizar
+                    screenshot_path = tomar_captura_debug(driver, "error_analizar_pagina")
+                    send_progress_update(
+                        current_search_item=f"❌ Error analizando página: {e}. Ver captura debug.",
+                        debug_screenshot=screenshot_path
+                    )
                 
                 return None
                 
