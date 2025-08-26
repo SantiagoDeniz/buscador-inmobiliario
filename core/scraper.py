@@ -67,13 +67,14 @@ from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 
 def send_progress_update(total_found=None, estimated_time=None, current_search_item=None, matched_publications=None, final_message=None, page_items_found=None):
-    # Log en servidor con formato más legible
-    if current_search_item:
-        print(f'🔄 [PROGRESO] {current_search_item}')
-    if total_found:
-        print(f'📊 [PROGRESO] Total encontrado: {total_found:,} publicaciones')
+    # Consolidar logs - solo imprimir información importante y no repetitiva
     if final_message:
-        print(f'✅ [PROGRESO] FINAL: {final_message}')
+        print(f'✅ [FINAL] {final_message}')
+    elif current_search_item and not current_search_item.startswith("Búsqueda actual"):
+        # Solo mostrar progreso relevante, no cada item individual
+        print(f'🔄 [PROGRESO] {current_search_item}')
+    
+    # Remover log redundante de total_found ya que se muestra en otras partes
     
     try:
         channel_layer = get_channel_layer()
@@ -96,8 +97,7 @@ def send_progress_update(total_found=None, estimated_time=None, current_search_i
             }
         )
     except Exception as e:
-        print(f"⚠️ [PROGRESO] Error enviando actualización WebSocket: {e}")
-        print("⚠️ [PROGRESO] Continuando con solo logs...")
+        print(f"⚠️ [WebSocket] Error: {e}")
 
 try:
     from selenium_stealth import stealth
@@ -216,7 +216,7 @@ def build_mercadolibre_url(filters: Dict[str, Any]) -> str:
 
 
 def scrape_mercadolibre(filters: Dict[str, Any], keywords: List[str], max_pages: int = 3, search_id: str = None) -> Dict[str, List[Dict[str, Any]]]:
-    print(f"[DEPURACIÓN] Iniciando scraping MercadoLibre con filtros: {filters} y keywords: {keywords}")
+    print(f"🚀 [ML SCRAPER] Iniciando búsqueda - {len(keywords)} keywords, {max_pages} páginas")
     
     # Función para verificar si la búsqueda debe detenerse
     def should_stop():
@@ -317,8 +317,9 @@ def scrape_mercadolibre(filters: Dict[str, Any], keywords: List[str], max_pages:
             break
             
         items = driver.find_elements(By.CSS_SELECTOR, 'div.poly-card--grid-card')
-        print(f"\nSe han encontrado {len(items)} propiedades en la página {page+1}\n")
-        send_progress_update(current_search_item=f"Página {page+1}: Se encontraron {len(items)} publicaciones.", page_items_found=len(items))
+        # Consolidar logs de páginas
+        print(f"📄 [PÁGINA {page+1}] {len(items)} publicaciones encontradas")
+        send_progress_update(current_search_item=f"Página {page+1}: {len(items)} publicaciones encontradas", page_items_found=len(items))
         publicaciones = []
         for idx, item in enumerate(items, 1):
             # Verificar parada durante el procesamiento de cada item
@@ -550,10 +551,7 @@ def extraer_total_resultados_mercadolibre(url_base_con_filtros):
     """
     print(f"🔍 [TOTAL ML] Iniciando extracción para URL: {url_base_con_filtros}")
     
-    # Test: Verificar la URL primero
-    print(f"🔗 [URL TEST] URL completa: {url_base_con_filtros}")
-    
-    # Test de conectividad básica
+    # Remover logs excesivos de conectividad y tests
     try:
         print("🌐 [CONECTIVIDAD] Probando acceso básico a MercadoLibre...")
         test_response = requests.get("https://www.mercadolibre.com.uy/", headers=HEADERS, timeout=10)
@@ -575,14 +573,12 @@ def extraer_total_resultados_mercadolibre(url_base_con_filtros):
         
         response = requests.get(url_primera_pagina, headers=HEADERS, timeout=15)
         
-        print(f"📊 [TOTAL ML] Status code: {response.status_code}")
-        print(f"📊 [TOTAL ML] Response headers: {dict(response.headers)}")
-        print(f"📊 [TOTAL ML] Response length: {len(response.text)}")
-        print(f"📊 [TOTAL ML] First 500 chars: {response.text[:500]}")
+        # Solo mostrar status si hay error
+        if response.status_code != 200:
+            print(f"❌ [REQUESTS] Status: {response.status_code}")
         
         if response.status_code == 200:
             html_content = response.text
-            print("✅ [TOTAL ML] Contenido obtenido con requests")
             
             # Buscar el total en el HTML usando regex
             import re
@@ -595,7 +591,7 @@ def extraer_total_resultados_mercadolibre(url_base_con_filtros):
             ]
             
             for i, pattern in enumerate(patterns, 1):
-                print(f"🔍 [TOTAL ML] Probando patrón regex {i}/{len(patterns)}")
+                # Remover print de cada patrón probado
                 matches = re.findall(pattern, html_content, re.IGNORECASE)
                 if matches:
                     # Extraer el número más grande encontrado
@@ -612,7 +608,7 @@ def extraer_total_resultados_mercadolibre(url_base_con_filtros):
                         # Tomar el número más grande (probablemente el total)
                         numero_max = max(numeros, key=lambda x: int(x.replace('.', '').replace(',', '')))
                         total = int(numero_max.replace('.', '').replace(',', ''))
-                        print(f"✅ [TOTAL ML] Total extraído con requests usando patrón {i}: {total:,}")
+                        print(f"✅ [TOTAL EXTRAÍDO] {total:,} publicaciones")
                         return total
             
             print("⚠️ [TOTAL ML] Requests obtuvo contenido pero no encontró el total")
@@ -746,9 +742,8 @@ def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, work
     """
     Ejecuta el scraper con todos los filtros posibles usando build_mercadolibre_url
     """
-    print(f"🚀 [RUN_SCRAPER] Iniciando scraper con filtros completos: {filters}")
-    print(f"🚀 [RUN_SCRAPER] Keywords: {keywords}")
-    print(f"⚠️  [MODO SECUENCIAL] Usando {workers_fase1} worker(s) por fase")
+    # Consolidar logs iniciales
+    print(f"🚀 [SCRAPER] Iniciando búsqueda - Filtros: {len(filters)} | Keywords: {len(keywords) if keywords else 0}")
     
     # Inicializar lista de publicaciones coincidentes al inicio
     matched_publications_titles = []
@@ -756,8 +751,8 @@ def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, work
     # Procesar keywords usando la función centralizada
     from core.search_manager import procesar_keywords
     keywords_filtradas = procesar_keywords(' '.join(keywords)) if keywords else []
-    print(f"🚀 [RUN_SCRAPER] Keywords filtradas: {keywords_filtradas}")
-    
+    print(f"🔍 [SCRAPER] Keywords filtradas: {keywords_filtradas}")
+
     USE_THREADS = False  # Cambia a True para habilitar hilos y ScrapingBee
     
     # Solo verificar API key si se van a usar hilos (ScrapingBee)
@@ -777,8 +772,7 @@ def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, work
     urls_a_visitar_final = set()
     
     # --- CONSTRUCCIÓN DE URL COMPLETA CON TODOS LOS FILTROS ---
-    print("\n🔗 [URL BUILD] Construyendo URL con build_mercadolibre_url...")
-    print(f"🔗 [URL BUILD] Filtros recibidos: {filters}")
+    # Consolidar logs de construcción de URL
     try:
         url_base_con_filtros = build_mercadolibre_url(filters)
         print(f"🔗 [URL GENERADA] {url_base_con_filtros}")
@@ -786,16 +780,6 @@ def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, work
         # Validar que la URL no sea la genérica (indica error en construcción)
         if url_base_con_filtros.endswith('_NoIndex_True') and 'inmuebles/_NoIndex_True' in url_base_con_filtros:
             print("⚠️ [URL BUILD] URL generada es demasiado genérica, puede indicar problema en filtros")
-            print(f"⚠️ [URL BUILD] Reintentando construcción de URL sin filtros complejos...")
-            # Intentar con solo filtros básicos
-            basic_filters = {}
-            for key in ['tipo', 'operacion', 'departamento', 'ciudad']:
-                if key in filters:
-                    basic_filters[key] = filters[key]
-            print(f"🔗 [URL BUILD] Filtros básicos: {basic_filters}")
-            if basic_filters:
-                url_base_con_filtros = build_mercadolibre_url(basic_filters)
-                print(f"🔗 [URL REINTENTO] {url_base_con_filtros}")
         
         send_progress_update(current_search_item=f"🏠 URL generada con filtros: {url_base_con_filtros[:100]}{'...' if len(url_base_con_filtros) > 100 else ''}")
     except Exception as e:
@@ -859,15 +843,12 @@ def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, work
         # Consultamos a la BD una sola vez por todas las URLs encontradas
         urls_existentes = set(Propiedad.objects.filter(url_publicacion__in=list(urls_recolectadas_bruto)).values_list('url_publicacion', flat=True))
         propiedades_omitidas = len(urls_existentes)
-        
-        # Las URLs a visitar son las que recolectamos MENOS las que ya existen
         urls_a_visitar_final = urls_recolectadas_bruto - urls_existentes
         
-        print(f"[Principal] URLs existentes en BD: {propiedades_omitidas}")
-        print(f"[Principal] URLs nuevas para procesar: {len(urls_a_visitar_final)}")
-        send_progress_update(current_search_item=f"Publicaciones ya existentes: {propiedades_omitidas}. Nuevas publicaciones a procesar: {len(urls_a_visitar_final)}.")
+        print(f"🗃️  [DEDUP] Existentes: {propiedades_omitidas} | Nuevas: {len(urls_a_visitar_final)}")
+        send_progress_update(current_search_item=f"Existentes: {propiedades_omitidas} | Nuevas: {len(urls_a_visitar_final)}")
     else:
-        print("[Principal] No se recolectaron URLs para chequear.")
+        print("❌ [RECOLECCIÓN] No se obtuvieron URLs")
         send_progress_update(current_search_item="No se encontraron URLs para procesar.")
 
     if urls_a_visitar_final:
@@ -913,6 +894,7 @@ def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, work
                                 send_progress_update(current_search_item=f"Procesando publicación {i+1}/{len(urls_lista)}: {titulo_propiedad}")
 
                         if cumple:
+                            print(f"✅ [GUARDADO] {titulo_propiedad[:60]}...")
                             # --- MEJORAR CON DATOS DE LOS FILTROS ---
                             # Pre-rellenamos con los datos que ya conocemos de los filtros
                             datos_propiedad['operacion'] = filters.get('operacion', 'venta')
@@ -935,10 +917,11 @@ def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, work
                         else:
                             send_progress_update(current_search_item=f"Procesando publicación {i+1}/{len(urls_lista)}: Error al procesar")
                 except Exception as exc:
-                    print(f'URL {url_original[:50]}... generó una excepción al guardar: {exc}')
+                    print(f'URL {url_original} ... generó una excepción al guardar: {exc}')
 
-    print("\n--- RESUMEN ---")
+    # Consolidar resumen final
+    print(f"✅ [COMPLETADO] {nuevas_propiedades_guardadas} nuevas propiedades guardadas")
     send_progress_update(
-        final_message=f"✅ Búsqueda completada. Resumen: {nuevas_propiedades_guardadas} nuevas propiedades guardadas.",
+        final_message=f"✅ Búsqueda completada. {nuevas_propiedades_guardadas} nuevas propiedades guardadas.",
         matched_publications=matched_publications_titles
     )

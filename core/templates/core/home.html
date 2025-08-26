@@ -476,7 +476,6 @@
         searchProgressSocket.onmessage = function(e) {
             const data = JSON.parse(e.data);
             const message = data.message;
-            console.log('🔍 [DEBUG] Mensaje recibido:', message); // Debug
             
             // Mostrar debug de IA si está disponible
             if (data.debug_ia) {
@@ -507,7 +506,7 @@
                 }
                 
                 if (message.final_message !== undefined && message.final_message !== null) {
-                    console.log('🎯 [DEBUG] Mensaje final con publicaciones:', message.matched_publications); // Debug
+                    console.log('🎯 [FINALIZADO]', message.final_message);
                     // Cambiar a vista de resultados
                     showResults(message.matched_publications || []);
                     searchProgressDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -526,11 +525,14 @@
         };
 
         searchProgressSocket.onopen = function(e) {
-            console.log('✅ [WebSocket] Conectado exitosamente');
+            console.log('✅ [WebSocket] Conectado');
         };
 
         searchProgressSocket.onclose = function(e) {
-            console.error('❌ [WebSocket] Conexión cerrada:', e.code, e.reason);
+            // Solo mostrar si es un cierre inesperado
+            if (e.code !== 1000) {
+                console.error('❌ [WebSocket] Cerrado inesperadamente:', e.code);
+            }
             finalizarBusqueda();
             // Mostrar mensaje de error al usuario
             const searchProgressDiv = document.getElementById('search-progress');
