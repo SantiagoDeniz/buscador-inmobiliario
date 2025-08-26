@@ -553,42 +553,6 @@ def cargar_cookies(driver, cookies_path):
     else:
         print(f"[scraper] ✅ Cookies aplicadas correctamente, no se requiere login")
         return True
-                # Convertir a formato Selenium
-                cookie['expiry'] = int(cookie['expirationDate'])
-                del cookie['expirationDate']
-            elif 'expiry' in cookie:
-                if cookie['expiry'] < current_timestamp:
-                    print(f"[scraper] Cookie expirada ignorada: {cookie.get('name', 'sin_nombre')}")
-                    continue
-                cookie['expiry'] = int(cookie['expiry'])
-            
-            # Elimina campos incompatibles con Selenium
-            for k in ['sameSite', 'storeId', 'id']:
-                cookie.pop(k, None)
-            
-            # Solo agregar cookies importantes para la sesión
-            important_cookies = [
-                '_d2id', 'ssid', 'orguseridp', 'orguserid', 'orgnickp',
-                'cookiesPreferencesLogged', '_csrf', 'ftid', 'nsa_rotok',
-                '_mldataSessionId'
-            ]
-            
-            if cookie.get('name') in important_cookies:
-                driver.add_cookie(cookie)
-                cookies_agregadas += 1
-                print(f"[scraper] Cookie importante agregada: {cookie.get('name')}")
-            
-        except Exception as e:
-            cookies_fallidas += 1
-            print(f"[scraper] Error al agregar cookie {cookie.get('name', 'sin_nombre')}: {e}")
-    
-    print(f"[scraper] Resumen cookies: {cookies_agregadas} agregadas, {cookies_fallidas} fallaron")
-    
-    # Refrescar la página para que las cookies tomen efecto
-    driver.refresh()
-    time.sleep(3)
-    
-    return cookies_agregadas > 0
 
 
 def manejar_popups_cookies(driver):
@@ -957,7 +921,7 @@ def recolectar_urls_de_pagina(url_target, api_key=None, ubicacion=None, use_scra
 
 
 
-def extraer_total_resultados_mercadolibre(url_base_con_filtros):
+def extraer_total_resultados_mercadolibre(url_base_con_filtros, api_key=None, use_scrapingbee=False):
     """
     Extrae el número total de resultados de MercadoLibre desde la primera página de resultados
     Primero intenta con requests, si falla usa Chrome como fallback
@@ -973,9 +937,9 @@ def extraer_total_resultados_mercadolibre(url_base_con_filtros):
         print(f"❌ [CONECTIVIDAD] No se puede acceder a MercadoLibre: {e}")
         return None
     
-    # Primera tentativa: Usar requests (más rápido y menos detectable)
+    # Primera tentativa: Usar requests/ScrapingBee (mismo flujo que recolectar_urls_de_pagina)
     try:
-        print("🌐 [TOTAL ML] Intentando con requests primero...")
+        print(f"🌐 [TOTAL ML] Intentando con {'ScrapingBee' if (use_scrapingbee and api_key) else 'requests'} primero...")
         
         if '_NoIndex_True' in url_base_con_filtros:
             url_primera_pagina = url_base_con_filtros
@@ -983,8 +947,12 @@ def extraer_total_resultados_mercadolibre(url_base_con_filtros):
             url_primera_pagina = f"{url_base_con_filtros}_NoIndex_True"
         
         print(f"📡 [TOTAL ML] Solicitando: {url_primera_pagina}")
-        
-        response = requests.get(url_primera_pagina, headers=HEADERS, timeout=15)
+
+        if use_scrapingbee and api_key:
+            params = {'api_key': api_key, 'url': url_primera_pagina}
+            response = requests.get('https://app.scrapingbee.com/api/v1/', params=params, headers=HEADERS, timeout=60)
+        else:
+            response = requests.get(url_primera_pagina, headers=HEADERS, timeout=60)
         
         # Solo mostrar status si hay error
         if response.status_code != 200:
@@ -993,38 +961,51 @@ def extraer_total_resultados_mercadolibre(url_base_con_filtros):
         if response.status_code == 200:
             html_content = response.text
             
-            # Buscar el total en el HTML usando regex
-            import re
-            patterns = [
-                r'"quantity":\s*(\d+)',  # JSON en el HTML
-                r'(\d+(?:[.,]\d+)*)\s*resultados?',  # Texto visible
-                r'"total":\s*(\d+)',  # Otro patrón JSON
-                r'ui-search-search-result__quantity-results[^>]*>([^<]*?)(\d+(?:[.,]\d+)*)',
-                r'quantity-results[^>]*>([^<]*?)(\d+(?:[.,]\d+)*)'
+            soup = BeautifulSoup(html_content, 'lxml')
+            selectores = [
+                '.ui-search-search-result__quantity-results',
+                '.ui-search-results__quantity-results',
+                '.ui-search-breadcrumb__title',
+                '.ui-search-results-header__title',
+                "[class*='quantity-results']",
+                "[class*='results-quantity']",
             ]
-            
-            for i, pattern in enumerate(patterns, 1):
-                # Remover print de cada patrón probado
-                matches = re.findall(pattern, html_content, re.IGNORECASE)
-                if matches:
-                    # Extraer el número más grande encontrado
-                    numeros = []
-                    for match in matches:
-                        if isinstance(match, tuple):
-                            for item in match:
-                                if re.match(r'\d+([.,]\d+)*', str(item)):
-                                    numeros.append(str(item))
-                        else:
-                            numeros.append(str(match))
-                    
-                    if numeros:
-                        # Tomar el número más grande (probablemente el total)
-                        numero_max = max(numeros, key=lambda x: int(x.replace('.', '').replace(',', '')))
-                        total = int(numero_max.replace('.', '').replace(',', ''))
-                        print(f"✅ [TOTAL EXTRAÍDO] {total:,} publicaciones")
-                        return total
-            
-            print("⚠️ [TOTAL ML] Requests obtuvo contenido pero no encontró el total")
+            total_text = None
+            for selector in selectores:
+                el = soup.select_one(selector)
+                if el and el.get_text(strip=True):
+                    total_text = el.get_text(strip=True)
+                    break
+
+            import re
+            if not total_text:
+                m = re.search(r'(\d{1,3}(?:[.,]\d{3})+|\d+)\s*resultados?', soup.get_text(" ", strip=True), re.IGNORECASE)
+                if m:
+                    total_text = m.group(0)
+
+            if not total_text:
+                patterns = [
+                    r'"quantity"\s*:\s*(\d+)',
+                    r'"total"\s*:\s*(\d+)',
+                    r'"numberOfItems"\s*:\s*(\d+)',
+                ]
+                for pattern in patterns:
+                    m = re.search(pattern, html_content, re.IGNORECASE)
+                    if m:
+                        total_text = m.group(1)
+                        break
+
+            if total_text:
+                numeros = re.findall(r'[\d.,]+', total_text)
+                if numeros:
+                    total = int(numeros[0].replace('.', '').replace(',', ''))
+                    print(f"✅ [TOTAL EXTRAÍDO] {total:,} publicaciones")
+                    return total
+
+            items = soup.find_all('li', class_='ui-search-layout__item')
+            if items:
+                print(f"⚠️ [TOTAL ML] No se halló total explícito; primera página tiene {len(items)} items")
+            print("⚠️ [TOTAL ML] Requests/ScrapingBee obtuvo contenido pero no encontró el total")
         else:
             print(f"❌ [TOTAL ML] Requests falló con código: {response.status_code}")
             
@@ -1294,7 +1275,11 @@ def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, work
     # --- EXTRACCIÓN DEL TOTAL DE RESULTADOS ---
     print("\n[Principal] Extrayendo total de resultados desde MercadoLibre...")
     send_progress_update(current_search_item="🔍 Extrayendo total de resultados de MercadoLibre...")
-    total_ml = extraer_total_resultados_mercadolibre(url_base_con_filtros)
+    total_ml = extraer_total_resultados_mercadolibre(
+        url_base_con_filtros,
+        api_key=API_KEY,
+        use_scrapingbee=USE_THREADS and bool(API_KEY)
+    )
     if total_ml:
         print(f"[Principal] Total de publicaciones en MercadoLibre: {total_ml:,}")
         send_progress_update(total_found=total_ml, current_search_item=f"📊 Total de publicaciones encontradas: {total_ml:,}")
