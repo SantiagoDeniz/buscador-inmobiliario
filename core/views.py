@@ -140,14 +140,23 @@ async def analyze_query_with_ia(query: str) -> dict:
 def delete_search(request, search_id):
     """Eliminar una búsqueda guardada."""
     try:
+        from django.shortcuts import redirect
+        from django.contrib import messages
+        
         success = delete_search_manager(search_id)
         if success:
-            return JsonResponse({'success': True, 'message': 'Búsqueda eliminada correctamente'})
+            messages.success(request, 'Búsqueda eliminada correctamente')
         else:
-            return JsonResponse({'success': False, 'message': 'Búsqueda no encontrada'}, status=404)
+            messages.error(request, 'Búsqueda no encontrada')
+            
+        return redirect('core:home')
+        
     except Exception as e:
+        from django.shortcuts import redirect
+        from django.contrib import messages
         print(f"[DEPURACIÓN] Error eliminando búsqueda {search_id}: {e}")
-        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+        messages.error(request, f'Error al eliminar búsqueda: {str(e)}')
+        return redirect('core:home')
 
 def search_detail_ajax(request, search_id):
     """Vista AJAX para cargar detalles de búsqueda."""
