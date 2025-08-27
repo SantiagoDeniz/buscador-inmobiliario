@@ -24,7 +24,7 @@ class Command(BaseCommand):
             self.stdout.write(f'Procesando {i+1}/{total}: {propiedad.titulo[:50]}...')
             
             # Usamos la misma función que el scraper principal
-            datos_nuevos = scrape_detalle_con_requests(propiedad.url_publicacion, API_KEY)
+            datos_nuevos = scrape_detalle_con_requests(propiedad.url, API_KEY)
             
             if datos_nuevos:
                 # Actualizamos el objeto 'propiedad' con los nuevos datos

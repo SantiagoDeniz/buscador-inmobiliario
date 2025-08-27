@@ -827,7 +827,7 @@ def scrape_detalle_con_requests(url, api_key=None, use_scrapingbee=False):
         soup = BeautifulSoup(response.content, 'lxml')
         if not soup.find('div', class_='ui-pdp-container'): return None
 
-        datos = {'url_publicacion': url}
+        datos = {'url': url}
         
         # --- Extracción de Datos Principales (sin cambios) ---
         datos['titulo'] = (t.text.strip() if (t := soup.find('h1', class_='ui-pdp-title')) else "N/A")
@@ -1327,7 +1327,7 @@ def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, work
     send_progress_update(current_search_item="Chequeando publicaciones existentes en la base de datos...")
     if urls_recolectadas_bruto:
         # Consultamos a la BD una sola vez por todas las URLs encontradas
-        urls_existentes = set(Propiedad.objects.filter(url_publicacion__in=list(urls_recolectadas_bruto)).values_list('url_publicacion', flat=True))
+        urls_existentes = set(Propiedad.objects.filter(url__in=list(urls_recolectadas_bruto)).values_list('url', flat=True))
         propiedades_omitidas = len(urls_existentes)
         urls_a_visitar_final = urls_recolectadas_bruto - urls_existentes
         

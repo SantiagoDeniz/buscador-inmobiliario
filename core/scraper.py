@@ -765,7 +765,7 @@ def scrape_detalle_con_requests(url, api_key=None, use_scrapingbee=False):
         soup = BeautifulSoup(response.content, 'lxml')
         if not soup.find('div', class_='ui-pdp-container'): return None
 
-        datos = {'url_publicacion': url}
+        datos = {'url': url}
         
         # --- Extracción de Datos Principales (sin cambios) ---
         datos['titulo'] = (t.text.strip() if (t := soup.find('h1', class_='ui-pdp-title')) else "N/A")
@@ -1276,13 +1276,13 @@ def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, work
     
     if urls_recolectadas_bruto:
         # Consultamos a la BD una sola vez por todas las URLs encontradas
-        urls_existentes = set(Propiedad.objects.filter(url_publicacion__in=list(urls_recolectadas_bruto)).values_list('url_publicacion', flat=True))
+        urls_existentes = set(Propiedad.objects.filter(url__in=list(urls_recolectadas_bruto)).values_list('url', flat=True))
         propiedades_omitidas = len(urls_existentes)
         urls_a_visitar_final = urls_recolectadas_bruto - urls_existentes
         
         # Obtener propiedades existentes y verificar si coinciden con keywords
         if urls_existentes and keywords_filtradas:
-            existing_properties = Propiedad.objects.filter(url_publicacion__in=urls_existentes)
+            existing_properties = Propiedad.objects.filter(url__in=urls_existentes)
             
             import unicodedata
             def normalizar(texto):
@@ -1334,15 +1334,15 @@ def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, work
                 if keywords_encontradas >= len(keywords_norm) * porcentaje_requerido:
                     existing_publications_titles.append({
                         'title': titulo_propiedad, 
-                        'url': prop.url_publicacion
+                        'url': prop.url
                     })
         elif urls_existentes and not keywords_filtradas:
             # Si no hay keywords, todas las existentes coinciden
-            existing_properties = Propiedad.objects.filter(url_publicacion__in=urls_existentes)
+            existing_properties = Propiedad.objects.filter(url__in=urls_existentes)
             for prop in existing_properties:
                 existing_publications_titles.append({
                     'title': prop.titulo or 'Sin título', 
-                    'url': prop.url_publicacion
+                    'url': prop.url
                 })
         
         print(f"🗃️  [DEDUP] Existentes: {propiedades_omitidas} | Nuevas: {len(urls_a_visitar_final)}")
@@ -1452,12 +1452,51 @@ def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, work
                                 # Debug: mostrar datos antes del guardado
                                 print(f"📝 [DEBUG] Guardando: {datos_propiedad.get('titulo')} - {datos_propiedad.get('precio_valor')} {datos_propiedad.get('precio_moneda', '')}")
                                 
+                                # Mapear campos del scraper a campos del modelo PostgreSQL
+                                def mapear_datos_propiedad(datos):
+                                    # Obtener plataforma MercadoLibre
+                                    try:
+                                        plataforma_ml = Plataforma.objects.get(nombre='MercadoLibre')
+                                    except Plataforma.DoesNotExist:
+                                        plataforma_ml = Plataforma.objects.create(
+                                            nombre='MercadoLibre',
+                                            url='https://www.mercadolibre.com.uy'
+                                        )
+                                    
+                                    # Mapear campos válidos del modelo
+                                    datos_mapeados = {
+                                        'url': datos.get('url'),
+                                        'titulo': datos.get('titulo'),
+                                        'descripcion': datos.get('descripcion', ''),
+                                        'plataforma': plataforma_ml,
+                                        'metadata': {
+                                            'precio_valor': datos.get('precio_valor'),
+                                            'precio_moneda': datos.get('precio_moneda'),
+                                            'operacion': datos.get('operacion'),
+                                            'tipo_inmueble': datos.get('tipo_inmueble'),
+                                            'departamento': datos.get('departamento'),
+                                            'caracteristicas': datos.get('caracteristicas_texto', ''),
+                                            'dormitorios': datos.get('dormitorios'),
+                                            'banos': datos.get('banos'),
+                                            'superficie': datos.get('superficie_total'),
+                                            'direccion': datos.get('direccion')
+                                        }
+                                    }
+                                    
+                                    # Limpiar campos None del metadata
+                                    datos_mapeados['metadata'] = {k: v for k, v in datos_mapeados['metadata'].items() if v is not None}
+                                    
+                                    return datos_mapeados
+                                
+                                # Mapear los datos antes de crear la propiedad
+                                datos_mapeados = mapear_datos_propiedad(datos_propiedad)
+                                
                                 # Crear la propiedad en la base de datos
-                                propiedad_creada = Propiedad.objects.create(**datos_propiedad)
+                                propiedad_creada = Propiedad.objects.create(**datos_mapeados)
                                 nuevas_propiedades_guardadas += 1
                                 matched_publications_titles.append({
                                     'title': propiedad_creada.titulo, 
-                                    'url': propiedad_creada.url_publicacion
+                                    'url': propiedad_creada.url
                                 })
                                 
                                 print(f"✅ [GUARDADO] Éxito - ID: {propiedad_creada.id}")
@@ -1467,7 +1506,8 @@ def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, work
                                 
                             except Exception as save_error:
                                 print(f"❌ [GUARDADO] Error guardando propiedad: {save_error}")
-                                print(f"❌ [GUARDADO] Datos que causaron error: {datos_propiedad}")
+                                print(f"❌ [GUARDADO] Datos originales: {datos_propiedad}")
+                                print(f"❌ [GUARDADO] Datos mapeados: {datos_mapeados}")
                                 import traceback
                                 print(f"❌ [GUARDADO] Traceback: {traceback.format_exc()}")
                     else:

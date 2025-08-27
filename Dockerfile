@@ -4,10 +4,14 @@ FROM python:3.10-slim
 # Evita que apt-get pida confirmaciones
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Instalamos dependencias del sistema, incluyendo Chrome
+# Instalamos dependencias del sistema, incluyendo Chrome y PostgreSQL client
 RUN apt-get update && apt-get install -y \
     wget \
     unzip \
+    postgresql-client \
+    libpq-dev \
+    gcc \
+    build-essential \
     # Dependencias de Google Chrome
     libu2f-udev \
     libvulkan1 \

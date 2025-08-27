@@ -38,7 +38,7 @@ Sistema web inteligente para búsqueda automatizada de propiedades inmobiliarias
   - Acepta mascotas
   - Amoblado/Sin amoblar
   - Con garage
-  - Con terraza/balcón
+  - Con terraza/piscina
 
 ### 3. **Scraping Inteligente y Eficiente**
 - ✅ **Scraping en dos fases**:
@@ -139,7 +139,7 @@ Sistema web inteligente para búsqueda automatizada de propiedades inmobiliarias
 ### ✅ **COMPLETADO**
 - [x] Sistema de búsqueda inteligente con IA
 - [x] Scraping robusto en dos fases
-- [x] WebSockets en tiempo real
+- [x] WebSockets (Para mostrar progreso) en tiempo real
 - [x] Guardado de búsquedas con resultados
 - [x] Interfaz responsiva y amigable
 - [x] Filtrado inteligente de keywords (70% coincidencia)
@@ -158,16 +158,16 @@ Sistema web inteligente para búsqueda automatizada de propiedades inmobiliarias
 - [ ] **Botón de reiniciar búsqueda** en búsquedas guardadas
 - [ ] **Cron jobs** para búsquedas automáticas programadas
 - [ ] **Notificaciones** cuando aparezcan nuevas propiedades
-- [ ] **Exportación de resultados** (CSV, PDF)
+- [ ] **Integración con otros portales** (InfoCasas, Gallito)
 
 #### Media Prioridad
-- [ ] **Filtros geográficos avanzados** (mapas, radio de búsqueda)
+- [ ] **Exportación de resultados** (CSV, PDF)
 - [ ] **Comparador de propiedades** lado a lado
 - [ ] **Alertas por precio** (notificar cuando baje el precio)
 - [ ] **Estadísticas de mercado** (precios promedio, tendencias)
 
 #### Baja Prioridad
-- [ ] **Integración con otros portales** (InfoCasas, Gallito)
+- [ ] **Filtros geográficos avanzados** (mapas, radio de búsqueda)
 - [ ] **Sistema de favoritos** independiente de búsquedas
 - [ ] **Compartir búsquedas** con otros usuarios
 - [ ] **API pública** para desarrolladores

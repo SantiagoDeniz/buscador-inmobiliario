@@ -247,7 +247,7 @@ class SearchProgressConsumer(WebsocketConsumer):
                                         if len(keywords_stemmed) > 0 and coincidencias / len(keywords_stemmed) >= 0.7:
                                             resultados.append({
                                                 'titulo': prop.titulo or 'Sin título',
-                                                'url': prop.url_publicacion or '#',
+                                                'url': prop.url or '#',
                                                 'precio': f"{prop.precio} {prop.moneda}" if prop.precio else 'Precio no disponible'
                                             })
                                 

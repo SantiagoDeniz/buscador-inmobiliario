@@ -1,0 +1,57 @@
+[
+  {
+    "model": "core.inmobiliaria",
+    "pk": 1,
+    "fields": {
+      "nombre": "Demo Inmobiliaria",
+      "plan": "premium",
+      "created_at": "2025-08-27T08:00:00Z",
+      "updated_at": "2025-08-27T08:00:00Z"
+    }
+  },
+  {
+    "model": "core.usuario",
+    "pk": 1,
+    "fields": {
+      "nombre": "Usuario Demo",
+      "email": "demo@buscador.com",
+      "password_hash": "dummy_hash_for_testing",
+      "inmobiliaria": 1,
+      "created_at": "2025-08-27T08:00:00Z",
+      "updated_at": "2025-08-27T08:00:00Z"
+    }
+  },
+  {
+    "model": "core.plataforma",
+    "pk": 1,
+    "fields": {
+      "nombre": "MercadoLibre",
+      "descripcion": "Portal inmobiliario de MercadoLibre Uruguay",
+      "url": "https://inmuebles.mercadolibre.com.uy",
+      "created_at": "2025-08-27T08:00:00Z",
+      "updated_at": "2025-08-27T08:00:00Z"
+    }
+  },
+  {
+    "model": "core.plataforma",
+    "pk": 2,
+    "fields": {
+      "nombre": "InfoCasas",
+      "descripcion": "Portal inmobiliario InfoCasas Uruguay",
+      "url": "https://infocasas.com.uy",
+      "created_at": "2025-08-27T08:00:00Z",
+      "updated_at": "2025-08-27T08:00:00Z"
+    }
+  },
+  {
+    "model": "core.plataforma",
+    "pk": 3,
+    "fields": {
+      "nombre": "Gallito",
+      "descripcion": "Clasificados Gallito Luis",
+      "url": "https://gallito.com.uy",
+      "created_at": "2025-08-27T08:00:00Z",
+      "updated_at": "2025-08-27T08:00:00Z"
+    }
+  }
+]

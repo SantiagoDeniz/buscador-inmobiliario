@@ -38,7 +38,7 @@ def get_all_searches() -> List[Dict[str, Any]]:
                     'idioma': rel.palabra_clave.idioma,
                     'sinonimos': rel.palabra_clave.sinonimos_list
                 }
-                for rel in busqueda.busquedapalabraclave_set.select_related('palabra_clave').all()
+                for rel in busqueda.busquedapalabralave_set.select_related('palabra_clave').all()
             ]
         }
         searches.append(search_dict)
@@ -62,7 +62,7 @@ def get_search(search_id: str) -> Optional[Dict[str, Any]]:
                     'idioma': rel.palabra_clave.idioma,
                     'sinonimos': rel.palabra_clave.sinonimos_list
                 }
-                for rel in busqueda.busquedapalabraclave_set.select_related('palabra_clave').all()
+                for rel in busqueda.busquedapalabralave_set.select_related('palabra_clave').all()
             ]
         }
     except Busqueda.DoesNotExist:
@@ -97,7 +97,7 @@ def save_search(search_data: Dict[str, Any]) -> str:
         palabras_clave_texto = [palabras_clave_texto]
     
     for palabra_texto in palabras_clave_texto:
-        palabra_clave = get_or_create_palabra_clave(palabra_texto)
+        palabra_clave, created = get_or_create_palabra_clave(palabra_texto)
         BusquedaPalabraClave.objects.create(
             busqueda=busqueda,
             palabra_clave=palabra_clave
@@ -131,7 +131,7 @@ def get_or_create_palabra_clave(texto: str, idioma: str = 'es') -> PalabraClave:
     if created:
         # Si es nueva, generar sinónimos
         sinonimos = generar_sinonimos(texto_normalizado)
-        palabra_clave.set_sinonimos(sinonimos)
+        palabra_clave.sinonimos_list = sinonimos
         palabra_clave.save()
     
     return palabra_clave
@@ -225,7 +225,7 @@ def buscar_coincidencias(busqueda_id: str, propiedades: List[Dict]) -> List[Dict
     """Busca coincidencias entre una búsqueda y propiedades"""
     try:
         busqueda = Busqueda.objects.get(id=busqueda_id)
-        palabras_clave = busqueda.busquedapalabraclave_set.select_related('palabra_clave').all()
+        palabras_clave = busqueda.busquedapalabralave_set.select_related('palabra_clave').all()
         
         resultados = []
         for prop_data in propiedades:
@@ -327,7 +327,7 @@ def get_search_stats() -> Dict[str, Any]:
 def get_popular_keywords(limit: int = 10) -> List[Dict[str, Any]]:
     """Obtiene las palabras clave más utilizadas"""
     keywords = PalabraClave.objects.annotate(
-        uso_count=Count('busquedapalabraclave')
+        uso_count=Count('busquedapalabralave')
     ).order_by('-uso_count')[:limit]
     
     return [
@@ -339,105 +339,3 @@ def get_popular_keywords(limit: int = 10) -> List[Dict[str, Any]]:
         }
         for kw in keywords
     ]
-
-# ================================
-# FUNCIONES DE COMPATIBILIDAD
-# ================================
-
-def load_results(search_id: str) -> List[Dict]:
-    """Carga resultados de búsqueda desde la base de datos (compatibilidad)"""
-    try:
-        busqueda = Busqueda.objects.get(id=search_id)
-        resultados = ResultadoBusqueda.objects.filter(
-            busqueda=busqueda, 
-            coincide=True
-        ).select_related('propiedad').all()
-        
-        results = []
-        for resultado in resultados:
-            prop = resultado.propiedad
-            result_data = prop.metadata if prop.metadata else {}
-            
-            # Añadir información estándar
-            result_data.update({
-                'id': str(resultado.id),
-                'titulo': prop.titulo,
-                'url': prop.url,
-                'descripcion': prop.descripcion,
-                'plataforma': prop.plataforma.nombre,
-                'coincidencias': resultado.metadata if resultado.metadata else {},
-                'created_at': resultado.created_at.isoformat()
-            })
-            
-            results.append(result_data)
-        
-        return results
-        
-    except Busqueda.DoesNotExist:
-        return []
-
-def save_results(search_id: str, results: List[Dict]) -> bool:
-    """Guarda resultados de búsqueda en la base de datos (compatibilidad)"""
-    try:
-        busqueda = Busqueda.objects.get(id=search_id)
-        
-        for result_data in results:
-            # Crear o actualizar propiedad
-            propiedad = crear_o_actualizar_propiedad(result_data)
-            
-            # Crear resultado si no existe
-            resultado, created = ResultadoBusqueda.objects.get_or_create(
-                busqueda=busqueda,
-                propiedad=propiedad,
-                defaults={
-                    'coincide': True,
-                    'metadata': result_data
-                }
-            )
-        
-        return True
-        
-    except Exception as e:
-        print(f"Error guardando resultados: {e}")
-        return False
-
-from datetime import datetime
-
-def create_search(search_data: Dict[str, Any]) -> Dict[str, Any]:
-    """Crea una nueva búsqueda (compatibilidad con consumers.py)"""
-    # Mapear campos del formato anterior al nuevo
-    new_search_data = {
-        'nombre_busqueda': search_data.get('name', 'Búsqueda sin nombre'),
-        'texto_original': search_data.get('original_text', ''),
-        'filtros': search_data.get('filters', {}),
-        'palabras_clave': search_data.get('keywords', []),
-        'guardado': True
-    }
-    
-    search_id = save_search(new_search_data)
-    
-    return {
-        'id': search_id,
-        'name': new_search_data['nombre_busqueda'],
-        'created_at': datetime.now().isoformat()
-    }
-
-def update_search(search_id: str, data: Dict[str, Any]) -> bool:
-    """Actualiza una búsqueda existente (compatibilidad con consumers.py)"""
-    try:
-        busqueda = Busqueda.objects.get(id=search_id)
-        
-        # Actualizar campos si se proporcionan
-        if 'name' in data:
-            busqueda.nombre_busqueda = data['name']
-        if 'filters' in data:
-            busqueda.filtros = data['filters']
-        if 'results' in data:
-            # Guardar resultados usando la función de compatibilidad
-            save_results(search_id, data['results'])
-        
-        busqueda.save()
-        return True
-        
-    except Busqueda.DoesNotExist:
-        return False

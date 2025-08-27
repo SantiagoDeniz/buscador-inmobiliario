@@ -8,8 +8,7 @@ import os, json, threading, time
 import google.generativeai as genai
 from dotenv import load_dotenv
 
-from .search_manager import get_search, delete_search as delete_search_manager
-from .storage import load_results
+from .search_manager import get_search, delete_search as delete_search_manager, load_results
 
 # Cargar variables de entorno desde .env
 load_dotenv()
@@ -327,14 +326,14 @@ def http_search_fallback(request):
                 if len(keywords_stemmed) > 0 and coincidencias / len(keywords_stemmed) >= 0.7:
                     resultados.append({
                         'title': prop.titulo or 'Sin título',
-                        'url': prop.url_publicacion or '#',
+                        'url': prop.url or '#',
                         'titulo': prop.titulo or 'Sin título',  # Para compatibilidad con search_manager
                         'precio': f"{prop.precio} {prop.moneda}" if prop.precio else 'Precio no disponible'
                     })
             else:
                 resultados.append({
                     'title': prop.titulo or 'Sin título',
-                    'url': prop.url_publicacion or '#',
+                    'url': prop.url or '#',
                     'titulo': prop.titulo or 'Sin título',  # Para compatibilidad con search_manager
                     'precio': f"{prop.precio} {prop.moneda}" if prop.precio else 'Precio no disponible'
                 })
