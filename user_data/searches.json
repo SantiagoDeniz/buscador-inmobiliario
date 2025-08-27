@@ -376,5 +376,79 @@
     "platforms": [
       "mercadolibre"
     ]
+  },
+  {
+    "id": "b3122832-141f-4972-95c6-d382b03a3e85",
+    "nombre": "a2",
+    "busqueda": "Constituyente",
+    "filtros": {
+      "moneda": "UYU",
+      "departamento": "Montevideo",
+      "ciudad": "Cordón",
+      "operacion": "Venta",
+      "tipo": "Apartamento",
+      "dormitorios_min": 1,
+      "dormitorios_max": 2,
+      "banos_min": 1,
+      "banos_max": 1,
+      "cocheras_min": 0,
+      "cocheras_max": 0,
+      "superficie_total_min": 45,
+      "superficie_total_max": 60,
+      "superficie_cubierta_min": 40,
+      "superficie_cubierta_max": 50,
+      "precio_min": 5000000,
+      "precio_max": 6500000,
+      "antiguedad_min": 0,
+      "antiguedad_max": 0,
+      "piscina": true,
+      "terraza": true,
+      "ascensor": true,
+      "aire_acondicionado": true
+    },
+    "resultados": [],
+    "links_visitados": [],
+    "ultima_revision": "2025-08-26 23:51:41",
+    "enabled": true,
+    "platforms": [
+      "mercadolibre"
+    ]
+  },
+  {
+    "id": "88ac1ece-d417-4570-aae0-09000b6f1ce3",
+    "nombre": "a1",
+    "busqueda": "Constituyente",
+    "filtros": {
+      "moneda": "UYU",
+      "departamento": "Montevideo",
+      "ciudad": "Cordón",
+      "operacion": "Venta",
+      "tipo": "Apartamento",
+      "dormitorios_min": 1,
+      "dormitorios_max": 2,
+      "banos_min": 1,
+      "banos_max": 1,
+      "cocheras_min": 0,
+      "cocheras_max": 0,
+      "superficie_total_min": 45,
+      "superficie_total_max": 60,
+      "superficie_cubierta_min": 40,
+      "superficie_cubierta_max": 50,
+      "precio_min": 5000000,
+      "precio_max": 6500000,
+      "antiguedad_min": 0,
+      "antiguedad_max": 0,
+      "piscina": true,
+      "terraza": true,
+      "ascensor": true,
+      "aire_acondicionado": true
+    },
+    "resultados": [],
+    "links_visitados": [],
+    "ultima_revision": "2025-08-26 23:57:27",
+    "enabled": true,
+    "platforms": [
+      "mercadolibre"
+    ]
   }
 ]

@@ -1,5 +1,6 @@
 import json
 import uuid
+from datetime import datetime
 from channels.generic.websocket import WebsocketConsumer
 
 class SearchProgressConsumer(WebsocketConsumer):
@@ -53,6 +54,11 @@ class SearchProgressConsumer(WebsocketConsumer):
         try:
             data = json.loads(text_data)
             print(f'🔥 [CONSUMER] JSON parseado correctamente: {data}')
+
+            # Extraer información de guardado desde el principio
+            should_save = data.get('guardar', False)
+            search_name = data.get('name', '')
+            print(f'💾 [CONSUMER] Guardar búsqueda: {should_save}, Nombre: "{search_name}"')
 
             # Generar ID único para esta búsqueda y registrarla como activa
             self.search_id = str(uuid.uuid4())
@@ -144,6 +150,28 @@ class SearchProgressConsumer(WebsocketConsumer):
                 }
                 print(f'🔨 [DEPURACIÓN] JSON final para búsqueda: {resultado_busqueda}')
                 self.send(text_data=json.dumps({'message': 'Búsqueda iniciada', 'data': resultado_busqueda}))
+                
+                # Guardar búsqueda si fue solicitado
+                saved_search_id = None
+                if should_save:
+                    print(f'💾 [GUARDADO] Iniciando guardado de búsqueda: "{search_name}"')
+                    self.send(text_data=json.dumps({'message': 'Guardando búsqueda...'}))
+                    try:
+                        from core.search_manager import create_search
+                        search_data = {
+                            'name': search_name or f'Búsqueda {datetime.now().strftime("%d/%m/%Y %H:%M")}',
+                            'keywords': ia_result.get('keywords', []),
+                            'original_text': query_text,
+                            'filters': filtros_final
+                        }
+                        created_search = create_search(search_data)
+                        saved_search_id = created_search.get('id')
+                        print(f'✅ [GUARDADO] Búsqueda guardada con ID: {saved_search_id}')
+                        self.send(text_data=json.dumps({'message': f'Búsqueda guardada como: {search_data["name"]}'}))
+                    except Exception as save_error:
+                        print(f'❌ [GUARDADO] Error guardando búsqueda: {save_error}')
+                        self.send(text_data=json.dumps({'message': f'Error guardando búsqueda: {str(save_error)}'}))
+                        # No retornar, continuar con el scraping
             except Exception as e:
                 print(f'🛑 [DEPURACIÓN] Error construyendo JSON final: {e}')
                 self.send(text_data=json.dumps({'message': 'Error construyendo JSON final', 'error': str(e)}))
@@ -182,6 +210,62 @@ class SearchProgressConsumer(WebsocketConsumer):
                             workers_fase2=1
                         )
                         print('✅ [DEPURACIÓN] run_scraper completado (hilo)')
+                        
+                        # Actualizar búsqueda guardada con resultados si existe
+                        if saved_search_id:
+                            print(f'🔄 [ACTUALIZANDO] Actualizando búsqueda {saved_search_id} con resultados...')
+                            try:
+                                from core.models import Propiedad
+                                from core.search_manager import update_search
+                                
+                                # Obtener las propiedades que coinciden con los filtros y keywords
+                                propiedades = Propiedad.objects.order_by('-id')[:50]  # Últimas 50 para buscar coincidencias
+                                resultados = []
+                                
+                                # Aplicar lógica de filtrado de keywords
+                                if keywords:
+                                    import unicodedata
+                                    def normalizar(texto):
+                                        return unicodedata.normalize('NFKD', texto).encode('ASCII', 'ignore').decode('ASCII').lower()
+                                    
+                                    for prop in propiedades:
+                                        texto_propiedad = f"{prop.titulo or ''} {prop.descripcion or ''} {prop.caracteristicas_texto or ''}".lower()
+                                        texto_norm = normalizar(texto_propiedad)
+                                        keywords_norm = [normalizar(kw) for kw in keywords]
+                                        
+                                        # Usar lógica flexible como en el scraper
+                                        from core.scraper import stemming_basico
+                                        texto_stemmed = stemming_basico(texto_norm)
+                                        keywords_stemmed = [stemming_basico(kw) for kw in keywords_norm]
+                                        
+                                        coincidencias = 0
+                                        for kw_stemmed in keywords_stemmed:
+                                            if kw_stemmed in texto_stemmed or any(kw_stemmed in word for word in texto_stemmed.split()):
+                                                coincidencias += 1
+                                        
+                                        # Si coincide al menos el 70% de las keywords
+                                        if len(keywords_stemmed) > 0 and coincidencias / len(keywords_stemmed) >= 0.7:
+                                            resultados.append({
+                                                'titulo': prop.titulo or 'Sin título',
+                                                'url': prop.url_publicacion or '#',
+                                                'precio': f"{prop.precio} {prop.moneda}" if prop.precio else 'Precio no disponible'
+                                            })
+                                
+                                # Actualizar la búsqueda con los resultados
+                                update_data = {
+                                    'resultados': resultados,
+                                    'ultima_revision': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                                }
+                                
+                                if update_search(saved_search_id, update_data):
+                                    print(f'✅ [ACTUALIZANDO] Búsqueda actualizada con {len(resultados)} resultados')
+                                    self.send(text_data=json.dumps({'message': f'Búsqueda actualizada con {len(resultados)} resultados coincidentes'}))
+                                else:
+                                    print(f'❌ [ACTUALIZANDO] No se pudo actualizar la búsqueda {saved_search_id}')
+                                    
+                            except Exception as update_error:
+                                print(f'❌ [ACTUALIZANDO] Error actualizando búsqueda: {update_error}')
+                                
                     except Exception as e:
                         print(f'🛑 [DEPURACIÓN] Error en run_scraper (hilo): {e}')
                         # Si falla, notificar al cliente

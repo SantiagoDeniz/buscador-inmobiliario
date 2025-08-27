@@ -1287,6 +1287,15 @@ def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, work
             import unicodedata
             def normalizar(texto):
                 return unicodedata.normalize('NFKD', texto).encode('ASCII', 'ignore').decode('ASCII').lower()
+            
+            def stemming_basico(palabra):
+                """Stemming básico para español"""
+                sufijos = ['oso', 'osa', 'idad', 'cion', 'sion', 'ero', 'era', 'ado', 'ada']
+                for sufijo in sufijos:
+                    if palabra.endswith(sufijo) and len(palabra) > len(sufijo) + 3:
+                        return palabra[:-len(sufijo)]
+                return palabra
+            
             keywords_norm = [normalizar(kw) for kw in keywords_filtradas]
             
             for prop in existing_properties:
@@ -1296,7 +1305,33 @@ def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, work
                 texto_total = f"{titulo_propiedad.lower()} {descripcion.lower()} {caracteristicas.lower()}"
                 texto_total_norm = normalizar(texto_total)
                 
-                if all(kw in texto_total_norm for kw in keywords_norm):
+                # Usar la misma lógica flexible para propiedades existentes
+                keywords_encontradas = 0
+                for kw in keywords_norm:
+                    encontrada = False
+                    
+                    # 1. Coincidencia exacta
+                    if kw in texto_total_norm:
+                        encontrada = True
+                    
+                    # 2. Coincidencia con stemming básico
+                    elif not encontrada:
+                        kw_stem = stemming_basico(kw)
+                        if kw_stem in texto_total_norm:
+                            encontrada = True
+                    
+                    # 3. Buscar raíz de la keyword en el texto
+                    elif not encontrada and len(kw) > 4:
+                        raiz = kw[:len(kw)-2]
+                        if raiz in texto_total_norm:
+                            encontrada = True
+                    
+                    if encontrada:
+                        keywords_encontradas += 1
+                
+                # Aplicar el mismo criterio del 70%
+                porcentaje_requerido = 0.7
+                if keywords_encontradas >= len(keywords_norm) * porcentaje_requerido:
                     existing_publications_titles.append({
                         'title': titulo_propiedad, 
                         'url': prop.url_publicacion
@@ -1339,18 +1374,56 @@ def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, work
 
                         cumple = True
                         if keywords_filtradas:
-                            # Normaliza y verifica si todas las keywords están presentes
+                            # Normaliza y verifica keywords con lógica más flexible
                             import unicodedata
                             def normalizar(texto):
                                 return unicodedata.normalize('NFKD', texto).encode('ASCII', 'ignore').decode('ASCII').lower()
+                            
+                            def stemming_basico(palabra):
+                                """Stemming básico para español"""
+                                # Remover sufijos comunes
+                                sufijos = ['oso', 'osa', 'idad', 'cion', 'sion', 'ero', 'era', 'ado', 'ada']
+                                for sufijo in sufijos:
+                                    if palabra.endswith(sufijo) and len(palabra) > len(sufijo) + 3:
+                                        return palabra[:-len(sufijo)]
+                                return palabra
+                            
                             keywords_norm = [normalizar(kw) for kw in keywords_filtradas]
                             texto_total_norm = normalizar(texto_total)
-                            cumple = all(kw in texto_total_norm for kw in keywords_norm)
+                            
+                            # Verificar cada keyword con múltiples estrategias
+                            keywords_encontradas = 0
+                            for kw in keywords_norm:
+                                encontrada = False
+                                
+                                # 1. Coincidencia exacta
+                                if kw in texto_total_norm:
+                                    encontrada = True
+                                
+                                # 2. Coincidencia con stemming básico
+                                elif not encontrada:
+                                    kw_stem = stemming_basico(kw)
+                                    if kw_stem in texto_total_norm:
+                                        encontrada = True
+                                
+                                # 3. Buscar raíz de la keyword en el texto
+                                elif not encontrada and len(kw) > 4:
+                                    raiz = kw[:len(kw)-2]  # Tomar los primeros n-2 caracteres
+                                    if raiz in texto_total_norm:
+                                        encontrada = True
+                                
+                                if encontrada:
+                                    keywords_encontradas += 1
+                            
+                            # Ser más permisivo: requerir al menos 70% de las keywords
+                            porcentaje_requerido = 0.7
+                            cumple = keywords_encontradas >= len(keywords_norm) * porcentaje_requerido
+                            
                             if cumple:
-                                print(f"({i+1}/{len(urls_a_visitar_final)}) ✅ Coincide: {titulo_propiedad}")
+                                print(f"({i+1}/{len(urls_a_visitar_final)}) ✅ Coincide: {titulo_propiedad} ({keywords_encontradas}/{len(keywords_norm)} keywords)")
                                 send_progress_update(current_search_item=f"({i+1}/{len(mapa_futuros)}) ✅ Coincide: {titulo_propiedad}")
                             else:
-                                print(f"({i+1}/{len(urls_a_visitar_final)}) ❌ No coincide: {titulo_propiedad}")
+                                print(f"({i+1}/{len(urls_a_visitar_final)}) ❌ No coincide: {titulo_propiedad} ({keywords_encontradas}/{len(keywords_norm)} keywords)")
                                 send_progress_update(current_search_item=f"({i+1}/{len(mapa_futuros)}) ❌ No coincide: {titulo_propiedad}")
                         else:
                             # Mostrar progreso con formato "Búsqueda actual (a/total_ml): Título" 
@@ -1361,29 +1434,54 @@ def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, work
 
                         if cumple:
                             print(f"✅ [GUARDADO] {titulo_propiedad[:60]}...")
-                            # --- MEJORAR CON DATOS DE LOS FILTROS ---
-                            # Pre-rellenamos con los datos que ya conocemos de los filtros
-                            datos_propiedad['operacion'] = filters.get('operacion', 'venta')
-                            datos_propiedad['departamento'] = filters.get('departamento', filters.get('ciudad', 'N/A'))
-                            
-                            # Si el scraper no encontró un tipo de inmueble, usamos el de los filtros
-                            if not datos_propiedad.get('tipo_inmueble'):
-                               datos_propiedad['tipo_inmueble'] = filters.get('tipo', 'N/A')
-                            
-                            Propiedad.objects.create(**datos_propiedad)
-                            nuevas_propiedades_guardadas += 1
-                            matched_publications_titles.append({'title': datos_propiedad.get('titulo', url_original), 'url': url_original})
-                            
-                            # Enviar actualización con las publicaciones coincidentes actuales
-                            send_progress_update(matched_publications=matched_publications_titles)
+                            try:
+                                # --- MEJORAR CON DATOS DE LOS FILTROS ---
+                                # Pre-rellenamos con los datos que ya conocemos de los filtros
+                                datos_propiedad['operacion'] = filters.get('operacion', 'venta')
+                                datos_propiedad['departamento'] = filters.get('departamento', filters.get('ciudad', 'N/A'))
+                                
+                                # Si el scraper no encontró un tipo de inmueble válido, usamos el de los filtros
+                                if not datos_propiedad.get('tipo_inmueble') or datos_propiedad.get('tipo_inmueble') == 'N/A':
+                                   datos_propiedad['tipo_inmueble'] = filters.get('tipo', 'apartamento')
+                                
+                                # Verificar campos críticos antes del guardado
+                                if not datos_propiedad.get('titulo'):
+                                    print(f"⚠️ [GUARDADO] Advertencia: título vacío para {url_original}")
+                                    datos_propiedad['titulo'] = f"Propiedad en {datos_propiedad.get('departamento', 'N/A')}"
+                                
+                                # Debug: mostrar datos antes del guardado
+                                print(f"📝 [DEBUG] Guardando: {datos_propiedad.get('titulo')} - {datos_propiedad.get('precio_valor')} {datos_propiedad.get('precio_moneda', '')}")
+                                
+                                # Crear la propiedad en la base de datos
+                                propiedad_creada = Propiedad.objects.create(**datos_propiedad)
+                                nuevas_propiedades_guardadas += 1
+                                matched_publications_titles.append({
+                                    'title': propiedad_creada.titulo, 
+                                    'url': propiedad_creada.url_publicacion
+                                })
+                                
+                                print(f"✅ [GUARDADO] Éxito - ID: {propiedad_creada.id}")
+                                
+                                # Enviar actualización con las publicaciones coincidentes actuales
+                                send_progress_update(matched_publications=matched_publications_titles)
+                                
+                            except Exception as save_error:
+                                print(f"❌ [GUARDADO] Error guardando propiedad: {save_error}")
+                                print(f"❌ [GUARDADO] Datos que causaron error: {datos_propiedad}")
+                                import traceback
+                                print(f"❌ [GUARDADO] Traceback: {traceback.format_exc()}")
                     else:
                         # Cuando no se pueden extraer datos, aún mostrar progreso
+                        print(f"⚠️ [SCRAPING] No se pudieron extraer datos de: {url_original}")
                         if total_ml:
                             send_progress_update(current_search_item=f"Búsqueda actual ({i+1}/{total_ml:,}): Error al procesar")
                         else:
                             send_progress_update(current_search_item=f"Procesando publicación {i+1}/{len(urls_lista)}: Error al procesar")
                 except Exception as exc:
-                    print(f'URL {url_original} ... generó una excepción al guardar: {exc}')
+                    print(f'❌ [SCRAPER] URL {url_original[:100]}... generó excepción: {exc}')
+                    print(f'❌ [SCRAPER] Tipo de excepción: {type(exc).__name__}')
+                    import traceback
+                    print(f'❌ [SCRAPER] Traceback: {traceback.format_exc()[:500]}...')
 
     # Consolidar resumen final
     print(f"✅ [COMPLETADO] {nuevas_propiedades_guardadas} nuevas propiedades guardadas")

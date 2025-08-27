@@ -701,21 +701,36 @@
         form.addEventListener('submit', function(e) {
             e.preventDefault(); // Evita la recarga de la página
             iniciarBusqueda();
+            
+            // Determinar qué botón fue presionado
+            const submitter = e.submitter;
+            const shouldSave = submitter && submitter.name === 'guardar' && submitter.value === '1';
+            
+            console.log('🔍 [FRONTEND] Botón presionado:', submitter ? submitter.textContent : 'Desconocido');
+            console.log('🔍 [FRONTEND] ¿Guardar búsqueda?', shouldSave);
+            
             // Recolectar datos del formulario
             const formData = new FormData(form);
             let texto = '';
             const filtros = {};
+            let searchName = '';
+            
             for (const [key, value] of formData.entries()) {
                 if (key === 'csrfmiddlewaretoken') continue;
                 if (key === 'keywords') {
                     texto = value;
-                } else if (value !== '') {
+                } else if (key === 'name') {
+                    searchName = value;
+                } else if (key !== 'guardar' && value !== '') {
                     filtros[key] = value;
                 }
             }
+            
             const payload = {
                 texto: texto,
-                filtros: filtros
+                filtros: filtros,
+                guardar: shouldSave,
+                name: searchName
             };
             // Enviar por WebSocket
             if (searchProgressSocket.readyState === WebSocket.OPEN) {

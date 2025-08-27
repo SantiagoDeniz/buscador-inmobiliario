@@ -1,6 +1,13 @@
 Armar la base de datos.
-Arreglar el guardado de publicaciones.
-
+✅ ARREGLADO - Guardado de publicaciones mejorado con:
+  - Lógica de keywords más flexible (70% coincidencia)
+  - Stemming básico para español
+  - Mejor manejo de errores
+  - Logs más detallados para debug
+Que la lista de los resultados se guarden en las búsquedas guardadas
+Que la página agregue a la lista de búsquedas guardadas los resultados nuevos de la búsqueda realizada una vez finalizada
+Botón de reiniciar búsqueda en búsquedas guardadas
+Cron jobs
 
 Cosas a tener en cuenta para deplegar el proyecto para producción:
 Cookies mias: Solucionar de otra forma (¿capaz utilizando concurrencia y proxy se soluciona?)
