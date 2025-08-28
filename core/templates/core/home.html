@@ -368,7 +368,9 @@
                 {% for search in searches %}
                     <li class="list-group-item d-flex flex-column" id="search-{{ search.id }}">
                         <div class="d-flex justify-content-between align-items-center">
-                            <a href="#" onclick="expandirBusqueda('{{ search.id }}'); return false;" class="fw-bold">{{ search.nombre }}</a>
+                            <a href="#" onclick="expandirBusqueda('{{ search.id }}'); return false;" class="fw-bold">
+                                {{ search.nombre_busqueda|default:search.texto_original|default:'(sin título)' }}
+                            </a>
                             <a href="{% url 'core:delete_search' search.id %}" class="btn btn-sm btn-danger">Eliminar</a>
                         </div>
                         <div class="busqueda-detalle mt-3 p-0" style="display:none; transition: all 0.3s; border-radius: 0.5rem;"></div>

@@ -3,5 +3,15 @@
     "path": "/static/debug_screenshots/test_functionality_20250826_113129.png",
     "timestamp": "2025-08-26T11:31:29.339733",
     "message": "Test debug screenshot functionality"
+  },
+  {
+    "path": "/static/debug_screenshots/elemento_total_no_encontrado_20250828_140953.png",
+    "timestamp": "2025-08-28T14:09:53.248858",
+    "message": "❌ No se encontró elemento de total. Ver captura debug."
+  },
+  {
+    "path": "/static/debug_screenshots/pagina_sin_resultado_20250828_140954.png",
+    "timestamp": "2025-08-28T14:09:54.963347",
+    "message": "❌ Página sin 'resultado' - posible error. Ver captura debug."
   }
 ]

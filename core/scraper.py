@@ -58,7 +58,7 @@ import unicodedata
 import os
 import re
 import concurrent.futures
-from core.models import Propiedad
+from core.models import Propiedad, Plataforma
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.service import Service as ChromeService
@@ -74,6 +74,45 @@ except ImportError:
     print("⚠️ selenium-stealth no está instalado, funcionará sin stealth")
     def stealth(driver, **kwargs):
         pass  # Función dummy si no está instalado
+
+# --- Utilidades compartidas ---
+def stemming_basico(palabra: str) -> str:
+    """Stemming básico para español. Remueve sufijos comunes.
+    No es perfecto pero ayuda a aproximar coincidencias.
+    """
+    try:
+        palabra = str(palabra)
+    except Exception:
+        return ""
+    sufijos = ['oso', 'osa', 'idad', 'cion', 'sion', 'ero', 'era', 'ado', 'ada']
+    for sufijo in sufijos:
+        if palabra.endswith(sufijo) and len(palabra) > len(sufijo) + 3:
+            return palabra[:-len(sufijo)]
+    return palabra
+
+def extraer_variantes_keywords(keywords_filtradas):
+    """Acepta lista de strings o de dicts {'texto','sinonimos',...} y devuelve lista de variantes de texto."""
+    variantes = []
+    if not keywords_filtradas:
+        return variantes
+    for kw in keywords_filtradas:
+        if isinstance(kw, dict):
+            t = kw.get('texto')
+            if t:
+                variantes.append(str(t))
+            for s in kw.get('sinonimos', []) or []:
+                if s:
+                    variantes.append(str(s))
+        else:
+            variantes.append(str(kw))
+    # Quitar duplicados preservando orden
+    seen = set()
+    unicos = []
+    for v in variantes:
+        if v not in seen:
+            seen.add(v)
+            unicos.append(v)
+    return unicos
 
 def tomar_captura_debug(driver, motivo="debug"):
     """
@@ -562,6 +601,8 @@ def scrape_mercadolibre(filters: Dict[str, Any], keywords: List[str], max_pages:
     # Importar aquí para evitar dependencias cruzadas
     from core.search_manager import procesar_keywords
     keywords_filtradas = procesar_keywords(' '.join(keywords))
+    # Adaptar a lista de variantes de texto (strings)
+    keywords_variantes = extraer_variantes_keywords(keywords_filtradas)
     base_url = build_mercadolibre_url(filters)
     print(f"[scraper] URL base de búsqueda: {base_url}")
     print(f"[scraper] Palabras clave filtradas: {keywords_filtradas}")
@@ -708,15 +749,15 @@ def scrape_mercadolibre(filters: Dict[str, Any], keywords: List[str], max_pages:
                     pass
                 caracteristicas = ' '.join(caracteristicas_kv + caracteristicas_sueltas)
                 def normalizar(texto):
-                    return unicodedata.normalize('NFKD', texto).encode('ASCII', 'ignore').decode('ASCII').lower()
+                    return unicodedata.normalize('NFKD', str(texto)).encode('ASCII', 'ignore').decode('ASCII').lower()
                 texto_total_norm = normalizar(f"{titulo_text} {descripcion} {caracteristicas}")
-                keywords_norm = [normalizar(kw) for kw in keywords_filtradas]
-                encontrados = [kw for kw in keywords_filtradas if normalizar(kw) in texto_total_norm]
-                no_encontrados = [kw for kw in keywords_filtradas if normalizar(kw) not in texto_total_norm]
-                if not keywords_filtradas:
+                keywords_norm = [normalizar(kw) for kw in keywords_variantes]
+                encontrados = [kw for kw in keywords_variantes if normalizar(kw) in texto_total_norm]
+                no_encontrados = [kw for kw in keywords_variantes if normalizar(kw) not in texto_total_norm]
+                if not keywords_norm:
                     print("⚠️  No se especificaron palabras clave para filtrar.\n")
                     cumple = True
-                elif all(normalizar(kw) in texto_total_norm for kw in keywords_filtradas):
+                elif all(kw in texto_total_norm for kw in keywords_norm):
                     print(f"✅ Cumple todos los requisitos. Palabras encontradas: {encontrados}\n")
                     cumple = True
                 else:
@@ -759,14 +800,15 @@ def scrape_detalle_con_requests(url, api_key=None, use_scrapingbee=False):
         else:
             # Usar requests directo
             response = requests.get(url, headers=HEADERS, timeout=90)
-        
+
         response.raise_for_status()
-        
+
         soup = BeautifulSoup(response.content, 'lxml')
-        if not soup.find('div', class_='ui-pdp-container'): return None
+        if not soup.find('div', class_='ui-pdp-container'):
+            return None
 
         datos = {'url': url}
-        
+
         # --- Extracción de Datos Principales (sin cambios) ---
         datos['titulo'] = (t.text.strip() if (t := soup.find('h1', class_='ui-pdp-title')) else "N/A")
         if pc := soup.find('div', class_='ui-pdp-price__main-container'):
@@ -780,49 +822,52 @@ def scrape_detalle_con_requests(url, api_key=None, use_scrapingbee=False):
 
         # --- LÓGICA DE EXTRACCIÓN DE CARACTERÍSTICAS CORREGIDA ---
         caracteristicas_dict = {}
-        
+
         # 1. Extraer de las tablas "Principales", "Ambientes", etc.
         for row in soup.select('tr.andes-table__row'):
             if (th := row.find('th')) and (td := row.find('td')):
                 key = th.text.strip().lower()
                 value = td.text.strip()
                 caracteristicas_dict[key] = value
-        
+
         # 2. Extraer de la sección de íconos "highlighted"
         for spec in soup.select('div.ui-vpp-highlighted-specs__key-value'):
             if len(spans := spec.find_all('span')) == 2:
                 key = spans[0].text.replace(':', '').strip().lower()
                 value = spans[1].text.strip()
                 caracteristicas_dict[key] = value
-        
+
         datos['caracteristicas_texto'] = "\n".join([f"{k.capitalize()}: {v}" for k, v in caracteristicas_dict.items()])
 
-        def get_int(key):
-            try: return int(re.search(r'\d+', caracteristicas_dict.get(key, '')).group())
-            except: return None
+        def get_int_from_value(value: str):
+            try:
+                m = re.search(r'\d+', value or '')
+                return int(m.group()) if m else None
+            except:
+                return None
 
         # --- Mapeo a campos estructurados (usando el diccionario unificado) ---
         datos['tipo_inmueble'] = caracteristicas_dict.get('tipo de casa') or caracteristicas_dict.get('tipo de inmueble', 'N/A')
         datos['condicion'] = caracteristicas_dict.get('condición del ítem', '')
-        
+
         datos['dormitorios_min'], datos['dormitorios_max'] = parse_rango(caracteristicas_dict.get('dormitorios', ''))
         datos['banos_min'], datos['banos_max'] = parse_rango(caracteristicas_dict.get('baños', ''))
         datos['superficie_total_min'], datos['superficie_total_max'] = parse_rango(caracteristicas_dict.get('superficie total', ''))
         datos['superficie_cubierta_min'], datos['superficie_cubierta_max'] = parse_rango(caracteristicas_dict.get('área privada', '') or caracteristicas_dict.get('superficie cubierta', ''))
         datos['cocheras_min'], datos['cocheras_max'] = parse_rango(caracteristicas_dict.get('cocheras', ''))
-        
+
         antiguedad_str = caracteristicas_dict.get('antigüedad', '')
-        datos['antiguedad'] = 0 if 'a estrenar' in antiguedad_str.lower() else get_int(antiguedad_str)
-        
+        datos['antiguedad'] = 0 if 'a estrenar' in antiguedad_str.lower() else get_int_from_value(antiguedad_str)
+
         # Mapeo de booleanos
         datos['es_amoblado'] = caracteristicas_dict.get('amoblado', 'no').lower() == 'sí'
         datos['admite_mascotas'] = caracteristicas_dict.get('admite mascotas', 'no').lower() == 'sí'
         datos['tiene_piscina'] = caracteristicas_dict.get('piscina', 'no').lower() == 'sí'
         datos['tiene_terraza'] = caracteristicas_dict.get('terraza', 'no').lower() == 'sí'
         datos['tiene_jardin'] = caracteristicas_dict.get('jardín', 'no').lower() == 'sí'
-        
+
         return datos
-    except Exception as e:
+    except Exception:
         return None
 
 
@@ -1180,6 +1225,7 @@ def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, work
     # Procesar keywords usando la función centralizada
     from core.search_manager import procesar_keywords
     keywords_filtradas = procesar_keywords(' '.join(keywords)) if keywords else []
+    keywords_variantes = extraer_variantes_keywords(keywords_filtradas)
     print(f"🔍 [SCRAPER] Keywords filtradas: {keywords_filtradas}")
 
     USE_THREADS = False  # Cambia a True para habilitar hilos y ScrapingBee
@@ -1273,78 +1319,72 @@ def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, work
     print("\n[Principal] Iniciando chequeo de duplicados contra la base de datos...")
     send_progress_update(current_search_item="Chequeando publicaciones existentes en la base de datos...")
     existing_publications_titles = []  # Lista para propiedades existentes que coinciden
-    
+
     if urls_recolectadas_bruto:
         # Consultamos a la BD una sola vez por todas las URLs encontradas
         urls_existentes = set(Propiedad.objects.filter(url__in=list(urls_recolectadas_bruto)).values_list('url', flat=True))
         propiedades_omitidas = len(urls_existentes)
         urls_a_visitar_final = urls_recolectadas_bruto - urls_existentes
-        
+
         # Obtener propiedades existentes y verificar si coinciden con keywords
-        if urls_existentes and keywords_filtradas:
+        if urls_existentes and keywords_variantes:
             existing_properties = Propiedad.objects.filter(url__in=urls_existentes)
-            
+
             import unicodedata
             def normalizar(texto):
-                return unicodedata.normalize('NFKD', texto).encode('ASCII', 'ignore').decode('ASCII').lower()
-            
-            def stemming_basico(palabra):
-                """Stemming básico para español"""
-                sufijos = ['oso', 'osa', 'idad', 'cion', 'sion', 'ero', 'era', 'ado', 'ada']
-                for sufijo in sufijos:
-                    if palabra.endswith(sufijo) and len(palabra) > len(sufijo) + 3:
-                        return palabra[:-len(sufijo)]
-                return palabra
-            
-            keywords_norm = [normalizar(kw) for kw in keywords_filtradas]
-            
+                return unicodedata.normalize('NFKD', str(texto)).encode('ASCII', 'ignore').decode('ASCII').lower()
+
+            keywords_norm = [normalizar(kw) for kw in keywords_variantes]
+
             for prop in existing_properties:
                 titulo_propiedad = prop.titulo or ''
                 descripcion = prop.descripcion or ''
-                caracteristicas = prop.caracteristicas_texto or ''
+                # caracteristicas_texto ya no es campo del modelo; intentar desde metadata
+                meta = prop.metadata or {}
+                caracteristicas = meta.get('caracteristicas', '') or meta.get('caracteristicas_texto', '') or ''
                 texto_total = f"{titulo_propiedad.lower()} {descripcion.lower()} {caracteristicas.lower()}"
                 texto_total_norm = normalizar(texto_total)
-                
+
                 # Usar la misma lógica flexible para propiedades existentes
                 keywords_encontradas = 0
                 for kw in keywords_norm:
                     encontrada = False
-                    
+
                     # 1. Coincidencia exacta
                     if kw in texto_total_norm:
                         encontrada = True
-                    
+
                     # 2. Coincidencia con stemming básico
                     elif not encontrada:
                         kw_stem = stemming_basico(kw)
                         if kw_stem in texto_total_norm:
                             encontrada = True
-                    
+
                     # 3. Buscar raíz de la keyword en el texto
                     elif not encontrada and len(kw) > 4:
                         raiz = kw[:len(kw)-2]
                         if raiz in texto_total_norm:
                             encontrada = True
-                    
+
                     if encontrada:
                         keywords_encontradas += 1
-                
+
                 # Aplicar el mismo criterio del 70%
                 porcentaje_requerido = 0.7
                 if keywords_encontradas >= len(keywords_norm) * porcentaje_requerido:
                     existing_publications_titles.append({
-                        'title': titulo_propiedad, 
+                        'title': titulo_propiedad,
                         'url': prop.url
                     })
-        elif urls_existentes and not keywords_filtradas:
+        elif urls_existentes and not keywords_variantes:
             # Si no hay keywords, todas las existentes coinciden
             existing_properties = Propiedad.objects.filter(url__in=urls_existentes)
             for prop in existing_properties:
                 existing_publications_titles.append({
-                    'title': prop.titulo or 'Sin título', 
+                    'title': prop.titulo or 'Sin título',
                     'url': prop.url
                 })
-        
+
         print(f"🗃️  [DEDUP] Existentes: {propiedades_omitidas} | Nuevas: {len(urls_a_visitar_final)}")
         print(f"🗃️  [DEDUP] Coincidentes existentes: {len(existing_publications_titles)}")
         send_progress_update(current_search_item=f"Existentes: {propiedades_omitidas} | Nuevas: {len(urls_a_visitar_final)}")
@@ -1373,22 +1413,13 @@ def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, work
                         texto_total = f"{titulo_propiedad.lower()} {descripcion} {caracteristicas}"
 
                         cumple = True
-                        if keywords_filtradas:
+                        if keywords_variantes:
                             # Normaliza y verifica keywords con lógica más flexible
                             import unicodedata
                             def normalizar(texto):
-                                return unicodedata.normalize('NFKD', texto).encode('ASCII', 'ignore').decode('ASCII').lower()
+                                return unicodedata.normalize('NFKD', str(texto)).encode('ASCII', 'ignore').decode('ASCII').lower()
                             
-                            def stemming_basico(palabra):
-                                """Stemming básico para español"""
-                                # Remover sufijos comunes
-                                sufijos = ['oso', 'osa', 'idad', 'cion', 'sion', 'ero', 'era', 'ado', 'ada']
-                                for sufijo in sufijos:
-                                    if palabra.endswith(sufijo) and len(palabra) > len(sufijo) + 3:
-                                        return palabra[:-len(sufijo)]
-                                return palabra
-                            
-                            keywords_norm = [normalizar(kw) for kw in keywords_filtradas]
+                            keywords_norm = [normalizar(kw) for kw in keywords_variantes]
                             texto_total_norm = normalizar(texto_total)
                             
                             # Verificar cada keyword con múltiples estrategias

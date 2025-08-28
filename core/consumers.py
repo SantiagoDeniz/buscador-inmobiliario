@@ -226,12 +226,16 @@ class SearchProgressConsumer(WebsocketConsumer):
                                 if keywords:
                                     import unicodedata
                                     def normalizar(texto):
-                                        return unicodedata.normalize('NFKD', texto).encode('ASCII', 'ignore').decode('ASCII').lower()
+                                        return unicodedata.normalize('NFKD', str(texto)).encode('ASCII', 'ignore').decode('ASCII').lower()
                                     
+                                    from core.scraper import extraer_variantes_keywords
+                                    keywords_variantes = extraer_variantes_keywords(keywords)
                                     for prop in propiedades:
-                                        texto_propiedad = f"{prop.titulo or ''} {prop.descripcion or ''} {prop.caracteristicas_texto or ''}".lower()
+                                        meta = prop.metadata or {}
+                                        caracteristicas_txt = meta.get('caracteristicas', '') or meta.get('caracteristicas_texto', '') or ''
+                                        texto_propiedad = f"{prop.titulo or ''} {prop.descripcion or ''} {caracteristicas_txt}".lower()
                                         texto_norm = normalizar(texto_propiedad)
-                                        keywords_norm = [normalizar(kw) for kw in keywords]
+                                        keywords_norm = [normalizar(kw) for kw in keywords_variantes]
                                         
                                         # Usar lógica flexible como en el scraper
                                         from core.scraper import stemming_basico
@@ -248,12 +252,12 @@ class SearchProgressConsumer(WebsocketConsumer):
                                             resultados.append({
                                                 'titulo': prop.titulo or 'Sin título',
                                                 'url': prop.url or '#',
-                                                'precio': f"{prop.precio} {prop.moneda}" if prop.precio else 'Precio no disponible'
+                                                'precio': (f"{meta.get('precio_valor')} {meta.get('precio_moneda','')}".strip() if meta.get('precio_valor') else 'Precio no disponible')
                                             })
                                 
                                 # Actualizar la búsqueda con los resultados
                                 update_data = {
-                                    'resultados': resultados,
+                                    'results': resultados,
                                     'ultima_revision': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                                 }
                                 

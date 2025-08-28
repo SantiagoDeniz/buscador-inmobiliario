@@ -7,30 +7,29 @@
 {% endif %}
 <div class="row">
   <div class="col-md-6">
-    <h2 class="mb-2">{{ search.nombre }}</h2>
-    <p class="mb-1"><strong>Búsqueda:</strong> {{ search.busqueda }}</p>
-    <p class="mb-1"><strong>Filtros:</strong>
-      <ul class="mb-1">
-        {% for k, v in search.filtros.items %}
-          <li><strong>{{ k|capfirst }}:</strong> {{ v }}</li>
-        {% endfor %}
-      </ul>
-    </p>
-    <p class="mb-1"><strong>Última revisión:</strong> {{ search.ultima_revision }}</p>
+    <h2 class="mb-2">{{ search.nombre_busqueda|default:search.texto_original|default:'(sin título)' }}</h2>
+    {% if search.texto_original %}
+      <p class="mb-1"><strong>Texto original:</strong> {{ search.texto_original }}</p>
+    {% endif %}
+    <p class="mb-1"><strong>Filtros:</strong></p>
+    <ul class="mb-1">
+      {% for k, v in search.filtros.items %}
+        <li><strong>{{ k|capfirst }}:</strong> {{ v }}</li>
+      {% empty %}
+        <li><em>Sin filtros</em></li>
+      {% endfor %}
+    </ul>
+    {% if search.created_at or search.ultima_revision %}
+      <p class="mb-1"><strong>Última revisión:</strong> {{ search.ultima_revision|default:search.created_at }}</p>
+    {% endif %}
   </div>
   <div class="col-md-6">
     <h3 class="mb-2">Resultados</h3>
     <ul>
-      {% for titulo in search.resultados %}
-        {% if search.links_visitados and search.links_visitados|length > forloop.counter0 %}
-          {% with link=search.links_visitados|slice:forloop.counter0|stringformat:'s' %}
-            <li><a href="{{ link }}" target="_blank">{{ titulo }}</a></li>
-          {% endwith %}
-        {% else %}
-          <li>{{ titulo }}</li>
-        {% endif %}
+      {% for r in results %}
+        <li><a href="{{ r.url }}" target="_blank">{{ r.titulo|default:r.url }}</a></li>
       {% empty %}
-        <li>No hay resultados.</li>
+        <li>No hay resultados guardados aún.</li>
       {% endfor %}
     </ul>
   </div>
