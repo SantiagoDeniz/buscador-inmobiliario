@@ -1,0 +1,8 @@
+Etapas sugeridas (bajo riesgo)
+
+1. Mover utilidades puras url_builder.py y progress.py. Añadir tests mínimos (ya hay tests de URL).
+2. Mover driver/cookies browser.py. Mantener imports internos de Selenium y mantener tomar_captura_debug donde se usa.
+3. Mover extractores y ML extractors.py y mercadolibre.py (ajustar imports relativos a browser/progress/url_builder).
+4. Orquestación run.py usa Propiedad/Plataforma (Django). Mantener esta dependencia sólo aquí.
+5. Fachada Actualizar scraper.py para re-exportar (sin cambiar firmas).
+6. Verificación Correr tests existentes y probar flujo desde views/consumers.

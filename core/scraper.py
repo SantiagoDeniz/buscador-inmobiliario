@@ -1,13 +1,22 @@
+# Importar helpers movidos a submódulos
+from core.scraper.url_builder import build_mercadolibre_url, normalizar_para_url
+from core.scraper.progress import send_progress_update, tomar_captura_debug
+from core.scraper.browser import manejar_popups_cookies, verificar_necesita_login, cargar_cookies
+from core.scraper.constants import HEADERS
+from core.scraper.extractors import parse_rango, scrape_detalle_con_requests, recolectar_urls_de_pagina
+from core.scraper.mercadolibre import extraer_total_resultados_mercadolibre, scrape_mercadolibre
+from core.scraper.run import run_scraper
+
 # --- Función iniciar_driver mejorada para contenedores ---
 def iniciar_driver():
     chrome_options = Options()
-    
+
     # Configuraciones básicas para headless
     chrome_options.add_argument("--headless")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("--disable-gpu")
-    
+
     # Configuraciones adicionales para contenedores/Render
     chrome_options.add_argument("--disable-web-security")
     chrome_options.add_argument("--allow-running-insecure-content")
@@ -26,21 +35,21 @@ def iniciar_driver():
     chrome_options.add_argument("--no-crash-upload")
     chrome_options.add_argument("--disable-low-res-tiling")
     chrome_options.add_argument("--memory-pressure-off")
-    
+
     chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
     chrome_options.add_experimental_option('useAutomationExtension', False)
-    
+
     try:
         service = ChromeService()
         driver = webdriver.Chrome(service=service, options=chrome_options)
         stealth(driver, languages=["es-ES", "es"], vendor="Google Inc.", platform="Win32",
-            webgl_vendor="Intel Inc.", renderer="Intel Iris OpenGL Engine", fix_hairline=True)
-        
+                webgl_vendor="Intel Inc.", renderer="Intel Iris OpenGL Engine", fix_hairline=True)
+
         # Verificar que el driver funciona
         driver.set_page_load_timeout(30)
         print("✅ [CHROME] Driver iniciado correctamente")
         return driver
-        
+
     except Exception as e:
         print(f"❌ [CHROME] Error iniciando driver: {e}")
         raise
@@ -63,9 +72,6 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.service import Service as ChromeService
 
-from channels.layers import get_channel_layer
-from asgiref.sync import async_to_sync
-from datetime import datetime
 from django.conf import settings
 
 try:
@@ -114,145 +120,7 @@ def extraer_variantes_keywords(keywords_filtradas):
             unicos.append(v)
     return unicos
 
-def tomar_captura_debug(driver, motivo="debug"):
-    """
-    Toma una captura de pantalla para debugging y la guarda en static/debug_screenshots/
-    También guarda el HTML de la página
-    """
-    try:
-        # Crear directorio si no existe - ajustado para producción
-        debug_dir = os.path.join('static', 'debug_screenshots')
-        os.makedirs(debug_dir, exist_ok=True)
-        
-        # También crear en staticfiles para producción
-        staticfiles_debug_dir = os.path.join('staticfiles', 'debug_screenshots')
-        os.makedirs(staticfiles_debug_dir, exist_ok=True)
-        
-        # Generar nombre único con timestamp
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename_base = f"{motivo}_{timestamp}"
-        
-        # Captura de pantalla - guardar en ambos lugares
-        screenshot_path = os.path.join(debug_dir, f"{filename_base}.png")
-        staticfiles_screenshot_path = os.path.join(staticfiles_debug_dir, f"{filename_base}.png")
-        
-        driver.save_screenshot(screenshot_path)
-        
-        # Copiar a staticfiles también
-        try:
-            import shutil
-            shutil.copy2(screenshot_path, staticfiles_screenshot_path)
-        except:
-            pass
-        
-        # Guardar HTML - en ambos lugares
-        html_path = os.path.join(debug_dir, f"{filename_base}.html")
-        staticfiles_html_path = os.path.join(staticfiles_debug_dir, f"{filename_base}.html")
-        
-        with open(html_path, 'w', encoding='utf-8') as f:
-            f.write(driver.page_source)
-        try:
-            with open(staticfiles_html_path, 'w', encoding='utf-8') as f:
-                f.write(driver.page_source)
-        except:
-            pass
-        
-        # Guardar info adicional - en ambos lugares
-        info_path = os.path.join(debug_dir, f"{filename_base}_info.txt")
-        staticfiles_info_path = os.path.join(staticfiles_debug_dir, f"{filename_base}_info.txt")
-        
-        info_content = f"Motivo: {motivo}\n"
-        info_content += f"URL: {driver.current_url}\n"
-        info_content += f"Título: {driver.title}\n"
-        info_content += f"Timestamp: {timestamp}\n"
-        info_content += f"Window Size: {driver.get_window_size()}\n"
-        
-        with open(info_path, 'w', encoding='utf-8') as f:
-            f.write(info_content)
-        try:
-            with open(staticfiles_info_path, 'w', encoding='utf-8') as f:
-                f.write(info_content)
-        except:
-            pass
-        
-        print(f"📸 [DEBUG] Captura guardada: {screenshot_path}")
-        print(f"📄 [DEBUG] HTML guardado: {html_path}")
-        print(f"ℹ️  [DEBUG] Info guardada: {info_path}")
-        
-        # Devolver la ruta relativa para mostrar en la interfaz web
-        web_screenshot_path = f"/static/debug_screenshots/{filename_base}.png"
-        return web_screenshot_path
-        
-    except Exception as e:
-        print(f"❌ [DEBUG] Error tomando captura: {e}")
-        return None
-
-def send_progress_update(total_found=None, estimated_time=None, current_search_item=None, matched_publications=None, final_message=None, page_items_found=None, debug_screenshot=None, all_matched_properties=None):
-    # Consolidar logs - solo imprimir información importante y no repetitiva
-    if final_message:
-        print(f'✅ [FINAL] {final_message}')
-    elif current_search_item and not current_search_item.startswith("Búsqueda actual"):
-        # Solo mostrar progreso relevante, no cada item individual
-        print(f'🔄 [PROGRESO] {current_search_item}')
-    
-    # Si hay captura de debug, guardar también en archivo JSON para acceso posterior
-    if debug_screenshot:
-        try:
-            import json
-            debug_file = os.path.join('static', 'debug_screenshots', 'latest_screenshots.json')
-            screenshots = []
-            
-            # Cargar capturas existentes
-            if os.path.exists(debug_file):
-                try:
-                    with open(debug_file, 'r', encoding='utf-8') as f:
-                        screenshots = json.load(f)
-                except:
-                    screenshots = []
-            
-            # Agregar nueva captura
-            screenshots.append({
-                'path': debug_screenshot,
-                'timestamp': datetime.now().isoformat(),
-                'message': current_search_item or 'Debug screenshot'
-            })
-            
-            # Mantener solo las últimas 10 capturas
-            screenshots = screenshots[-10:]
-            
-            # Guardar
-            with open(debug_file, 'w', encoding='utf-8') as f:
-                json.dump(screenshots, f, indent=2, ensure_ascii=False)
-                
-        except Exception as e:
-            print(f"⚠️ [DEBUG] Error guardando lista de capturas: {e}")
-    
-    # Remover log redundante de total_found ya que se muestra en otras partes
-    
-    try:
-        channel_layer = get_channel_layer()
-        if channel_layer is None:
-            print("⚠️ [WebSocket] Channel layer no disponible - funciona sin Redis/Daphne")
-            return
-        
-        async_to_sync(channel_layer.group_send)(
-            "search_progress",
-            {
-                "type": "send_progress",
-                "message": {
-                    "total_found": total_found,
-                    "estimated_time": estimated_time,
-                    "current_search_item": current_search_item,
-                    "matched_publications": matched_publications,
-                    "final_message": final_message,
-                    "page_items_found": page_items_found, # Nuevo parámetro
-                    "debug_screenshot": debug_screenshot,  # Nueva funcionalidad para capturas
-                    "all_matched_properties": all_matched_properties,  # Nuevas y existentes
-                }
-            }
-        )
-    except Exception as e:
-        print(f"⚠️ [WebSocket] Error: {e}")
+from datetime import datetime
 
 try:
     from selenium_stealth import stealth
@@ -260,114 +128,9 @@ except ImportError:
     # Si selenium-stealth no está instalado, define un stub
     def stealth(*args, **kwargs):
         pass
-# HEADERS para requests
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36",
-    "Accept-Language": "es-ES,es;q=0.9,en;q=0.8"
-}
+# HEADERS ahora viven en core.scraper.constants
 
-def normalizar_para_url(texto: str) -> str:
-    if not texto: return ''
-    # Quita tildes y caracteres especiales
-    nfkd_form = unicodedata.normalize('NFKD', texto)
-    texto_sin_tildes = "".join([c for c in nfkd_form if not unicodedata.combining(c)])
-    # Reemplaza espacios y otros separadores por guiones y convierte a minúsculas
-    return re.sub(r'[\s_]+', '-', texto_sin_tildes).lower()
-
-def build_mercadolibre_url(filters: Dict[str, Any]) -> str:
-    base = 'https://listado.mercadolibre.com.uy/inmuebles/'
-    path_parts = []
-    filter_segments = []
-
-    # --- 1. Segmentos de Path --- 
-    if tipo := filters.get('tipo'):
-        # Salvedad: si el tipo es 'apartamento', usar 'apartamentos/', lo mismo con 'casa'
-        if tipo.strip().lower() == 'apartamento':
-            path_parts.append('apartamentos')
-        elif tipo.strip().lower() == 'casa':
-            path_parts.append('casas')
-        else:
-            path_parts.append(normalizar_para_url(tipo))
-
-    if operacion := filters.get('operacion'):
-        path_parts.append(normalizar_para_url(operacion))
-
-    # Lógica para dormitorios como parte del path
-    dormitorios_min = filters.get('dormitorios_min')
-    dormitorios_max = filters.get('dormitorios_max')
-    if dormitorios_min and dormitorios_max:
-        if str(dormitorios_min) == str(dormitorios_max):
-            path_parts.append(f'{dormitorios_min}-dormitorios')
-        else:
-            path_parts.append(f'{dormitorios_min}-a-{dormitorios_max}-dormitorios')
-    elif dormitorios_min:
-        path_parts.append(f'{dormitorios_min}-o-mas-dormitorios')
-    elif dormitorios_max:
-        # MercadoLibre no parece tener un formato claro para "hasta X dormitorios" en el path
-        # Se omite del path y se podría manejar como filtro si se descubre el formato
-        pass
-
-    if departamento := filters.get('departamento'):
-        path_parts.append(normalizar_para_url(departamento))
-    
-    if filters.get('departamento') == 'Montevideo' and (ciudad := filters.get('ciudad')):
-        path_parts.append(normalizar_para_url(ciudad))
-
-    # --- 2. Segmentos de Filtro (estilo _Clave_Valor) ---
-    def add_range_filter(param_name, min_key, max_key, unit=''):
-        min_val = filters.get(min_key, '')
-        max_val = filters.get(max_key, '')
-        # Si ambos son 0, agregar el filtro explícitamente
-        if str(min_val) == '0' and str(max_val) == '0':
-            filter_segments.append(f'_{param_name}_0{unit}-0{unit}')
-            return
-        # Agregar el filtro si alguno de los dos está presente (no solo si ambos)
-        if min_val != '' or max_val != '':
-            min_str = str(min_val) if min_val != '' else '0'
-            max_str = str(max_val) if max_val != '' else '0'
-            # Solo números, sin texto extra
-            filter_segments.append(f'_{param_name}_{min_str}{unit}-{max_str}{unit}')
-
-    moneda = filters.get('moneda', 'USD').upper()
-    add_range_filter('PriceRange', 'precio_min', 'precio_max', unit=moneda)
-    add_range_filter('FULL*BATHROOMS', 'banos_min', 'banos_max')
-
-    if filters.get('amoblado'):
-        filter_segments.append('_FURNISHED_242085')
-    if filters.get('terraza'):
-        filter_segments.append('_HAS*TERRACE_242085')
-    if filters.get('aire_acondicionado'):
-        filter_segments.append('_HAS*AIR*CONDITIONING_242085')
-    if filters.get('piscina'):
-        filter_segments.append('_HAS*SWIMMING*POOL_242085')
-    if filters.get('jardin'):
-        filter_segments.append('_HAS*GARDEN_242085')
-    if filters.get('ascensor'):
-        filter_segments.append('_HAS*LIFT_242085')
-
-    # Añadir _NoIndex_True una sola vez después de filtros booleanos
-    filter_segments.append('_NoIndex_True')
-
-    add_range_filter('PARKING*LOTS', 'cocheras_min', 'cocheras_max')
-    add_range_filter('PROPERTY*AGE', 'antiguedad_min', 'antiguedad_max')
-    add_range_filter('TOTAL*AREA', 'superficie_total_min', 'superficie_total_max')
-    add_range_filter('COVERED*AREA', 'superficie_cubierta_min', 'superficie_cubierta_max')
-
-    if condicion := filters.get('condicion'):
-        if condicion == 'Nuevo':
-            filter_segments.append('_ITEM*CONDITION_2230284')
-        elif condicion == 'Usado':
-            filter_segments.append('_ITEM*CONDITION_2230581')
-
-    # --- 3. Ensamblaje Final --- 
-    path_str = '/'.join(filter(None, path_parts))
-    # Asegurarse de que siempre haya un / al final del path si hay partes
-    if path_str:
-        path_str += '/'
-
-    filter_str = ''.join(filter_segments)
-
-    return base + path_str + filter_str
+from core.scraper.url_builder import build_mercadolibre_url, normalizar_para_url
 
 def manejar_popups_cookies(driver):
     """
