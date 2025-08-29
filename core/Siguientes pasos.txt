@@ -4,11 +4,15 @@
 ✅ COMPLETADO - Tests: Crear tests para nuevas funcionalidades (17 tests pasando)
 ✅ COMPLETADO - Documentación: Actualizar documentación técnica (DOCUMENTACION_TECNICA.md)
 ✅ COMPLETADO - Probar Funcionalidad WebSocket: Redis/Channels funcionando correctamente
+✅ COMPLETADO - Exportación CSV + Auditoría: Endpoints /csv/export/all/, /csv/table/<tabla>/ y /csv/audit/latest/, manifiesto _manifest.json/CSV y poda de snapshots
 
 🔄 SIGUIENTES PRIORIDADES:
-- Migrar a PostgreSQL: Para entorno de producción
-- Optimizar Consultas: Añadir índices y select_related
+✅ Migrar a PostgreSQL: Para entorno de producción
 - Cron jobs para automatización
+- Que la página agregue a la lista de búsquedas guardadas los resultados nuevos de la búsqueda realizada una vez finalizada
+- Botón de reiniciar búsqueda en búsquedas guardadas
+- Agregar búsqueda de InfoCasas
+- Optimizar Consultas: Añadir índices y select_related
 - Dashboard de métricas y estadísticas
 
 ✅ COMPLETADO - MIGRACIÓN A BASE DE DATOS RELACIONAL:
@@ -27,9 +31,11 @@
   - Stemming básico para español
   - Mejor manejo de errores
   - Logs más detallados para debug
-Que la lista de los resultados se guarden en las búsquedas guardadas
-Que la página agregue a la lista de búsquedas guardadas los resultados nuevos de la búsqueda realizada una vez finalizada
-Botón de reiniciar búsqueda en búsquedas guardadas
+✅ Que la lista de los resultados se guarden en las búsquedas guardadas
+
+Otras acciones (opcionales):
+- Documentar integración con Google Sheets (en README) y ejemplo de importación
+- Ajustar retención de snapshots según política (keep=N) si se desea histórico
 
 Cosas a tener en cuenta para deplegar el proyecto para producción:
 Cookies mias: Solucionar de otra forma (¿capaz utilizando concurrencia y proxy se soluciona?)

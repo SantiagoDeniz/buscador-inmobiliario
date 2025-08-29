@@ -1,5 +1,6 @@
 from django.shortcuts import render
-from django.http import JsonResponse, StreamingHttpResponse
+from django.http import JsonResponse, StreamingHttpResponse, HttpResponse
+from django.conf import settings
 from django.template.loader import render_to_string
 from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_exempt
@@ -9,6 +10,7 @@ import google.generativeai as genai
 from dotenv import load_dotenv
 
 from .search_manager import get_search, delete_search as delete_search_manager, load_results
+from .export_utils import export_all, prune_old_exports, audit_exports
 
 # Cargar variables de entorno desde .env
 load_dotenv()
@@ -297,7 +299,7 @@ def http_search_fallback(request):
         from .scraper import run_scraper
         run_scraper(filtros_final, keywords, max_paginas=2, workers_fase1=1, workers_fase2=1)
         
-        # Obtener resultados de la base de datos
+    # Obtener resultados de la base de datos
         from .models import Propiedad
         propiedades = Propiedad.objects.order_by('-id')[:50]  # Últimas 50 para buscar coincidencias
         
@@ -372,6 +374,12 @@ def http_search_fallback(request):
             except Exception as update_error:
                 print(f'❌ [HTTP FALLBACK] Error actualizando búsqueda: {update_error}')
         
+        # Exportar CSVs automáticamente tras cada consulta
+        try:
+            export_all(os.path.join(settings.BASE_DIR, 'exports'))
+        except Exception as _e:
+            print(f"[DEPURACIÓN] Exportación CSV falló: {_e}")
+
         return JsonResponse({
             'success': True,
             'matched_publications': resultados[:10],  # Limitar a 10 para no sobrecargar
@@ -385,6 +393,73 @@ def http_search_fallback(request):
             'error': str(e),
             'matched_publications': []
         })
+
+def csv_export_all(request):
+    """Genera CSVs en ./exports/latest y retorna un JSON con la lista de archivos."""
+    try:
+        base_dir = os.path.join(settings.BASE_DIR, 'exports')
+        export_all(base_dir)
+        # Prune snapshots antiguos; conservar 0 o 1 según preferencia. Dejamos 0 para no acumular.
+        prune_old_exports(base_dir, keep=0)
+        latest_dir = os.path.join(base_dir, 'latest')
+        files = []
+        if os.path.exists(latest_dir):
+            for name in os.listdir(latest_dir):
+                if name.endswith('.csv'):
+                    files.append(name)
+        # Generar y adjuntar auditoría
+        manifest = audit_exports(base_dir)
+        return JsonResponse({
+            'success': True,
+            'dir': latest_dir,
+            'files': sorted(files),
+            'audit': manifest
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+def csv_export_table(request, table: str):
+    """Devuelve CSV para una tabla específica on-the-fly (sin tocar disco)."""
+    try:
+        from django.db import connection
+        with connection.cursor() as cur:
+            cur.execute(f"SELECT * FROM {table} LIMIT 0")
+            headers = [d[0] for d in cur.description]
+            cur.execute(f"SELECT * FROM {table}")
+            # Build CSV in memory
+            import io, csv
+            buf = io.StringIO()
+            writer = csv.writer(buf)
+            writer.writerow(headers)
+            while True:
+                rows = cur.fetchmany(5000)
+                if not rows:
+                    break
+                for r in rows:
+                    writer.writerow(r)
+            data = buf.getvalue()
+        resp = HttpResponse(data, content_type='text/csv; charset=utf-8')
+        resp['Content-Disposition'] = f'inline; filename="{table}.csv"'
+        return resp
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+def csv_audit_latest(request):
+    """Devuelve el manifiesto de auditoría de exports/latest; lo genera si falta."""
+    try:
+        base_dir = os.path.join(settings.BASE_DIR, 'exports')
+        latest_dir = os.path.join(base_dir, 'latest')
+        manifest_path = os.path.join(latest_dir, '_manifest.json')
+        if not os.path.exists(manifest_path):
+            audit = audit_exports(base_dir)
+        else:
+            with open(manifest_path, 'r', encoding='utf-8') as f:
+                audit = json.load(f)
+        return JsonResponse({'success': True, 'audit': audit})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
 
 def redis_diagnostic(request):
     """Vista de diagnóstico para verificar Redis y WebSockets"""

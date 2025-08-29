@@ -1,0 +1,15 @@
+﻿id,app_label,model
+1,admin,logentry
+2,auth,permission
+3,auth,group
+4,auth,user
+5,contenttypes,contenttype
+6,sessions,session
+7,core,inmobiliaria
+8,core,palabraclave
+9,core,plataforma
+10,core,propiedad
+11,core,usuario
+12,core,busqueda
+13,core,busquedapalabraclave
+14,core,resultadobusqueda

@@ -1,0 +1,2 @@
+﻿id,password,last_login,is_superuser,username,first_name,last_name,email,is_staff,is_active,date_joined
+1,pbkdf2_sha256$1000000$tNbjPNKAsXTTu2tDI1pYjS$hx2+boFS9cezl7XvXpX/2+1HJYMWINzhXu2zXrnIgRs=,,False,test_user,Usuario,Prueba,test@example.com,False,True,2025-08-27 17:30:50.205534+00:00

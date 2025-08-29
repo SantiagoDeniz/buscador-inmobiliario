@@ -1,0 +1,5 @@
+﻿id,coincide,created_at,busqueda_id,propiedad_id,metadata
+4,True,2025-08-27 17:36:38.982614+00:00,20b95855-2c68-4d81-80a9-46e80b8159e2,1,"{""relevancia"": 0.9176206891605765}"
+6,True,2025-08-27 17:36:38.986681+00:00,edda8291-445f-4cad-896f-17e7c375dd9e,3,"{""relevancia"": 0.8765816074821541}"
+8,True,2025-08-28 16:35:59.534080+00:00,3b527ec3-68a1-44c8-b724-76f37bffa02d,5,"{""url"": ""https://apartamento.mercadolibre.com.uy/MLU-753430228-cordon-pre-venta-apartamento-1-dormitorio-amenities-_JM"", ""precio"": ""153000 US$"", ""titulo"": ""Cordon Pre Venta Apartamento 1 Dormitorio Amenities""}"
+9,True,2025-08-28 16:35:59.554910+00:00,3b527ec3-68a1-44c8-b724-76f37bffa02d,4,"{""url"": ""https://apartamento.mercadolibre.com.uy/MLU-735850958-apartamentos-en-venta-met-tech-constituyente-y-magallanes-diciembre-2025-_JM"", ""precio"": ""134120 US$"", ""titulo"": ""Apartamentos En Venta Met Tech, Constituyente Y Magallanes, Diciembre 2025""}"

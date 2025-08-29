@@ -1,0 +1,22 @@
+Engine: django.db.backends.postgresql
+Name: buscador_inmobiliario
+
+[Django] Tables (18):
+ - auth_group
+ - auth_group_permissions
+ - auth_permission
+ - auth_user
+ - auth_user_groups
+ - auth_user_user_permissions
+ - busqueda
+ - busqueda_palabra_clave
+ - django_admin_log
+ - django_content_type
+ - django_migrations
+ - django_session
+ - inmobiliaria
+ - palabra_clave
+ - plataforma
+ - propiedad
+ - resultado_busqueda
+ - usuario

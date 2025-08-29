@@ -14,4 +14,8 @@ urlpatterns = [
     path('http_search_fallback/', views.http_search_fallback, name='http_search_fallback'),
     path('redis_diagnostic/', views.redis_diagnostic, name='redis_diagnostic'),
     path('debug_screenshots/', views.debug_screenshots, name='debug_screenshots'),
+    # CSV export endpoints
+    path('csv/export/all/', views.csv_export_all, name='csv_export_all'),
+    path('csv/table/<str:table>/', views.csv_export_table, name='csv_export_table'),
+    path('csv/audit/latest/', views.csv_audit_latest, name='csv_audit_latest'),
 ]

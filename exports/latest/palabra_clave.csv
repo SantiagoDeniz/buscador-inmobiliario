@@ -1,0 +1,19 @@
+﻿id,texto,idioma,sinonimos
+1,apartamento,es,
+2,casa,es,
+3,alquiler,es,
+4,venta,es,
+5,Montevideo,es,
+6,Pocitos,es,
+7,Punta Carretas,es,
+8,3 dormitorios,es,
+9,garage,es,
+10,terraza,es,
+11,constituyente,es,[]
+12,constituyente luminoso,es,[]
+13,luminoso,es,[]
+14,dormitorios,es,[]
+15,banos,es,[]
+16,malvin,es,"[""malvin""]"
+17,frente,es,"[""facing"", ""front""]"
+18,mar,es,[]

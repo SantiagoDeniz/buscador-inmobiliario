@@ -478,3 +478,47 @@ Para problemas técnicos o preguntas sobre la implementación:
 
 *Documentación actualizada: 27 de agosto de 2025*  
 *Versión del sistema: 2.0.0 (Base de datos relacional)*
+
+---
+
+## 📤 Exportación a CSV y Auditoría
+
+El sistema exporta automáticamente los datos a CSV para su consumo externo (por ejemplo, Google Sheets) y genera un manifiesto de auditoría para verificar integridad.
+
+### Directorios y archivos
+- Carpeta base: `exports/`
+    - `latest/`: exportación vigente (siempre sobrescrita)
+    - `YYYYMMDD_HHMMSS/`: snapshots con marca de tiempo (se pueden podar automáticamente)
+    - `latest/_manifest.json`: manifiesto de auditoría en JSON
+    - `latest/_manifest.csv`: manifiesto en CSV
+
+### Endpoints HTTP
+- `GET /csv/export/all/`
+    - Regenera CSVs en `exports/latest/`, poda snapshots anteriores y devuelve JSON con archivos y auditoría.
+- `GET /csv/table/<tabla>/`
+    - Devuelve on-the-fly el CSV de una tabla específica sin escribir a disco.
+- `GET /csv/audit/latest/`
+    - Devuelve el manifiesto de auditoría más reciente (lo genera si no existe).
+
+### Auditoría incluida
+Para cada archivo CSV se informa:
+- `bytes`, `rows_csv` (filas sin header), `sha256` (checksum)
+- `db_table`, `db_rows`, `rows_match` (comparación con conteo en BD cuando aplica)
+- `dup_full_row` (filas idénticas repetidas) y `dup_pk` (PKs repetidas cuando se detecta clave primaria)
+
+Resumen agregado:
+- `files`, `rows_total_csv`, `db_tables_counted`, `csv_db_mismatches`, `files_with_duplicates`
+
+### Política de poda
+- En el endpoint `/csv/export/all/` se conserva solo `latest/` por defecto (equivalente a `keep=1` para snapshots con timestamp). Esto evita acumulación de carpetas antiguas.
+- La orden de administración puede ajustarse si se desea retener históricos.
+
+### Integración con Google Sheets (sugerido)
+1) Expone el servidor local o despliegue en un host accesible.
+2) En Google Sheets, use “Importar datos” desde URL apuntando a:
+     - `http://<host>/csv/table/<tabla>/` para una tabla puntual, o
+     - `http://<host>/csv/export/all/` si desea disparar export y luego referenciar los archivos en `exports/latest/`.
+3) Los CSV se guardan con codificación `utf-8-sig` para compatibilidad con Excel/Sheets.
+
+### Troubleshooting
+- Si el puerto 10000 no está disponible en desarrollo, ejecute el servidor en otro puerto (por ejemplo `127.0.0.1:10001`).
