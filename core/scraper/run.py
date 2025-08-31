@@ -146,9 +146,12 @@ def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, work
                     'url': prop.url
                 })
 
-        print(f"🗃️  [DEDUP] Existentes: {propiedades_omitidas} | Nuevas: {len(urls_a_visitar_final)}")
-        print(f"🗃️  [DEDUP] Coincidentes existentes: {len(existing_publications_titles)}")
-        send_progress_update(current_search_item=f"Existentes: {propiedades_omitidas} | Nuevas: {len(urls_a_visitar_final)}")
+        # Logs internos y mensaje de estado simplificado para el usuario
+        print(f"🗃️  [DEDUP] {propiedades_omitidas} URLs existentes en la base de datos")
+        print(f"🆕  [DEDUP] A procesar (posibles nuevas): {len(urls_a_visitar_final)}")
+        print(f"🗃️  [DEDUP] Coincidentes existentes tras keywords: {len(existing_publications_titles)}")
+        # Para el usuario, solo informar cuántas existentes hay (sin mostrarlas como 'encontradas anteriormente')
+        send_progress_update(current_search_item=f"🗃️ {propiedades_omitidas} URLs existentes en la base de datos")
     else:
         print("❌ [RECOLECCIÓN] No se obtuvieron URLs")
         send_progress_update(current_search_item="No se encontraron URLs para procesar.")
@@ -257,14 +260,16 @@ def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, work
                 except Exception as exc:
                     print(f'❌ [SCRAPER] URL {url_original[:100]}... generó excepción: {exc}')
     print(f"✅ [COMPLETADO] {nuevas_propiedades_guardadas} nuevas propiedades guardadas")
+    # Para la UI actual: mostrar todo bajo 'nuevas' y no poblar 'existentes'
+    combined_for_ui = matched_publications_titles + existing_publications_titles
     all_matched_properties = {
-        'nuevas': matched_publications_titles,
-        'existentes': existing_publications_titles
+        'nuevas': combined_for_ui,
+        'existentes': []
     }
-    total_coincidentes = len(matched_publications_titles) + len(existing_publications_titles)
-    print(f"📊 [RESUMEN FINAL] Nuevas: {len(matched_publications_titles)} | Existentes: {len(existing_publications_titles)} | Total: {total_coincidentes}")
+    total_coincidentes = len(combined_for_ui)
+    print(f"📊 [RESUMEN FINAL] (UI) Nuevas: {len(combined_for_ui)} | Existentes (solo log): {len(existing_publications_titles)} | Total: {total_coincidentes}")
     send_progress_update(
         final_message=f"✅ Búsqueda completada. {nuevas_propiedades_guardadas} nuevas propiedades guardadas.",
-        matched_publications=matched_publications_titles,
+        matched_publications=combined_for_ui,
         all_matched_properties=all_matched_properties
     )
