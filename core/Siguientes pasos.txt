@@ -44,3 +44,11 @@ Cookies mias: Solucionar de otra forma (¿capaz utilizando concurrencia y proxy 
 📊 TESTS: 17/17 tests pasando
 ⚡ PERFORMANCE: Optimizada para producción
 📚 DOCUMENTACIÓN: Completa y actualizada
+
+
+Ver posibilidad de que Santi vaya o vayamos a la feria inmobiliaria a vender.
+Pedirle a Santi que arme la Landing Page de validación.
+La idea es crear una página sencilla que presenta el producto/servicio (aunque todavía no exista del todo), con un llamado a la acción claro (ej. “Regístrate para enterarte del lanzamiento”, “Reserva tu lugar”, “Compra anticipada”), para medir:
+- Interés real del mercado (cuántas personas hacen clic o se registran).
+- Tasa de conversión (qué porcentaje de visitantes dejan sus datos).
+- Viabilidad de la propuesta antes de invertir en construir todo el producto.
