@@ -150,9 +150,10 @@ class SearchProgressConsumer(WebsocketConsumer):
                 }
                 print(f'🔨 [DEPURACIÓN] JSON final para búsqueda: {resultado_busqueda}')
                 self.send(text_data=json.dumps({'message': 'Búsqueda iniciada', 'data': resultado_busqueda}))
-                
+
                 # Guardar búsqueda si fue solicitado
                 saved_search_id = None
+                saved_search_name = None
                 if should_save:
                     print(f'💾 [GUARDADO] Iniciando guardado de búsqueda: "{search_name}"')
                     self.send(text_data=json.dumps({'message': 'Guardando búsqueda...'}))
@@ -166,8 +167,11 @@ class SearchProgressConsumer(WebsocketConsumer):
                         }
                         created_search = create_search(search_data)
                         saved_search_id = created_search.get('id')
-                        print(f'✅ [GUARDADO] Búsqueda guardada con ID: {saved_search_id}')
-                        self.send(text_data=json.dumps({'message': f'Búsqueda guardada como: {search_data["name"]}'}))
+                        saved_search_name = created_search.get('name') or search_data['name']
+                        print(f'✅ [GUARDADO] Búsqueda guardada con ID: {saved_search_id} (nombre: "{saved_search_name}")')
+                        # No enviar al cliente la búsqueda todavía: esperaremos hasta que termine el scraper
+                        # para poder mostrar resultados y el título definitivo. Solo avisamos que quedó programada.
+                        self.send(text_data=json.dumps({'message': f'Búsqueda guardada (id: {saved_search_id}), se agregará cuando finalice el proceso.'}))
                     except Exception as save_error:
                         print(f'❌ [GUARDADO] Error guardando búsqueda: {save_error}')
                         self.send(text_data=json.dumps({'message': f'Error guardando búsqueda: {str(save_error)}'}))
@@ -263,7 +267,38 @@ class SearchProgressConsumer(WebsocketConsumer):
                                 
                                 if update_search(saved_search_id, update_data):
                                     print(f'✅ [ACTUALIZANDO] Búsqueda actualizada con {len(resultados)} resultados')
-                                    self.send(text_data=json.dumps({'message': f'Búsqueda actualizada con {len(resultados)} resultados coincidentes'}))
+                                    # Notificar al cliente que la búsqueda guardada fue actualizada y enviar resultados
+                                    try:
+                                        resultados_formatted = [
+                                            {
+                                                'titulo': r.get('titulo'),
+                                                'url': r.get('url'),
+                                                'precio': r.get('precio')
+                                            } for r in resultados
+                                        ]
+                                    except Exception:
+                                        resultados_formatted = resultados
+                                    try:
+                                        # Incluir el nombre de la búsqueda para que el cliente pueda mostrar el título correcto
+                                        name_to_send = saved_search_name
+                                        if not name_to_send:
+                                            # Intentar leer desde la base si no tenemos el nombre en la closure
+                                            from core.models import Busqueda
+                                            try:
+                                                b = Busqueda.objects.get(id=saved_search_id)
+                                                name_to_send = b.nombre_busqueda
+                                            except Exception:
+                                                name_to_send = None
+
+                                        update_payload = {
+                                            'id': saved_search_id,
+                                            'name': name_to_send,
+                                            'results': resultados_formatted,
+                                            'ultima_revision': update_data.get('ultima_revision')
+                                        }
+                                    except Exception:
+                                        update_payload = {'id': saved_search_id}
+                                    self.send(text_data=json.dumps({'message': {'saved_search_updated': update_payload}}))
                                 else:
                                     print(f'❌ [ACTUALIZANDO] No se pudo actualizar la búsqueda {saved_search_id}')
                                     

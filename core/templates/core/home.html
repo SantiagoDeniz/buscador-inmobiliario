@@ -446,6 +446,9 @@
     }
 
     let buscando = false;
+    // Flag global: indica si la ejecución actual fue iniciada con "Buscar y Guardar".
+    // Debe ser global porque es usada por funciones definidas en el scope global (p. ej., showResults).
+    let currentSearchIsInitialSave = false;
     function iniciarBusqueda() {
         buscando = true;
         document.getElementById('botones-busqueda').style.display = 'none';
@@ -464,6 +467,12 @@
         document.getElementById('boton-detener').style.display = 'none';
         // No volvemos a expandir los filtros automáticamente para que el usuario vea los resultados.
         // El usuario puede volver a abrirlos con el botón "Filtros".
+        // Restablecer la flag de búsqueda inicial guardada si estaba activa
+        try {
+            currentSearchIsInitialSave = false;
+        } catch (e) {
+            // Silencioso: si la variable no existe por algún motivo, no fallar
+        }
     }
 
     function detenerBusqueda() {
@@ -481,13 +490,18 @@
     function updateNuevasPublications(nuevasPublications) {
         const nuevasList = document.getElementById('nuevas-properties-list');
         const nuevasSection = document.getElementById('nuevas-section');
+    // Debug: mostrar en consola los datos recibidos
+    try { console.debug('updateNuevasPublications - count:', (nuevasPublications || []).length, nuevasPublications && nuevasPublications[0]); } catch(e) {}
         
         if (nuevasPublications && nuevasPublications.length > 0) {
             nuevasList.innerHTML = ''; // Limpiar lista anterior
             nuevasPublications.forEach(publication => {
                 const li = document.createElement('li');
                 li.className = 'list-group-item animate__animated animate__fadeInUp';
-                li.innerHTML = `<a href="${publication.url}" target="_blank" class="fw-bold text-decoration-none">${publication.title}</a>`;
+                // Compatibilidad con diferentes formatos de datos (title / titulo, url / link)
+                const title = publication.title || publication.titulo || publication.titulo || publication.nombre || publication.name || '';
+                const url = publication.url || publication.link || publication.href || '#';
+                li.innerHTML = `<a href="${url}" target="_blank" class="fw-bold text-decoration-none">${title || url}</a>`;
                 nuevasList.appendChild(li);
             });
             nuevasSection.style.display = 'block';
@@ -505,7 +519,9 @@
             existentesPublications.forEach(publication => {
                 const li = document.createElement('li');
                 li.className = 'list-group-item animate__animated animate__fadeInUp';
-                li.innerHTML = `<a href="${publication.url}" target="_blank" class="fw-bold text-decoration-none">${publication.title}</a>`;
+                const title = publication.title || publication.titulo || publication.nombre || publication.name || '';
+                const url = publication.url || publication.link || publication.href || '#';
+                li.innerHTML = `<a href="${url}" target="_blank" class="fw-bold text-decoration-none">${title || url}</a>`;
                 existentesList.appendChild(li);
             });
             existentesSection.style.display = 'block';
@@ -525,6 +541,8 @@
         const progressTitle = document.getElementById('progress-title');
         const progressStatus = document.getElementById('progress-status');
         const resultsList = document.getElementById('results-list');
+    // Debug: registrar qué datos llegan y el estado de la flag
+    try { console.debug('showResults called', { matchedPublications, allMatchedProperties, currentSearchIsInitialSave }); } catch(e) {}
         
         let totalCount = 0;
         
@@ -533,13 +551,25 @@
             const nuevasCount = allMatchedProperties.nuevas ? allMatchedProperties.nuevas.length : 0;
             const existentesCount = allMatchedProperties.existentes ? allMatchedProperties.existentes.length : 0;
             totalCount = nuevasCount + existentesCount;
-            
+
             progressTitle.textContent = `Resultados encontrados: ${totalCount}`;
             progressStatus.style.display = 'none';
-            
+
             if (totalCount > 0) {
-                updateAllMatchedProperties(allMatchedProperties);
-                resultsList.style.display = 'block';
+                if (currentSearchIsInitialSave) {
+                    // En la primera ejecución (Buscar y Guardar), no mostrar subtítulos.
+                    // Combinar nuevas + existentes en la sección 'nuevas' para mostrar una sola lista.
+                    const combined = [];
+                    if (Array.isArray(allMatchedProperties.nuevas)) combined.push(...allMatchedProperties.nuevas);
+                    if (Array.isArray(allMatchedProperties.existentes)) combined.push(...allMatchedProperties.existentes);
+                    updateNuevasPublications(combined);
+                    document.getElementById('nuevas-section').style.display = 'block';
+                    document.getElementById('existentes-section').style.display = 'none';
+                    resultsList.style.display = 'block';
+                } else {
+                    updateAllMatchedProperties(allMatchedProperties);
+                    resultsList.style.display = 'block';
+                }
             } else {
                 // Mostrar mensaje cuando no hay resultados
                 const nuevasList = document.getElementById('nuevas-properties-list');
@@ -589,6 +619,10 @@
 
     document.addEventListener('DOMContentLoaded', function() {
         mostrarCiudades();
+        // Feature flag: habilita/deshabilita la visualización de capturas de debug en la interfaz.
+        // Poner a `true` si se quiere volver a activar temporalmente la funcionalidad.
+    const ENABLE_DEBUG_SCREENSHOTS_UI = false;
+    // La flag currentSearchIsInitialSave ahora es global (arriba) para evitar errores de alcance.
         
         // WebSocket setup PRIMERO
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -628,8 +662,8 @@
                     currentSearchItemSpan.textContent = message.current_search_item;
                 }
                 
-                // Mostrar captura de debug si está disponible
-                if (message.debug_screenshot) {
+                // Mostrar captura de debug si está disponible (solo si la feature flag está habilitada)
+                if (ENABLE_DEBUG_SCREENSHOTS_UI && message.debug_screenshot) {
                     console.log('📸 [DEBUG SCREENSHOT] Captura disponible:', message.debug_screenshot);
                     mostrarCapturaDebug(message.debug_screenshot);
                 }
@@ -664,6 +698,19 @@
                     finalizarBusqueda();
                 }
             }
+                // Manejar notificaciones de búsquedas guardadas en tiempo real
+                if (typeof message === 'object') {
+                        // Nota: ahora el servidor crea la búsqueda antes de ejecutar el scraper,
+                        // pero solo enviará la notificación 'saved_search_updated' cuando el
+                        // scraper termine y tengamos resultados y el título definitivo.
+                        // Por compatibilidad, si llega 'saved_search_created' lo ignoramos.
+                        if (message.saved_search_updated) {
+                            const u = message.saved_search_updated;
+                            // Si no existe en la lista, insertarla y remarcar (es nueva)
+                            const exists = document.getElementById('search-' + u.id);
+                            addOrUpdateSavedSearchInList(u, !exists);
+                        }
+                }
         };
 
         searchProgressSocket.onopen = function(e) {
@@ -692,8 +739,8 @@
         function mostrarEnlaceDebugFallback() {
             const searchProgressDiv = document.getElementById('search-progress');
             let debugLinkDiv = document.getElementById('debug-fallback-link');
-            
-            if (!debugLinkDiv) {
+
+            if (!debugLinkDiv && ENABLE_DEBUG_SCREENSHOTS_UI) {
                 debugLinkDiv = document.createElement('div');
                 debugLinkDiv.id = 'debug-fallback-link';
                 debugLinkDiv.className = 'alert alert-info mt-3';
@@ -749,6 +796,8 @@
                 guardar: shouldSave,
                 name: searchName
             };
+            // Marcar si esta ejecución es un "Buscar y Guardar" inicial
+            currentSearchIsInitialSave = shouldSave;
             // Enviar por WebSocket
             if (searchProgressSocket.readyState === WebSocket.OPEN) {
                 console.log('🚀 [FRONTEND] Enviando búsqueda por WebSocket:', payload);
@@ -770,6 +819,7 @@
                 .then(data => {
                     if (data.success) {
                         console.log('✅ [HTTP FALLBACK] Búsqueda completada:', data);
+                        // Si vino desde "Buscar y Guardar", ya marcamos la flag; mostrar resultados sin subtítulos
                         showResults(data.matched_publications || []);
                     } else {
                         console.error('❌ [HTTP FALLBACK] Error:', data.error);
@@ -784,6 +834,55 @@
                 });
             }
         });
+
+        // Función para insertar o actualizar una búsqueda guardada en la lista de la UI
+        // Mantiene el mismo HTML que genera el servidor para consistencia visual.
+        function addOrUpdateSavedSearchInList(searchObj, highlight=false) {
+            if (!searchObj || !searchObj.id) return;
+            const list = document.getElementById('busquedas-guardadas');
+            let item = document.getElementById('search-' + searchObj.id);
+            const titleText = escapeHtml(searchObj.name || searchObj.nombre_busqueda || searchObj.original_text || ('Búsqueda ' + searchObj.id));
+            const keywordsText = escapeHtml((searchObj.keywords || []).join(', '));
+            const deleteUrl = `/eliminar/${encodeURIComponent(searchObj.id)}/`;
+
+            const htmlContent = `
+                <div class="d-flex justify-content-between align-items-center">
+                    <a href="#" onclick="expandirBusqueda('${escapeJs(searchObj.id)}'); return false;" class="fw-bold">${titleText}</a>
+                    <a href="${deleteUrl}" class="btn btn-sm btn-danger">Eliminar</a>
+                </div>
+                <div class="busqueda-detalle mt-3 p-0" style="display:none; transition: all 0.3s; border-radius: 0.5rem;"></div>
+            `;
+
+            if (item) {
+                item.innerHTML = htmlContent;
+            } else {
+                item = document.createElement('li');
+                item.className = 'list-group-item d-flex flex-column';
+                item.id = 'search-' + searchObj.id;
+                item.innerHTML = htmlContent;
+                // Insertar al inicio para visibilidad
+                if (list.firstChild) list.insertBefore(item, list.firstChild);
+                else list.appendChild(item);
+            }
+
+            // Resaltar temporalmente la búsqueda nueva
+            if (highlight) {
+                item.classList.add('border-warning');
+                item.style.backgroundColor = '#fff9e6';
+                setTimeout(() => {
+                    item.classList.remove('border-warning');
+                    item.style.backgroundColor = '';
+                }, 7000);
+            }
+        }
+
+        function escapeHtml(unsafe) {
+            return String(unsafe || '').replace(/[&<>"'`]/g, function (m) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;","`":"&#96;"})[m]; });
+        }
+
+        function escapeJs(s) {
+            return String(s).replace(/'/g, "\\'");
+        }
     });
     </script>
     

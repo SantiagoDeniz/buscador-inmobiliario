@@ -9,7 +9,7 @@
 🔄 SIGUIENTES PRIORIDADES:
 ✅ Migrar a PostgreSQL: Para entorno de producción
 - Cron jobs para automatización
-- Que la página agregue a la lista de búsquedas guardadas los resultados nuevos de la búsqueda realizada una vez finalizada
+- Sin subtítulos en resultados encontrados cuando se busca y guarda por primera vez.
 - Botón de reiniciar búsqueda en búsquedas guardadas
 - Agregar búsqueda de InfoCasas
 - Optimizar Consultas: Añadir índices y select_related
