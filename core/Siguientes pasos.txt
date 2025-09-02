@@ -1,13 +1,33 @@
-✅ COMPLETADO - Armar la base de datos.
+Completados:
+  🎯✅ COMPLETADO - Armar la base de datos.
 
-🎯 Próximos Pasos Recomendados:
-✅ COMPLETADO - Tests: Crear tests para nuevas funcionalidades (17 tests pasando)
-✅ COMPLETADO - Documentación: Actualizar documentación técnica (DOCUMENTACION_TECNICA.md)
-✅ COMPLETADO - Probar Funcionalidad WebSocket: Redis/Channels funcionando correctamente
-✅ COMPLETADO - Exportación CSV + Auditoría: Endpoints /csv/export/all/, /csv/table/<tabla>/ y /csv/audit/latest/, manifiesto _manifest.json/CSV y poda de snapshots
+  🎯 Próximos Pasos Recomendados:
+  ✅ COMPLETADO - Tests: Crear tests para nuevas funcionalidades (17 tests pasando)
+  ✅ COMPLETADO - Documentación: Actualizar documentación técnica (DOCUMENTACION_TECNICA.md)
+  ✅ COMPLETADO - Probar Funcionalidad WebSocket: Redis/Channels funcionando correctamente
+  ✅ COMPLETADO - Exportación CSV + Auditoría: Endpoints /csv/export/all/, /csv/table/<tabla>/ y /csv/audit/latest/, manifiesto _manifest.json/CSV y poda de snapshots
+  ✅ Migrar a PostgreSQL: Para entorno de producción
+  ✅ COMPLETADO - MIGRACIÓN A BASE DE DATOS RELACIONAL:
+    ✅ 8 modelos Django implementados
+    ✅ Sistema de sinónimos funcional
+    ✅ Compatibilidad con WebSocket/consumers.py
+    ✅ Admin panel configurado
+    ✅ 17 tests unitarios pasando
+    ✅ Redis/Channels Layer funcionando
+    ✅ Migraciones aplicadas
+    ✅ Datos de ejemplo cargados
+    ✅ Performance optimizada (<1 segundo consultas)
+
+  ✅ ARREGLADO - Guardado de publicaciones mejorado con:
+    - Lógica de keywords más flexible (70% coincidencia)
+    - Stemming básico para español
+    - Mejor manejo de errores
+    - Logs más detallados para debug
+  ✅ Que la lista de los resultados se guarden en las búsquedas guardadas
+
 
 🔄 SIGUIENTES PRIORIDADES:
-✅ Migrar a PostgreSQL: Para entorno de producción
+
 - Cron jobs para automatización
 - Sin subtítulos en resultados encontrados cuando se busca y guarda por primera vez.
 - Botón de reiniciar búsqueda en búsquedas guardadas
@@ -15,23 +35,24 @@
 - Optimizar Consultas: Añadir índices y select_related
 - Dashboard de métricas y estadísticas
 
-✅ COMPLETADO - MIGRACIÓN A BASE DE DATOS RELACIONAL:
-  ✅ 8 modelos Django implementados
-  ✅ Sistema de sinónimos funcional
-  ✅ Compatibilidad con WebSocket/consumers.py
-  ✅ Admin panel configurado
-  ✅ 17 tests unitarios pasando
-  ✅ Redis/Channels Layer funcionando
-  ✅ Migraciones aplicadas
-  ✅ Datos de ejemplo cargados
-  ✅ Performance optimizada (<1 segundo consultas)
-
-✅ ARREGLADO - Guardado de publicaciones mejorado con:
-  - Lógica de keywords más flexible (70% coincidencia)
-  - Stemming básico para español
-  - Mejor manejo de errores
-  - Logs más detallados para debug
-✅ Que la lista de los resultados se guarden en las búsquedas guardadas
+Arreglitos:
+  Se arregló un bug del frontend que impedía mostrar la lista de publicaciones al finalizar una búsqueda (variable JS fuera de scope).
+  Se implementó “Buscar nuevamente” para relanzar búsquedas guardadas: endpoint backend, botón en UI y refresco parcial del HTML.
+  Se corrigió un error de tipos en el scraper (“expected str instance, dict found”) normalizando keywords a strings antes de usarlas.
+  Se agregaron campos en BD para persistir “Última revisión” en Busqueda y el historial por resultado (last_seen_at, seen_count) con migraciones aplicadas.
+  Se ajustó search_manager.get_search para preferir la “Última revisión” persistida.
+  Se refactorizó search_manager.save_results:
+  Manejo de timezone (timezone.now()).
+  Actualización de seen_count/last_seen_at sin sobreescribir datos buenos.
+  Evitar que payloads mínimos pisen títulos/metadata (no más “X” persistente).
+  Opcionalmente completar/actualizar Propiedad.titulo si llega un título “bueno”.
+  Se limpió el dato incorrecto (“X”) ya guardado y se probó la actualización de títulos.
+  Se mejoró load_results para devolver el título correcto (prioriza Propiedad.titulo; fallback a metadata si falta).
+  En el template de resultados se muestran títulos enlazados a la URL (si no hay, se muestra el URL).
+  Se indicó claramente dónde se guardan y de dónde se leen/muestran los resultados:
+  Guardado/lectura: search_manager.py (save_results, load_results).
+  Render UI: search_detail_partial.html y JS en home.html.
+  Se resolvieron errores de indentación/sintaxis que se introdujeron durante los cambios y se validó con pruebas rápidas en shell y el endpoint.
 
 Otras acciones (opcionales):
 - Documentar integración con Google Sheets (en README) y ejemplo de importación
@@ -44,11 +65,3 @@ Cookies mias: Solucionar de otra forma (¿capaz utilizando concurrencia y proxy 
 📊 TESTS: 17/17 tests pasando
 ⚡ PERFORMANCE: Optimizada para producción
 📚 DOCUMENTACIÓN: Completa y actualizada
-
-
-Ver posibilidad de que Santi vaya o vayamos a la feria inmobiliaria a vender.
-Pedirle a Santi que arme la Landing Page de validación.
-La idea es crear una página sencilla que presenta el producto/servicio (aunque todavía no exista del todo), con un llamado a la acción claro (ej. “Regístrate para enterarte del lanzamiento”, “Reserva tu lugar”, “Compra anticipada”), para medir:
-- Interés real del mercado (cuántas personas hacen clic o se registran).
-- Tasa de conversión (qué porcentaje de visitantes dejan sus datos).
-- Viabilidad de la propuesta antes de invertir en construir todo el producto.
