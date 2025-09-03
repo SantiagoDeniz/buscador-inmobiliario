@@ -23,6 +23,12 @@ def build_mercadolibre_url(filters: Dict[str, Any]) -> str:
             path_parts.append('apartamentos')
         elif t == 'casa':
             path_parts.append('casas')
+        elif t == 'depósito y galpón' or t == 'deposito y galpon' or t == 'deposito-galpon' or t == 'depositos y galpones' or t == 'depositos-galpones':
+            path_parts.append('depositos-galpones')
+        elif t == 'llave de negocio' or t == 'llave-negocio' or t == 'llave negocio' or t == 'llave':
+            path_parts.append('llave-negocio')
+        elif t == 'otros inmuebles' or t == 'otros':
+            path_parts.append('otros')
         else:
             path_parts.append(normalizar_para_url(tipo))
 

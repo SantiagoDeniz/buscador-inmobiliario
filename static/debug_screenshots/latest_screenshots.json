@@ -13,5 +13,15 @@
     "path": "/static/debug_screenshots/pagina_sin_resultado_20250828_140954.png",
     "timestamp": "2025-08-28T14:09:54.963347",
     "message": "❌ Página sin 'resultado' - posible error. Ver captura debug."
+  },
+  {
+    "path": "/static/debug_screenshots/elemento_total_no_encontrado_20250903_133033.png",
+    "timestamp": "2025-09-03T13:30:34.497456",
+    "message": "❌ No se encontró elemento de total. Ver captura debug."
+  },
+  {
+    "path": "/static/debug_screenshots/pagina_sin_resultado_20250903_133036.png",
+    "timestamp": "2025-09-03T13:30:36.676719",
+    "message": "❌ Página sin 'resultado' - posible error. Ver captura debug."
   }
 ]

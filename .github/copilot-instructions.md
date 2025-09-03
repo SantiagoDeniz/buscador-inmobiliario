@@ -3,12 +3,31 @@
 Objetivo: ayudarte a ser productivo de inmediato en este proyecto Django (scraping + persistencia + UI) documentando arquitectura real, flujos y convenciones específicas.
 
 ## Lenguaje y estilo
+## Lenguaje y estilo
 - Responde siempre en español y mantén los nombres/terminología del código tal como están (ej.: Busqueda, PalabraClave).
-- Prefiere cambios mínimos y seguros; si tocas scraping, actualiza ambos caminos: Selenium y requests/BS4 en `core/scraper.py`.
+- Prefiere cambios mínimos y seguros; si tocas scraping, actualiza ambos caminos: Selenium y requests/BS4 en `core/scraper/` (paquete modular). No uses `core/scraper.py` (el archivo monolítico fue eliminado).
 
-## Arquitectura en 1 minuto
+## Ejecución de comandos (PowerShell)
+- Evita abrir REPLs interactivos por error (no uses `>>>`). Ejecuta comandos completos en una sola invocación.
+- En PowerShell no uses heredocs de bash (<< 'EOF'); usa: `python -m unittest ...` o `python manage.py ...`.
+- Para múltiples comandos en una línea, separa con `;`.
+- Siempre que haya una tarea disponible en VS Code, prefierela.
+
+## Scraping MercadoLibre: patrones y decisiones
+- Construcción de URL y paginación: usa `_Desde_<n>` y `_NoIndex_True`; no dupliques `_NoIndex_True` si ya está en base. Implementado en `core/scraper/url_builder.py`.
 - Django app `core` (lógica, modelos, vistas, scraper) + proyecto `buscador` (settings/urls/asgi).
-- Scraping de MercadoLibre:
+- ## Flujos clave de desarrollo
+- Tests principales: `python manage.py test core.tests_database` (incluye modelos y gestor de búsquedas). 
+- Tests puntuales: `python manage.py test core.tests.FiltrosBusquedaTest.test_formulario_filtros -v 2`.
+
+## API pública del scraper
+- Importa desde `core.scraper` (fachada con imports perezosos):
+  - `run_scraper`, `scrape_mercadolibre`, `extraer_total_resultados_mercadolibre`
+  - `build_mercadolibre_url`, `normalizar_para_url`
+  - `parse_rango`, `scrape_detalle_con_requests`, `recolectar_urls_de_pagina`
+  - `iniciar_driver`, `manejar_popups_cookies`, `verificar_necesita_login`, `cargar_cookies`
+  - `send_progress_update`, `tomar_captura_debug`
+  - `stemming_basico`, `extraer_variantes_keywords`
   - Selenium headless con `selenium-stealth` opcional para navegación/filtrado fino.
   - Requests/BS4 (o ScrapingBee opcional) para recolección rápida y parsing de detalle.
   - Progreso y capturas debug vía utilidades en `core/scraper/*` y vistas de soporte (`/debug_screenshots/`).

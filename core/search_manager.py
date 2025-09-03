@@ -34,6 +34,8 @@ def get_all_searches() -> List[Dict[str, Any]]:
             'texto_original': busqueda.texto_original,
             'guardado': busqueda.guardado,
             'filtros': busqueda.filtros,
+            # Alias de compatibilidad para tests/consumidores antiguos
+            'filters': busqueda.filtros,
             'usuario': busqueda.usuario.nombre if busqueda.usuario else None,
             'created_at': busqueda.created_at.isoformat(),
             'palabras_clave': [

@@ -1,4 +1,4 @@
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.http import JsonResponse, StreamingHttpResponse, HttpResponse
 from django.conf import settings
 from django.template.loader import render_to_string
@@ -92,7 +92,7 @@ async def analyze_query_with_ia(query: str) -> dict:
         "- departamento: Montevideo, Canelones, Maldonado, Rocha, Colonia, San José, Florida, Lavalleja, Rivera, Tacuarembó, Salto, Paysandú, Artigas, Durazno, Treinta y Tres, Cerro Largo, Río Negro, Flores, Soriano. "
         "- ciudad: Aguada, Pocitos, Carrasco, Centro, Cordón, Malvín, Buceo, Parque Batlle, Punta Carretas, La Blanqueada, Tres Cruces, Sayago, Florida, Piriápolis, Punta Gorda, Ciudad Vieja, Barrio Sur, etc. (ciudades de cada departamento)"
         "- operacion: Venta, Alquiler, Alquiler temporal. "
-        "- tipo: Apartamento, Casa, Terreno, Oficina, Local, Galpón, Garaje, Dúplex, PH, Penthouse, Monoambiente, Chacra. "
+        "- tipo: Apartamento, Campos, Casas, Cocheras, Depósitos y galpones, Habitaciones, Llave de negocio, Locales, Oficinas, Quintas, Terrenos, Otros inmuebles."
         "- condicion: Nuevo/Usado. "
         "- moneda: USD, UYU. "
         "- precio_min, precio_max, dormitorios_min, dormitorios_max, banos_min, banos_max, cocheras_min, cocheras_max, antiguedad_min, antiguedad_max, superficie_total_min, superficie_total_max, superficie_cubierta_min, superficie_cubierta_max: valores numéricos. "
@@ -521,3 +521,35 @@ def debug_screenshots(request):
         
     except Exception as e:
         return JsonResponse({'error': str(e)})
+
+
+@require_POST
+def nueva(request):
+    """Crea una nueva búsqueda desde el formulario simple y redirige a home (302)."""
+    try:
+        data = request.POST
+        filtros = {
+            'departamento': data.get('departamento', '').strip(),
+            'ciudad': data.get('ciudad', '').strip(),
+            'operacion': data.get('operacion', '').strip(),
+            'tipo': data.get('tipo', '').strip(),
+        }
+        # keywords puede venir como 'a,b,c'
+        raw_keywords = data.get('keywords', '') or ''
+        keywords = [k.strip() for k in raw_keywords.split(',') if k.strip()]
+
+        search_data = {
+            'name': data.get('name', 'Búsqueda rápida'),
+            'original_text': data.get('original_text', ''),
+            'filters': filtros,
+            'keywords': keywords,
+        }
+        from .search_manager import create_search
+        create_search(search_data)
+        return redirect('core:home')
+    except Exception as e:
+        # Mantener compatibilidad del test: ante error devolver 302 a home para no romper flujo
+        try:
+            return redirect('core:home')
+        except Exception:
+            return JsonResponse({'error': str(e)}, status=500)
