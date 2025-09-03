@@ -1,14 +1,4 @@
 ﻿id,texto,idioma,sinonimos
-2,constituyente,es,[]
-3,apartamento,es,
-4,casa,es,
-5,alquiler,es,
-6,venta,es,
-7,Montevideo,es,
-8,Pocitos,es,
-9,Punta Carretas,es,
-10,3 dormitorios,es,
-11,garage,es,
-12,terraza,es,
-13,luminoso,es,[]
-14,patio,es,[]
+16,constituyente,es,[]
+17,patio,es,[]
+18,luminoso,es,[]
