@@ -33,7 +33,7 @@ Objetivo: ayudarte a ser productivo de inmediato en este proyecto Django (scrapi
 
 ## Datos y persistencia
 - Modelos clave: `Busqueda` (UUID, `filtros` JSON), `PalabraClave` (sinónimos como string JSON por compatibilidad), `Propiedad`, `ResultadoBusqueda` y auxiliares.
-- Gestor de búsquedas: `core/search_manager_db.py` implementa:
+- Gestor de búsquedas: `core/search_manager.py` implementa:
   - `procesar_keywords(texto)` → normaliza y agrega sinónimos; usa en scraper y vistas.
   - `save_search/create_search/update_search` → compatibilidad con flujos previos y vistas/consumers.
   - `save_results/load_results` → puente entre scraping y BD.

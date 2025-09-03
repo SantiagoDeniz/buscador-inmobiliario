@@ -1,7 +1,10 @@
-# core/search_manager_db.py
 """
-Sistema de gestión de búsquedas basado en base de datos
-Reemplaza el sistema anterior basado en archivos JSON
+Gestor de búsquedas y resultados basado en base de datos (ORM Django).
+Archivo principal: core/search_manager.py
+"""
+"""
+Sistema de gestión de búsquedas basado en base de datos.
+Reemplaza el sistema anterior basado en archivos JSON.
 """
 
 import uuid
