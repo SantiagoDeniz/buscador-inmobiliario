@@ -72,13 +72,14 @@ class SearchProgressConsumer(WebsocketConsumer):
                 return
 
             # Mensaje: inicio procesamiento IA
-            print('🤖 [DEPURACIÓN] Antes de procesar texto con IA')
+            # print('🤖 [DEPURACIÓN] Antes de procesar texto con IA')
             self.send(text_data=json.dumps({'message': 'Procesando texto con IA...'}))
             try:
                 from asgiref.sync import async_to_sync
                 from core.views import analyze_query_with_ia
                 query_text = data.get('texto', '')
-                print(f'🤖 [DEPURACIÓN] Procesando texto con IA: "{query_text}"')
+                print(f'🤖 [DEPURACIÓN] Procesando texto con IA: ')
+                # [DEPURACIÓN] print(f"{query_text}")
                 
                 # Verificar parada antes de llamar IA
                 if is_search_stopped(self.search_id):
@@ -86,7 +87,7 @@ class SearchProgressConsumer(WebsocketConsumer):
                     return
                 
                 ia_result = async_to_sync(analyze_query_with_ia)(query_text)
-                print(f'\n🤖 [DEPURACIÓN] Resultado IA: {ia_result}\n')
+                print(f'\n🤖 [DEPURACIÓN] Resultado IA: \n{ia_result}\n')
                 
                 # Enviar resultado de IA al frontend para debugging
                 self.send(text_data=json.dumps({
@@ -109,7 +110,7 @@ class SearchProgressConsumer(WebsocketConsumer):
                 return
 
             # Mensaje: fusión de filtros
-            print('🎚️ [DEPURACIÓN] Antes de fusionar filtros')
+            # print('🎚️ [DEPURACIÓN] Antes de fusionar filtros')
             self.send(text_data=json.dumps({'message': 'Fusionando filtros manuales y textuales...'}))
             try:
                 filtros_manual = data.get('filtros', {})
@@ -117,7 +118,7 @@ class SearchProgressConsumer(WebsocketConsumer):
                 filtros_final = filtros_manual.copy()
                 for k, v in filtros_ia.items():
                     filtros_final[k] = v  # Prioriza IA si hay coincidencia
-                print(f'🎚️ [DEPURACIÓN] Filtros fusionados: {filtros_final}')
+                # print(f'🎚️ [DEPURACIÓN] Filtros fusionados: {filtros_final}')
                 # Enviar filtros fusionados al frontend para debugging
                 self.send(text_data=json.dumps({
                     'message': 'Filtros fusionados', 
@@ -139,7 +140,7 @@ class SearchProgressConsumer(WebsocketConsumer):
                 return
 
             # Construir JSON final
-            print('🔨 [DEPURACIÓN] Antes de construir JSON final')
+            # print('🔨 [DEPURACIÓN] Antes de construir JSON final')
             try:
                 resultado_busqueda = {
                     'filters': filtros_final,
@@ -148,7 +149,7 @@ class SearchProgressConsumer(WebsocketConsumer):
                     'datetime': ia_result.get('datetime', ''),
                     'irrelevant_text': ia_result.get('remaining_text', ''),
                 }
-                print(f'🔨 [DEPURACIÓN] JSON final para búsqueda: {resultado_busqueda}')
+                print(f'🔨 [DEPURACIÓN] JSON final para búsqueda: \n{resultado_busqueda}\n')
                 self.send(text_data=json.dumps({'message': 'Búsqueda iniciada', 'data': resultado_busqueda}))
 
                 # Guardar búsqueda si fue solicitado
@@ -187,7 +188,7 @@ class SearchProgressConsumer(WebsocketConsumer):
                 return
 
             # Mensaje: inicio scraper (no bloquear el hilo del WebSocket)
-            print('🔍 [DEPURACIÓN] Antes de ejecutar scraper')
+            # print('🔍 [DEPURACIÓN] Antes de ejecutar scraper')
             self.send(text_data=json.dumps({'message': 'Ejecutando scraper...'}))
             try:
                 from core.scraper import run_scraper
@@ -195,7 +196,7 @@ class SearchProgressConsumer(WebsocketConsumer):
                 keywords = resultado_busqueda['keywords']
                 if isinstance(keywords, str):
                     keywords = [keywords] if keywords else []
-                print(f'🔍 [DEPURACIÓN] Ejecutando scraper con filtros: {filtros} y keywords: {keywords}')
+                print(f'🔍 [DEPURACIÓN] Ejecutando scraper:\n Filtros: {filtros}\n Keywords: {keywords}\n')
 
                 print('🚀 [DEPURACIÓN] Lanzando run_scraper en un hilo en segundo plano')
                 print('⚠️  [MODO SECUENCIAL] Usando 1 worker por fase para evitar problemas de concurrencia')
@@ -209,11 +210,11 @@ class SearchProgressConsumer(WebsocketConsumer):
                         run_scraper(
                             filters=filtros,
                             keywords=keywords,
-                            max_paginas=2,
+                            max_paginas=1,
                             workers_fase1=1,
                             workers_fase2=1
                         )
-                        print('✅ [DEPURACIÓN] run_scraper completado (hilo)')
+                        print('\n✅ [DEPURACIÓN] run_scraper completado (hilo)\n')
                         
                         # Actualizar búsqueda guardada con resultados si existe
                         if saved_search_id:
@@ -258,6 +259,15 @@ class SearchProgressConsumer(WebsocketConsumer):
                                                 'url': prop.url or '#',
                                                 'precio': (f"{meta.get('precio_valor')} {meta.get('precio_moneda','')}".strip() if meta.get('precio_valor') else 'Precio no disponible')
                                             })
+                                else:
+                                    # Sin keywords: persistir las propiedades encontradas tal como en el fallback HTTP
+                                    for prop in propiedades:
+                                        meta = prop.metadata or {}
+                                        resultados.append({
+                                            'titulo': prop.titulo or 'Sin título',
+                                            'url': prop.url or '#',
+                                            'precio': (f"{meta.get('precio_valor')} {meta.get('precio_moneda','')}".strip() if meta.get('precio_valor') else 'Precio no disponible')
+                                        })
                                 
                                 # Actualizar la búsqueda con los resultados
                                 update_data = {

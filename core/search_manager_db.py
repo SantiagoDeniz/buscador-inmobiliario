@@ -12,8 +12,8 @@ from typing import List, Dict, Any, Optional, Set, Tuple
 from django.db import transaction
 from django.db.models import Q, Count
 from .models import (
-    Busqueda, PalabraClave, BusquedaPalabraClave, 
-    Usuario, Plataforma, Propiedad, ResultadoBusqueda
+    Busqueda, PalabraClave, BusquedaPalabraClave,
+    Usuario, Plataforma, Propiedad, ResultadoBusqueda, Inmobiliaria
 )
 
 # ================================
@@ -71,12 +71,19 @@ def get_search(search_id: str) -> Optional[Dict[str, Any]]:
 @transaction.atomic
 def save_search(search_data: Dict[str, Any]) -> str:
     """Guarda una nueva búsqueda en la base de datos"""
-    # Obtener o crear usuario por defecto
+    # Asegurar una inmobiliaria por defecto (evita FK rota tras flush)
+    inmobiliaria_default, _ = Inmobiliaria.objects.get_or_create(
+        nombre='Inmobiliaria Default',
+        defaults={'plan': 'basico'}
+    )
+
+    # Obtener o crear usuario por defecto asociado a la inmobiliaria
     usuario, _ = Usuario.objects.get_or_create(
         email='default@example.com',
         defaults={
             'nombre': 'Usuario Default',
-            'inmobiliaria_id': 1  # Asumiendo que existe
+            'password_hash': '!',  # marcador de contraseña no establecida
+            'inmobiliaria': inmobiliaria_default,
         }
     )
     

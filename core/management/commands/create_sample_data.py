@@ -27,6 +27,7 @@ class Command(BaseCommand):
             nombre='test_user',
             defaults={
                 'email': 'test@example.com',
+                'password_hash': '!',
                 'inmobiliaria': inmobiliaria
             }
         )

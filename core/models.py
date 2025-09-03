@@ -56,6 +56,7 @@ class Busqueda(models.Model):
     filtros = models.JSONField(default=dict)  # Guardamos todos los filtros como JSON
     guardado = models.BooleanField(default=False)
     usuario = models.ForeignKey(Usuario, on_delete=models.CASCADE, null=True, blank=True)
+    ultima_revision = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -144,6 +145,8 @@ class ResultadoBusqueda(models.Model):
     propiedad = models.ForeignKey(Propiedad, on_delete=models.CASCADE)
     coincide = models.BooleanField()
     metadata = models.JSONField(default=dict, blank=True)
+    last_seen_at = models.DateTimeField(blank=True, null=True)
+    seen_count = models.IntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:

@@ -10,10 +10,11 @@ import re
 import unicodedata
 from typing import List, Dict, Any, Optional, Set, Tuple
 from django.db import transaction
+from django.utils import timezone
 from django.db.models import Q, Count
 from .models import (
-    Busqueda, PalabraClave, BusquedaPalabraClave, 
-    Usuario, Plataforma, Propiedad, ResultadoBusqueda
+    Busqueda, PalabraClave, BusquedaPalabraClave,
+    Usuario, Plataforma, Propiedad, ResultadoBusqueda, Inmobiliaria
 )
 
 # ================================
@@ -71,12 +72,19 @@ def get_search(search_id: str) -> Optional[Dict[str, Any]]:
 @transaction.atomic
 def save_search(search_data: Dict[str, Any]) -> str:
     """Guarda una nueva búsqueda en la base de datos"""
-    # Obtener o crear usuario por defecto
+    # Asegurar una inmobiliaria por defecto (evita FK rota tras flush)
+    inmobiliaria_default, _ = Inmobiliaria.objects.get_or_create(
+        nombre='Inmobiliaria Default',
+        defaults={'plan': 'basico'}
+    )
+
+    # Obtener o crear usuario por defecto asociado a la inmobiliaria
     usuario, _ = Usuario.objects.get_or_create(
         email='default@example.com',
         defaults={
             'nombre': 'Usuario Default',
-            'inmobiliaria_id': 1  # Asumiendo que existe
+            'password_hash': '!',  # marcador de contraseña no establecida
+            'inmobiliaria': inmobiliaria_default,
         }
     )
     
@@ -391,9 +399,20 @@ def save_results(search_id: str, results: List[Dict]) -> bool:
                 propiedad=propiedad,
                 defaults={
                     'coincide': True,
-                    'metadata': result_data
+                    'metadata': result_data,
+                    'seen_count': 1,
+                    'last_seen_at': timezone.now()
                 }
             )
+            if not created:
+                # Actualizar métricas de visualización sin sobreescribir metadata buena
+                try:
+                    ResultadoBusqueda.objects.filter(id=resultado.id).update(
+                        seen_count=(resultado.seen_count or 0) + 1,
+                        last_seen_at=timezone.now()
+                    )
+                except Exception:
+                    pass
         
         return True
         
@@ -432,6 +451,20 @@ def update_search(search_id: str, data: Dict[str, Any]) -> bool:
             busqueda.nombre_busqueda = data['name']
         if 'filters' in data:
             busqueda.filtros = data['filters']
+        if 'ultima_revision' in data and data['ultima_revision']:
+            # Acepta str o datetime
+            try:
+                if isinstance(data['ultima_revision'], str):
+                    # Parseo la fecha en formato 'YYYY-mm-dd HH:MM:SS' si viene como string
+                    from datetime import datetime
+                    try:
+                        busqueda.ultima_revision = datetime.fromisoformat(data['ultima_revision'])
+                    except Exception:
+                        busqueda.ultima_revision = timezone.now()
+                else:
+                    busqueda.ultima_revision = data['ultima_revision']
+            except Exception:
+                busqueda.ultima_revision = timezone.now()
         if 'results' in data:
             # Guardar resultados usando la función de compatibilidad
             save_results(search_id, data['results'])
