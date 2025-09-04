@@ -91,15 +91,33 @@ def recolectar_urls_de_pagina(url_target, api_key=None, ubicacion=None, use_scra
             response = requests.get(url_target, headers=HEADERS, timeout=60)
         if response.status_code >= 400:
             print(f"  [Recolector] ERROR: Status {response.status_code} para {url_target}")
-            return set(), 0
+            return set(), {}
         soup = BeautifulSoup(response.text, 'lxml')
         items = soup.find_all('li', class_='ui-search-layout__item')
         if not items:
             print(f"  [Recolector] ADVERTENCIA: No se encontraron items en {url_target}")
-            return set(), 0
-        urls_de_pagina = {link['href'].split('#')[0] for item in items if (link := item.find('a', class_='poly-component__title') or item.find('a', class_='ui-search-link')) and link.has_attr('href')}
+            return set(), {}
+        urls_de_pagina = set()
+        titulos_por_url = {}
+        for item in items:
+            # Buscar el enlace del título de la publicación
+            link = item.find('a', class_='poly-component__title') or item.find('a', class_='ui-search-link')
+            if not link or not link.has_attr('href'):
+                continue
+            href = link['href'].split('#')[0]
+            titulo = (link.get_text(strip=True) or '').strip()
+            # Algunos layouts ponen el texto en el h2 contenedor
+            if not titulo:
+                h2 = item.find('h2', class_='poly-component__title-wrapper')
+                if h2:
+                    titulo = h2.get_text(strip=True)
+            urls_de_pagina.add(href)
+            if titulo:
+                # Conservar el primer título visto para una URL
+                titulos_por_url.setdefault(href, titulo)
         print(f"  [Recolector] ÉXITO: Se encontraron {len(urls_de_pagina)} URLs en {url_target}")
-        return urls_de_pagina, len(items)
+        # Devolvemos (set(URLs), dict(URL->Título))
+        return urls_de_pagina, titulos_por_url
     except Exception as e:
         print(f"  [Recolector] EXCEPCIÓN: Ocurrió un error procesando {url_target}: {e}")
-        return set(), 0
+        return set(), {}

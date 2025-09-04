@@ -34,12 +34,13 @@ def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, work
     cant_propiedades_omitidas = 0
     nuevas_propiedades_guardadas = 0
     urls_a_visitar_final = set()
+    titulos_por_url_total = {}
 
     try:
         url_base_con_filtros = build_mercadolibre_url(filters)
         if url_base_con_filtros.endswith('_NoIndex_True') and 'inmuebles/_NoIndex_True' in url_base_con_filtros:
             print("⚠️ [URL BUILD] URL generada es demasiado genérica, puede indicar problema en filtros")
-        send_progress_update(current_search_item=f"🏠 URL generada con filtros: {url_base_con_filtros}")
+        send_progress_update(current_search_item=f"🏠 URL generada con filtros: {url_base_con_filtros[:100]}{'...' if len(url_base_con_filtros) > 100 else ''}")
     except Exception as e:
         print(f"❌ [URL BUILD] Error construyendo URL: {e}")
         send_progress_update(final_message=f"❌ Error construyendo URL: {e}")
@@ -80,12 +81,17 @@ def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, work
         with concurrent.futures.ThreadPoolExecutor(max_workers=workers_fase1) as executor:
             mapa_futuros = {executor.submit(recolectar_urls_de_pagina, url, API_KEY, ubicacion_param, True): url for url in paginas_de_resultados}
             for futuro in concurrent.futures.as_completed(mapa_futuros):
-                urls_nuevas, _ = futuro.result()
+                urls_nuevas, titulos_map = futuro.result()
                 urls_recolectadas_bruto.update(urls_nuevas)
+                # Merge títulos por URL
+                if isinstance(titulos_map, dict):
+                    titulos_por_url_total.update({u: t for u, t in titulos_map.items() if u not in titulos_por_url_total})
     else:
         for url in paginas_de_resultados:
-            urls_nuevas, _ = recolectar_urls_de_pagina(url, API_KEY, ubicacion_param, False)
+            urls_nuevas, titulos_map = recolectar_urls_de_pagina(url, API_KEY, ubicacion_param, False)
             urls_recolectadas_bruto.update(urls_nuevas)
+            if isinstance(titulos_map, dict):
+                titulos_por_url_total.update({u: t for u, t in titulos_map.items() if u not in titulos_por_url_total})
 
     print(f"\n[Principal] FASE 1 Recolección Bruta Finalizada. Se obtuvieron {len(urls_recolectadas_bruto)} URLs en total.")
     send_progress_update(current_search_item=f"FASE 1 completada. Se encontraron {len(urls_recolectadas_bruto)} URLs de publicaciones.")
@@ -180,7 +186,13 @@ def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, work
         send_progress_update(current_search_item="Sin keywords: devolviendo enlaces de FASE 1 (sin scrapeo de detalle)")
 
         # Usar todas las URLs recolectadas (incluye existentes y nuevas) como resultados a mostrar/guardar
-        resultados_fase1 = [{'title': 'Publicación', 'url': u} for u in sorted(list(urls_recolectadas_bruto))]
+        resultados_fase1 = [
+            {
+                'title': titulos_por_url_total.get(u) or 'Publicación',
+                'url': u
+            }
+            for u in sorted(list(urls_recolectadas_bruto))
+        ]
         matched_publications_titles = list(resultados_fase1)
 
         # Para la UI actual: mostrar todo bajo 'nuevas' y no poblar 'existentes'

@@ -300,7 +300,13 @@ def verificar_coincidencia(palabras_clave_rel, propiedad_data: Dict) -> Dict:
     }
 
 def crear_o_actualizar_propiedad(prop_data: Dict) -> Propiedad:
-    """Crea o actualiza una propiedad en la base de datos"""
+    """Crea o actualiza una propiedad en la base de datos evitando títulos placeholder.
+
+    Reglas:
+    - Acepta tanto 'titulo' como 'title' en la entrada.
+    - No guarda como título valores placeholder como "Publicación" o "Sin título".
+    - No sobreescribe un título existente válido con un placeholder.
+    """
     # Obtener plataforma por defecto o crear
     plataforma, _ = Plataforma.objects.get_or_create(
         nombre='MercadoLibre',
@@ -309,17 +315,46 @@ def crear_o_actualizar_propiedad(prop_data: Dict) -> Propiedad:
             'descripcion': 'Plataforma de clasificados'
         }
     )
-    
-    propiedad, created = Propiedad.objects.update_or_create(
-        url=prop_data.get('url', ''),
+
+    url = prop_data.get('url', '')
+    incoming_title = prop_data.get('titulo') or prop_data.get('title') or ''
+
+    def es_placeholder(t: str) -> bool:
+        t_norm = normalizar_texto(t or '')
+        return t_norm in {'publicacion', 'sin titulo'} or t.strip() == ''
+
+    # Crear o recuperar la propiedad por URL
+    propiedad, created = Propiedad.objects.get_or_create(
+        url=url,
         defaults={
-            'titulo': prop_data.get('titulo', ''),
-            'descripcion': prop_data.get('descripcion', ''),
-            'metadata': prop_data,
             'plataforma': plataforma
         }
     )
-    
+
+    # Siempre vincular plataforma y actualizar metadata/descripcion
+    propiedad.plataforma = plataforma
+    if 'descripcion' in prop_data:
+        propiedad.descripcion = prop_data.get('descripcion', '')
+    # Guardar metadata completa del resultado
+    try:
+        propiedad.metadata = prop_data
+    except Exception:
+        # Si por algún motivo no es serializable, guardamos parcial
+        try:
+            propiedad.metadata = {
+                'titulo': prop_data.get('titulo') or prop_data.get('title'),
+                'url': url
+            }
+        except Exception:
+            pass
+
+    # Actualizar título solo si el entrante no es placeholder
+    if incoming_title and not es_placeholder(incoming_title):
+        # Si es nuevo o el existente es vacío/placeholder, actualizar
+        if created or es_placeholder(propiedad.titulo or ''):
+            propiedad.titulo = incoming_title
+
+    propiedad.save()
     return propiedad
 
 # ================================
