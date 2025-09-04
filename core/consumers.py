@@ -8,6 +8,9 @@ class SearchProgressConsumer(WebsocketConsumer):
         super().__init__(*args, **kwargs)
         self.search_id = None
         self.room_group_name = 'search_progress'
+        # Buffer para resultados enviados por run_scraper vía WebSocket
+        self._scraper_results_buffer = None  # dict con 'nuevas'/'existentes' o lista simple
+
 
     def connect(self):
         print('[🔌 WEBSOCKET] Cliente conectando...')
@@ -220,54 +223,77 @@ class SearchProgressConsumer(WebsocketConsumer):
                         if saved_search_id:
                             print(f'🔄 [ACTUALIZANDO] Actualizando búsqueda {saved_search_id} con resultados...')
                             try:
-                                from core.models import Propiedad
-                                from core.search_manager import update_search
-                                
-                                # Obtener las propiedades que coinciden con los filtros y keywords
-                                propiedades = Propiedad.objects.order_by('-id')[:50]  # Últimas 50 para buscar coincidencias
+                                from core.models import Propiedad, PalabraClave, BusquedaPalabraClave, ResultadoBusqueda
+                                from core.search_manager import update_search, normalizar_texto
+
+                                # 1) Preferir resultados ya enviados por run_scraper vía WebSocket (buffer)
                                 resultados = []
-                                
-                                # Aplicar lógica de filtrado de keywords
-                                if keywords:
-                                    import unicodedata
-                                    def normalizar(texto):
-                                        return unicodedata.normalize('NFKD', str(texto)).encode('ASCII', 'ignore').decode('ASCII').lower()
-                                    
-                                    from core.scraper import extraer_variantes_keywords
-                                    keywords_variantes = extraer_variantes_keywords(keywords)
-                                    for prop in propiedades:
-                                        meta = prop.metadata or {}
-                                        caracteristicas_txt = meta.get('caracteristicas', '') or meta.get('caracteristicas_texto', '') or ''
-                                        texto_propiedad = f"{prop.titulo or ''} {prop.descripcion or ''} {caracteristicas_txt}".lower()
-                                        texto_norm = normalizar(texto_propiedad)
-                                        keywords_norm = [normalizar(kw) for kw in keywords_variantes]
-                                        
-                                        # Usar lógica flexible como en el scraper
-                                        from core.scraper import stemming_basico
-                                        texto_stemmed = stemming_basico(texto_norm)
-                                        keywords_stemmed = [stemming_basico(kw) for kw in keywords_norm]
-                                        
-                                        coincidencias = 0
-                                        for kw_stemmed in keywords_stemmed:
-                                            if kw_stemmed in texto_stemmed or any(kw_stemmed in word for word in texto_stemmed.split()):
-                                                coincidencias += 1
-                                        
-                                        # Si coincide al menos el 70% de las keywords
-                                        if len(keywords_stemmed) > 0 and coincidencias / len(keywords_stemmed) >= 0.7:
+                                if self._scraper_results_buffer and isinstance(self._scraper_results_buffer, list):
+                                    # El buffer puede venir como [{'title','url'},...] o con clave 'titulo'
+                                    for item in self._scraper_results_buffer:
+                                        url = item.get('url')
+                                        titulo = item.get('title') or item.get('titulo') or 'Sin título'
+                                        if not url:
+                                            continue
+                                        # Intentar enriquecer con precio si existe la propiedad
+                                        try:
+                                            prop = Propiedad.objects.filter(url=url).first()
+                                            meta = (prop.metadata or {}) if prop else {}
+                                            precio_fmt = (f"{meta.get('precio_valor')} {meta.get('precio_moneda','')}".strip() if meta.get('precio_valor') else 'Precio no disponible')
+                                        except Exception:
+                                            precio_fmt = 'Precio no disponible'
+                                        resultados.append({'titulo': titulo, 'url': url, 'precio': precio_fmt})
+
+                                # 2) Fallback: si no hay buffer (p. ej., reconexiones), usar relaciones en BD (sin rematch textual)
+                                if not resultados:
+                                    if keywords:
+                                        from core.scraper import extraer_variantes_keywords
+                                        variantes = extraer_variantes_keywords(keywords)
+                                        variantes_norm = [normalizar_texto(str(v)) for v in variantes]
+
+                                        matching_palabras_ids = []
+                                        for pk in PalabraClave.objects.all():
+                                            if normalizar_texto(pk.texto) in variantes_norm:
+                                                matching_palabras_ids.append(pk.id)
+                                                continue
+                                            for s in pk.sinonimos_list:
+                                                if normalizar_texto(str(s)) in variantes_norm:
+                                                    matching_palabras_ids.append(pk.id)
+                                                    break
+
+                                        busqueda_ids = list(
+                                            BusquedaPalabraClave.objects.filter(
+                                                palabra_clave_id__in=matching_palabras_ids
+                                            ).values_list('busqueda_id', flat=True)
+                                        ) if matching_palabras_ids else []
+
+                                        propiedades_ids_agregadas = set()
+                                        if busqueda_ids:
+                                            resultados_qs = (
+                                                ResultadoBusqueda.objects
+                                                .filter(busqueda_id__in=busqueda_ids, coincide=True)
+                                                .select_related('propiedad')
+                                            )
+                                            for res in resultados_qs:
+                                                prop = res.propiedad
+                                                if prop.id in propiedades_ids_agregadas:
+                                                    continue
+                                                propiedades_ids_agregadas.add(prop.id)
+                                                meta = prop.metadata or {}
+                                                resultados.append({
+                                                    'titulo': prop.titulo or 'Sin título',
+                                                    'url': prop.url or '#',
+                                                    'precio': (f"{meta.get('precio_valor')} {meta.get('precio_moneda','')}".strip() if meta.get('precio_valor') else 'Precio no disponible')
+                                                })
+                                    else:
+                                        propiedades = Propiedad.objects.order_by('-id')[:50]
+                                        for prop in propiedades:
+                                            meta = prop.metadata or {}
                                             resultados.append({
                                                 'titulo': prop.titulo or 'Sin título',
                                                 'url': prop.url or '#',
                                                 'precio': (f"{meta.get('precio_valor')} {meta.get('precio_moneda','')}".strip() if meta.get('precio_valor') else 'Precio no disponible')
                                             })
-                                else:
-                                    # Sin keywords: persistir las propiedades encontradas tal como en el fallback HTTP
-                                    for prop in propiedades:
-                                        meta = prop.metadata or {}
-                                        resultados.append({
-                                            'titulo': prop.titulo or 'Sin título',
-                                            'url': prop.url or '#',
-                                            'precio': (f"{meta.get('precio_valor')} {meta.get('precio_moneda','')}".strip() if meta.get('precio_valor') else 'Precio no disponible')
-                                        })
                                 
                                 # Actualizar la búsqueda con los resultados
                                 update_data = {
@@ -354,6 +380,22 @@ class SearchProgressConsumer(WebsocketConsumer):
         print(f'📡 [WEBSOCKET] Enviando a cliente: {msg[:100]}{"..." if len(str(msg)) > 100 else ""}')
         if message.get("total_found"):
             print(f'📊 [WEBSOCKET] Total encontrado: {message["total_found"]:,}')
+        # Capturar resultados finales/parciales enviados por run_scraper para evitar re-matchear
+        try:
+            if 'matched_publications' in message and isinstance(message.get('matched_publications'), list):
+                self._scraper_results_buffer = message['matched_publications']
+            elif 'all_matched_properties' in message and isinstance(message.get('all_matched_properties'), dict):
+                amp = message['all_matched_properties']
+                combined = []
+                for key in ('nuevas', 'existentes'):
+                    lst = amp.get(key)
+                    if isinstance(lst, list):
+                        combined.extend(lst)
+                if combined:
+                    self._scraper_results_buffer = combined
+        except Exception:
+            # No bloquear el envío al cliente por errores de buffer
+            pass
         self.send(text_data=json.dumps({
             'message': message
         }))

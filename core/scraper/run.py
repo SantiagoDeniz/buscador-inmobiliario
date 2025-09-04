@@ -2,7 +2,7 @@ import concurrent.futures
 import os
 import unicodedata
 from typing import Dict, Any, List
-from core.models import Propiedad, Plataforma
+from core.models import Propiedad, Plataforma, PalabraClave, BusquedaPalabraClave, ResultadoBusqueda, Busqueda
 from .url_builder import build_mercadolibre_url
 from .mercadolibre import extraer_total_resultados_mercadolibre
 from .extractors import scrape_detalle_con_requests, recolectar_urls_de_pagina
@@ -16,7 +16,7 @@ def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, work
 
     from core.search_manager import procesar_keywords
     keywords_filtradas = procesar_keywords(' '.join(keywords)) if keywords else []
-    keywords_variantes = extraer_variantes_keywords(keywords_filtradas)
+    keywords_con_variantes = extraer_variantes_keywords(keywords_filtradas)
     print(f"🔍 [SCRAPER] Keywords filtradas: {keywords_filtradas}")
 
     USE_THREADS = False
@@ -31,22 +31,20 @@ def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, work
     else:
         print("🔧 [CONFIG] Modo secuencial activado - usando requests directo")
 
-    propiedades_omitidas = 0
+    cant_propiedades_omitidas = 0
     nuevas_propiedades_guardadas = 0
     urls_a_visitar_final = set()
 
     try:
         url_base_con_filtros = build_mercadolibre_url(filters)
-        print(f"🔗 [URL GENERADA] {url_base_con_filtros}")
         if url_base_con_filtros.endswith('_NoIndex_True') and 'inmuebles/_NoIndex_True' in url_base_con_filtros:
             print("⚠️ [URL BUILD] URL generada es demasiado genérica, puede indicar problema en filtros")
-        send_progress_update(current_search_item=f"🏠 URL generada con filtros: {url_base_con_filtros[:100]}{'...' if len(url_base_con_filtros) > 100 else ''}")
+        send_progress_update(current_search_item=f"🏠 URL generada con filtros: {url_base_con_filtros}")
     except Exception as e:
         print(f"❌ [URL BUILD] Error construyendo URL: {e}")
         send_progress_update(final_message=f"❌ Error construyendo URL: {e}")
         return
 
-    print("\n[Principal] Extrayendo total de resultados desde MercadoLibre...")
     send_progress_update(current_search_item="🔍 Extrayendo total de resultados de MercadoLibre...")
     total_ml = extraer_total_resultados_mercadolibre(
         url_base_con_filtros,
@@ -97,64 +95,108 @@ def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, work
     existing_publications_titles = []
 
     if urls_recolectadas_bruto:
+        # URLs que ya existen en la BD
         urls_existentes = set(Propiedad.objects.filter(url__in=list(urls_recolectadas_bruto)).values_list('url', flat=True))
-        propiedades_omitidas = len(urls_existentes)
-        urls_a_visitar_final = urls_recolectadas_bruto - urls_existentes
+        cant_propiedades_omitidas = len(urls_existentes)
 
-        if urls_existentes and keywords_variantes:
-            existing_properties = Propiedad.objects.filter(url__in=urls_existentes)
+        # Inicialmente, visitaremos las URLs que no están en la BD
+        urls_a_visitar_final = set(urls_recolectadas_bruto) - set(urls_existentes)
 
-            def normalizar(texto):
-                return unicodedata.normalize('NFKD', str(texto)).encode('ASCII', 'ignore').decode('ASCII').lower()
+        # Si hay URLs existentes y keywords (con variantes), usar las relaciones en BD
+        if urls_existentes and keywords_con_variantes:
+            # Cargar propiedades existentes
+            existing_properties_qs = Propiedad.objects.filter(url__in=urls_existentes)
 
-            keywords_norm = [normalizar(kw) for kw in keywords_variantes]
+            # Normalizar variantes y buscar PalabraClave que coincidan (texto o sinónimos)
+            from core.search_manager import normalizar_texto
 
-            for prop in existing_properties:
-                titulo_propiedad = prop.titulo or ''
-                descripcion = prop.descripcion or ''
-                meta = prop.metadata or {}
-                caracteristicas = meta.get('caracteristicas', '') or meta.get('caracteristicas_texto', '') or ''
-                texto_total = f"{titulo_propiedad.lower()} {descripcion.lower()} {caracteristicas.lower()}"
-                texto_total_norm = normalizar(texto_total)
+            variantes_norm = [normalizar_texto(str(v)) for v in keywords_con_variantes]
 
-                keywords_encontradas = 0
-                for kw in keywords_norm:
-                    encontrada = False
-                    if kw in texto_total_norm:
-                        encontrada = True
-                    elif not encontrada:
-                        kw_stem = stemming_basico(kw)
-                        if kw_stem in texto_total_norm:
-                            encontrada = True
-                    elif not encontrada and len(kw) > 4:
-                        raiz = kw[:len(kw)-2]
-                        if raiz in texto_total_norm:
-                            encontrada = True
-                    if encontrada:
-                        keywords_encontradas += 1
-                porcentaje_requerido = 0.7
-                if keywords_encontradas >= len(keywords_norm) * porcentaje_requerido:
-                    existing_publications_titles.append({
-                        'title': titulo_propiedad,
-                        'url': prop.url
-                    })
-        elif urls_existentes and not keywords_variantes:
-            existing_properties = Propiedad.objects.filter(url__in=urls_existentes)
-            for prop in existing_properties:
-                existing_publications_titles.append({
-                    'title': prop.titulo or 'Sin título',
-                    'url': prop.url
-                })
+            # Recolectar PalabraClave que tengan texto o algún sinónimo en las variantes
+            matching_palabras = []
+            for pk in PalabraClave.objects.all():
+                texto_norm = normalizar_texto(pk.texto)
+                if texto_norm in variantes_norm:
+                    matching_palabras.append(pk)
+                    continue
+                for s in pk.sinonimos_list:
+                    if normalizar_texto(str(s)) in variantes_norm:
+                        matching_palabras.append(pk)
+                        break
+
+            if matching_palabras:
+                palabra_ids = [p.id for p in matching_palabras]
+                # Buscar búsquedas relacionadas a esas palabras clave
+                busqueda_ids = list(BusquedaPalabraClave.objects.filter(palabra_clave_id__in=palabra_ids).values_list('busqueda_id', flat=True))
+            else:
+                busqueda_ids = []
+
+            # Si no hay búsquedas relacionadas, trataremos las URLs existentes como no coincidentes (se scrapearán)
+            if not busqueda_ids:
+                # Añadir todas las existentes a la cola de scrapping
+                urls_a_visitar_final.update(urls_existentes)
+            else:
+                # Buscar resultados existentes que vinculen esas búsquedas con las propiedades
+                resultados_qs = ResultadoBusqueda.objects.filter(busqueda_id__in=busqueda_ids, propiedad__in=existing_properties_qs).select_related('propiedad', 'busqueda')
+
+                # Propiedades que ya están registradas como resultado de alguna búsqueda relacionada
+                propiedades_con_resultado = {r.propiedad_id: r for r in resultados_qs}
+
+                for prop in existing_properties_qs:
+                    if prop.id in propiedades_con_resultado:
+                        # Marcar como coincidencia y añadir a la lista de existentes
+                        resultado = propiedades_con_resultado[prop.id]
+                        try:
+                            # Asegurar que el campo coincide esté en True
+                            if not resultado.coincide:
+                                ResultadoBusqueda.objects.filter(id=resultado.id).update(coincide=True)
+                        except Exception:
+                            pass
+                        existing_publications_titles.append({
+                            'title': prop.titulo or 'Sin título',
+                            'url': prop.url
+                        })
+                    else:
+                        # No hay relación en BD entre las keywords/búsquedas y esta propiedad.
+                        # Debe ser scrapeada para verificar contenido actual.
+                        urls_a_visitar_final.add(prop.url)
+
+        # NOTE: no se contempla el caso "urls_existentes y NO keywords_con_variantes" según la especificación
 
         # Logs internos y mensaje de estado simplificado para el usuario
-        print(f"🗃️  [DEDUP] {propiedades_omitidas} URLs existentes en la base de datos")
+        # print(f"🗃️  [DEDUP] {cant_propiedades_omitidas} URLs existentes en la base de datos")
         print(f"🆕  [DEDUP] A procesar (posibles nuevas): {len(urls_a_visitar_final)}")
         print(f"🗃️  [DEDUP] Coincidentes existentes tras keywords: {len(existing_publications_titles)}")
         # Para el usuario, solo informar cuántas existentes hay (sin mostrarlas como 'encontradas anteriormente')
-        send_progress_update(current_search_item=f"🗃️ {propiedades_omitidas} URLs existentes en la base de datos")
+        send_progress_update(current_search_item=f"🗃️ {cant_propiedades_omitidas} URLs existentes en la base de datos")
     else:
         print("❌ [RECOLECCIÓN] No se obtuvieron URLs")
         send_progress_update(current_search_item="No se encontraron URLs para procesar.")
+
+    # Atajo: si NO hay keywords, no necesitamos FASE 2 (no hay nada que validar en detalle).
+    # Devolvemos directamente los links recolectados en FASE 1 como "resultados encontrados".
+    if not keywords_con_variantes:
+        print("\n⏭️  [ATAJO] Sin keywords: omitiendo FASE 2 y devolviendo enlaces de FASE 1")
+        send_progress_update(current_search_item="Sin keywords: devolviendo enlaces de FASE 1 (sin scrapeo de detalle)")
+
+        # Usar todas las URLs recolectadas (incluye existentes y nuevas) como resultados a mostrar/guardar
+        resultados_fase1 = [{'title': 'Publicación', 'url': u} for u in sorted(list(urls_recolectadas_bruto))]
+        matched_publications_titles = list(resultados_fase1)
+
+        # Para la UI actual: mostrar todo bajo 'nuevas' y no poblar 'existentes'
+        all_matched_properties = {
+            'nuevas': matched_publications_titles,
+            'existentes': []
+        }
+        total_coincidentes = len(matched_publications_titles)
+        print(f"📊 [RESUMEN FINAL] (UI) Nuevas: {total_coincidentes} | Existentes (solo log): 0 | Total: {total_coincidentes}")
+        send_progress_update(
+            final_message=f"✅ Búsqueda completada (sin keywords). {nuevas_propiedades_guardadas} nuevas propiedades guardadas.",
+            matched_publications=matched_publications_titles,
+            all_matched_properties=all_matched_properties
+        )
+        # Retornar lista simple de resultados para flujos sin WebSocket (HTTP fallback/tests)
+        return matched_publications_titles
 
     if urls_a_visitar_final:
         print(f"\n--- FASE 2: Scrapeo de detalles en paralelo (hasta {workers_fase2} hilos)... ---")
@@ -172,10 +214,10 @@ def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, work
                         caracteristicas = datos_propiedad.get('caracteristicas_texto', '').lower()
                         texto_total = f"{titulo_propiedad.lower()} {descripcion} {caracteristicas}"
                         cumple = True
-                        if keywords_variantes:
+                        if keywords_con_variantes:
                             def normalizar(texto):
                                 return unicodedata.normalize('NFKD', str(texto)).encode('ASCII', 'ignore').decode('ASCII').lower()
-                            keywords_norm = [normalizar(kw) for kw in keywords_variantes]
+                            keywords_norm = [normalizar(kw) for kw in keywords_con_variantes]
                             texto_total_norm = normalizar(texto_total)
                             keywords_encontradas = 0
                             for kw in keywords_norm:
@@ -273,3 +315,5 @@ def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, work
         matched_publications=combined_for_ui,
         all_matched_properties=all_matched_properties
     )
+    # Retornar lista simple de resultados para flujos sin WebSocket (HTTP fallback/tests)
+    return combined_for_ui

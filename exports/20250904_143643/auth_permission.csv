@@ -1,0 +1,57 @@
+﻿id,name,content_type_id,codename
+1,Can add log entry,1,add_logentry
+2,Can change log entry,1,change_logentry
+3,Can delete log entry,1,delete_logentry
+4,Can view log entry,1,view_logentry
+5,Can add permission,2,add_permission
+6,Can change permission,2,change_permission
+7,Can delete permission,2,delete_permission
+8,Can view permission,2,view_permission
+9,Can add group,3,add_group
+10,Can change group,3,change_group
+11,Can delete group,3,delete_group
+12,Can view group,3,view_group
+13,Can add user,4,add_user
+14,Can change user,4,change_user
+15,Can delete user,4,delete_user
+16,Can view user,4,view_user
+17,Can add content type,5,add_contenttype
+18,Can change content type,5,change_contenttype
+19,Can delete content type,5,delete_contenttype
+20,Can view content type,5,view_contenttype
+21,Can add session,6,add_session
+22,Can change session,6,change_session
+23,Can delete session,6,delete_session
+24,Can view session,6,view_session
+25,Can add Inmobiliaria,7,add_inmobiliaria
+26,Can change Inmobiliaria,7,change_inmobiliaria
+27,Can delete Inmobiliaria,7,delete_inmobiliaria
+28,Can view Inmobiliaria,7,view_inmobiliaria
+29,Can add Usuario,8,add_usuario
+30,Can change Usuario,8,change_usuario
+31,Can delete Usuario,8,delete_usuario
+32,Can view Usuario,8,view_usuario
+33,Can add Plataforma,9,add_plataforma
+34,Can change Plataforma,9,change_plataforma
+35,Can delete Plataforma,9,delete_plataforma
+36,Can view Plataforma,9,view_plataforma
+37,Can add Búsqueda,10,add_busqueda
+38,Can change Búsqueda,10,change_busqueda
+39,Can delete Búsqueda,10,delete_busqueda
+40,Can view Búsqueda,10,view_busqueda
+41,Can add Palabra Clave,11,add_palabraclave
+42,Can change Palabra Clave,11,change_palabraclave
+43,Can delete Palabra Clave,11,delete_palabraclave
+44,Can view Palabra Clave,11,view_palabraclave
+45,Can add Búsqueda - Palabra Clave,12,add_busquedapalabraclave
+46,Can change Búsqueda - Palabra Clave,12,change_busquedapalabraclave
+47,Can delete Búsqueda - Palabra Clave,12,delete_busquedapalabraclave
+48,Can view Búsqueda - Palabra Clave,12,view_busquedapalabraclave
+49,Can add Propiedad,13,add_propiedad
+50,Can change Propiedad,13,change_propiedad
+51,Can delete Propiedad,13,delete_propiedad
+52,Can view Propiedad,13,view_propiedad
+53,Can add Resultado de Búsqueda,14,add_resultadobusqueda
+54,Can change Resultado de Búsqueda,14,change_resultadobusqueda
+55,Can delete Resultado de Búsqueda,14,delete_resultadobusqueda
+56,Can view Resultado de Búsqueda,14,view_resultadobusqueda

@@ -222,32 +222,32 @@ def http_search_fallback(request):
         data = json.loads(request.body)
         texto = data.get('texto', '')
         filtros_manual = data.get('filtros', {})
-        
+
         # Extraer información de guardado
         should_save = data.get('guardar', False)
         search_name = data.get('name', '')
         print(f"[HTTP FALLBACK] Iniciando búsqueda HTTP: {texto}")
         print(f'💾 [HTTP FALLBACK] Guardar búsqueda: {should_save}, Nombre: "{search_name}"')
-        
+
         # USAR IA como en el WebSocket consumer
         print('🤖 [HTTP FALLBACK] Procesando texto con IA...')
         try:
             ia_result = async_to_sync(analyze_query_with_ia)(texto)
             print(f'🤖 [HTTP FALLBACK] Resultado IA: {ia_result}')
-            
+
             # Fusionar filtros como en el consumer
             filtros_ia = ia_result.get('filters', {})
             filtros_final = filtros_manual.copy()
             for k, v in filtros_ia.items():
                 filtros_final[k] = v  # Prioriza IA
-            
+
             keywords = ia_result.get('keywords', [])
             if isinstance(keywords, str):
                 keywords = [keywords] if keywords else []
-                
+
             print(f'🎚️ [HTTP FALLBACK] Filtros fusionados: {filtros_final}')
             print(f'🔍 [HTTP FALLBACK] Keywords de IA: {keywords}')
-            
+
             # Guardar búsqueda si fue solicitado
             saved_search_id = None
             if should_save:
@@ -267,14 +267,14 @@ def http_search_fallback(request):
                 except Exception as save_error:
                     print(f'❌ [HTTP FALLBACK] Error guardando búsqueda: {save_error}')
                     # No retornar, continuar con el scraping
-            
+
         except Exception as e:
             print(f'🤖 [HTTP FALLBACK] Error procesando con IA: {e}')
             # Fallback al procesamiento básico
             from .search_manager import procesar_keywords
             keywords = procesar_keywords(texto) if texto else []
             filtros_final = filtros_manual
-            
+
             # Guardar búsqueda si fue solicitado (aún con fallback básico)
             saved_search_id = None
             if should_save:
@@ -294,41 +294,41 @@ def http_search_fallback(request):
                 except Exception as save_error:
                     print(f'❌ [HTTP FALLBACK] Error guardando búsqueda: {save_error}')
                     # No retornar, continuar con el scraping
-        
+
         # Ejecutar scraper con los filtros y keywords procesados
         from .scraper import run_scraper
-        run_scraper(filtros_final, keywords, max_paginas=2, workers_fase1=1, workers_fase2=1)
-        
-    # Obtener resultados de la base de datos
+        resultados_scraper = run_scraper(filtros_final, keywords, max_paginas=2, workers_fase1=1, workers_fase2=1) or []
+
+        # Obtener resultados de la base de datos
         from .models import Propiedad
         propiedades = Propiedad.objects.order_by('-id')[:50]  # Últimas 50 para buscar coincidencias
-        
+
         resultados = []
         for prop in propiedades:
             if keywords:  # Si hay keywords, filtrar por ellas
                 import unicodedata
                 def normalizar(texto):
                     return unicodedata.normalize('NFKD', str(texto)).encode('ASCII', 'ignore').decode('ASCII').lower()
-                
+
                 meta = prop.metadata or {}
                 caracteristicas_txt = meta.get('caracteristicas', '') or meta.get('caracteristicas_texto', '') or ''
                 texto_propiedad = f"{prop.titulo or ''} {prop.descripcion or ''} {caracteristicas_txt}".lower()
                 texto_norm = normalizar(texto_propiedad)
                 # Keywords puede venir como lista de dicts; extraer 'texto' y 'sinonimos'
                 from core.scraper import extraer_variantes_keywords
-                keywords_variantes = extraer_variantes_keywords(keywords)
-                keywords_norm = [normalizar(kw) for kw in keywords_variantes]
-                
+                keywords_con_variantes = extraer_variantes_keywords(keywords)
+                keywords_norm = [normalizar(kw) for kw in keywords_con_variantes]
+
                 # Usar lógica flexible como en el scraper
                 from core.scraper import stemming_basico
                 texto_stemmed = stemming_basico(texto_norm)
                 keywords_stemmed = [stemming_basico(kw) for kw in keywords_norm]
-                
+
                 coincidencias = 0
                 for kw_stemmed in keywords_stemmed:
                     if kw_stemmed in texto_stemmed or any(kw_stemmed in word for word in texto_stemmed.split()):
                         coincidencias += 1
-                
+
                 # Si coincide al menos el 70% de las keywords
                 if len(keywords_stemmed) > 0 and coincidencias / len(keywords_stemmed) >= 0.7:
                     resultados.append({
@@ -338,20 +338,37 @@ def http_search_fallback(request):
                         'precio': (f"{meta.get('precio_valor')} {meta.get('precio_moneda','')}".strip() if meta.get('precio_valor') else 'Precio no disponible')
                     })
             else:
-                resultados.append({
-                    'title': prop.titulo or 'Sin título',
-                    'url': prop.url or '#',
-                    'titulo': prop.titulo or 'Sin título',  # Para compatibilidad con search_manager
-                    'precio': (f"{meta.get('precio_valor')} {meta.get('precio_moneda','')}".strip() if meta.get('precio_valor') else 'Precio no disponible')
-                })
-        
+                # Si no hay keywords, preferir los enlaces devueltos por el scraper (FASE 1)
+                if resultados_scraper:
+                    resultados = []
+                    for item in resultados_scraper:
+                        url = item.get('url')
+                        titulo = item.get('title') or item.get('titulo') or 'Publicación'
+                        if not url:
+                            continue
+                        resultados.append({
+                            'title': titulo,
+                            'url': url,
+                            'titulo': titulo,
+                            'precio': 'Precio no disponible'
+                        })
+                    break  # Ya poblamos resultados desde el scraper; no seguir iterando propiedades
+                else:
+                    meta = prop.metadata or {}
+                    resultados.append({
+                        'title': prop.titulo or 'Sin título',
+                        'url': prop.url or '#',
+                        'titulo': prop.titulo or 'Sin título',  # Para compatibilidad con search_manager
+                        'precio': (f"{meta.get('precio_valor')} {meta.get('precio_moneda','')}".strip() if meta.get('precio_valor') else 'Precio no disponible')
+                    })
+
         # Actualizar búsqueda guardada con resultados si existe
         if saved_search_id and resultados:
             print(f'🔄 [HTTP FALLBACK] Actualizando búsqueda {saved_search_id} con {len(resultados)} resultados...')
             try:
                 from core.search_manager import update_search
                 from datetime import datetime
-                
+
                 # Formatear resultados para el search_manager
                 resultados_formatted = [
                     {
@@ -360,20 +377,20 @@ def http_search_fallback(request):
                         'precio': r['precio']
                     } for r in resultados
                 ]
-                
+
                 update_data = {
                     'results': resultados_formatted,
                     'ultima_revision': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 }
-                
+
                 if update_search(saved_search_id, update_data):
                     print(f'✅ [HTTP FALLBACK] Búsqueda actualizada con {len(resultados_formatted)} resultados')
                 else:
                     print(f'❌ [HTTP FALLBACK] No se pudo actualizar la búsqueda {saved_search_id}')
-                    
+
             except Exception as update_error:
                 print(f'❌ [HTTP FALLBACK] Error actualizando búsqueda: {update_error}')
-        
+
         # Exportar CSVs automáticamente tras cada consulta
         try:
             export_all(os.path.join(settings.BASE_DIR, 'exports'))
@@ -385,7 +402,7 @@ def http_search_fallback(request):
             'matched_publications': resultados[:10],  # Limitar a 10 para no sobrecargar
             'total': len(resultados)
         })
-        
+
     except Exception as e:
         print(f"[HTTP FALLBACK] Error: {e}")
         return JsonResponse({

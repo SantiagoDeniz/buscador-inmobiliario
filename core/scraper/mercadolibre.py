@@ -212,7 +212,7 @@ def scrape_mercadolibre(filters: Dict[str, Any], keywords: List[str], max_pages:
 
     from core.search_manager import procesar_keywords
     keywords_filtradas = procesar_keywords(' '.join(keywords))
-    keywords_variantes = extraer_variantes_keywords(keywords_filtradas)
+    keywords_con_variantes = extraer_variantes_keywords(keywords_filtradas)
     base_url = build_mercadolibre_url(filters)
     print(f"[scraper] URL base de búsqueda: {base_url}")
     print(f"[scraper] Palabras clave filtradas: {keywords_filtradas}")
@@ -338,9 +338,9 @@ def scrape_mercadolibre(filters: Dict[str, Any], keywords: List[str], max_pages:
                     return unicodedata.normalize('NFKD', str(texto)).encode('ASCII', 'ignore').decode('ASCII').lower()
 
                 texto_total_norm = normalizar(f"{titulo_text} {descripcion} {caracteristicas}")
-                keywords_norm = [normalizar(kw) for kw in keywords_variantes]
-                encontrados = [kw for kw in keywords_variantes if normalizar(kw) in texto_total_norm]
-                no_encontrados = [kw for kw in keywords_variantes if normalizar(kw) not in texto_total_norm]
+                keywords_norm = [normalizar(kw) for kw in keywords_con_variantes]
+                encontrados = [kw for kw in keywords_con_variantes if normalizar(kw) in texto_total_norm]
+                no_encontrados = [kw for kw in keywords_con_variantes if normalizar(kw) not in texto_total_norm]
                 if not keywords_norm:
                     print("⚠️  No se especificaron palabras clave para filtrar.\n")
                     cumple = True
