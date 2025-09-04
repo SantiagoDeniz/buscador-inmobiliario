@@ -17,12 +17,14 @@ Completados:
     ✅ Migraciones aplicadas
     ✅ Datos de ejemplo cargados
     ✅ Performance optimizada (<1 segundo consultas)
+  ✅ Se arregló un bug del frontend que impedía mostrar la lista de publicaciones al finalizar una búsqueda (variable JS fuera de scope).
+
 
   ✅ ARREGLADO - Guardado de publicaciones mejorado con:
-    - Lógica de keywords más flexible (70% coincidencia)
-    - Stemming básico para español
-    - Mejor manejo de errores
-    - Logs más detallados para debug
+    ✅ Lógica de keywords más flexible (70% coincidencia)
+    ✅ Stemming básico para español
+    ✅ Mejor manejo de errores
+    ✅ Logs más detallados para debug
   ✅ Que la lista de los resultados se guarden en las búsquedas guardadas
 
 
@@ -36,8 +38,7 @@ Completados:
 - Optimizar Consultas: Añadir índices y select_related
 - Dashboard de métricas y estadísticas
 
-Arreglitos:
-  Se arregló un bug del frontend que impedía mostrar la lista de publicaciones al finalizar una búsqueda (variable JS fuera de scope).
+Arreglitos del pasado futuro:
   Se implementó “Buscar nuevamente” para relanzar búsquedas guardadas: endpoint backend, botón en UI y refresco parcial del HTML.
   Se corrigió un error de tipos en el scraper (“expected str instance, dict found”) normalizando keywords a strings antes de usarlas.
   Se agregaron campos en BD para persistir “Última revisión” en Busqueda y el historial por resultado (last_seen_at, seen_count) con migraciones aplicadas.
@@ -45,15 +46,10 @@ Arreglitos:
   Se refactorizó search_manager.save_results:
   Manejo de timezone (timezone.now()).
   Actualización de seen_count/last_seen_at sin sobreescribir datos buenos.
-  Evitar que payloads mínimos pisen títulos/metadata (no más “X” persistente).
-  Opcionalmente completar/actualizar Propiedad.titulo si llega un título “bueno”.
-  Se limpió el dato incorrecto (“X”) ya guardado y se probó la actualización de títulos.
   Se mejoró load_results para devolver el título correcto (prioriza Propiedad.titulo; fallback a metadata si falta).
-  En el template de resultados se muestran títulos enlazados a la URL (si no hay, se muestra el URL).
   Se indicó claramente dónde se guardan y de dónde se leen/muestran los resultados:
   Guardado/lectura: search_manager.py (save_results, load_results).
   Render UI: search_detail_partial.html y JS en home.html.
-  Se resolvieron errores de indentación/sintaxis que se introdujeron durante los cambios y se validó con pruebas rápidas en shell y el endpoint.
 
 Otras acciones (opcionales):
 - Documentar integración con Google Sheets (en README) y ejemplo de importación
