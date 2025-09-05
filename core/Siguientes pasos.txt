@@ -30,13 +30,16 @@ Completados:
 
 🔄 SIGUIENTES PRIORIDADES:
 
-- Agregar urls guardadas en búsquedas nuevas.
-- Agregar búsqueda de InfoCasas 
-- Cron jobs para automatización
-- Sin subtítulos en resultados encontrados cuando se busca y guarda por primera vez.
-- Botón de reiniciar búsqueda en búsquedas guardadas
-- Optimizar Consultas: Añadir índices y select_related
-- Dashboard de métricas y estadísticas
+  Problemas a solucionar:
+    - La búsqueda con sinónimos se está realizando mal. La idea es que el programa busque una palabra, si no la encuentra, busque su sinónimo y así hasta encontrar o recorrer la lista de todos los sinónimos. O sea que todo el pack de keywords + sinónimos cuenta como 1 sola palabra clave.
+    - Se sigue mostrando los resultados encontrados de forma distinta a las búsquedas guardadas.
+  Otras acciones:
+    - Agregar búsqueda de InfoCasas 
+    - Cron jobs para automatización
+    - Sin subtítulos en resultados encontrados cuando se busca y guarda por primera vez.
+    - Botón de reiniciar búsqueda en búsquedas guardadas
+    - Optimizar Consultas: Añadir índices y select_related
+    - Dashboard de métricas y estadísticas
 
 Arreglitos del pasado futuro:
   Se implementó “Buscar nuevamente” para relanzar búsquedas guardadas: endpoint backend, botón en UI y refresco parcial del HTML.
