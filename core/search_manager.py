@@ -404,12 +404,19 @@ def load_results(search_id: str) -> List[Dict]:
         results = []
         for resultado in resultados:
             prop = resultado.propiedad
-            result_data = prop.metadata if prop.metadata else {}
+            result_data = prop.metadata.copy() if prop.metadata else {}
+            # Fallback de título: si el campo de modelo está vacío/placeholder, usar metadata['titulo'] o ['title']
+            meta_title = (result_data.get('titulo') or result_data.get('title') or '').strip()
+            model_title = (prop.titulo or '').strip()
+            def _es_placeholder(t: str) -> bool:
+                t_norm = normalizar_texto(t or '')
+                return t_norm in {'publicacion', 'sin titulo'} or t.strip() == ''
+            titulo_final = model_title if model_title and not _es_placeholder(model_title) else (meta_title if meta_title and not _es_placeholder(meta_title) else None)
             
             # Añadir información estándar
             result_data.update({
                 'id': str(resultado.id),
-                'titulo': prop.titulo,
+                'titulo': titulo_final or prop.titulo or meta_title or 'Sin título',
                 'url': prop.url,
                 'descripcion': prop.descripcion,
                 'plataforma': prop.plataforma.nombre,
@@ -427,8 +434,7 @@ def load_results(search_id: str) -> List[Dict]:
 def save_results(search_id: str, results: List[Dict]) -> bool:
     """Guarda resultados de búsqueda en la base de datos (compatibilidad)"""
     try:
-        busqueda = Busqueda.objects.get(id=search_id)
-        
+        busqueda = Busqueda.objects.get(id=search_id)        
         for result_data in results:
             # Crear o actualizar propiedad
             propiedad = crear_o_actualizar_propiedad(result_data)

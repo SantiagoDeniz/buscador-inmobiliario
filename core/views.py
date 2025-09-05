@@ -298,7 +298,6 @@ def http_search_fallback(request):
         # Ejecutar scraper con los filtros y keywords procesados
         from .scraper import run_scraper
         resultados_scraper = run_scraper(filtros_final, keywords, max_paginas=2, workers_fase1=1, workers_fase2=1) or []
-
         # Obtener resultados de la base de datos
         from .models import Propiedad
         propiedades = Propiedad.objects.order_by('-id')[:50]  # Últimas 50 para buscar coincidencias
@@ -384,6 +383,7 @@ def http_search_fallback(request):
                 }
 
                 if update_search(saved_search_id, update_data):
+                    print(f"update_data: \n\n{update_data}\n\n")
                     print(f'✅ [HTTP FALLBACK] Búsqueda actualizada con {len(resultados_formatted)} resultados')
                 else:
                     print(f'❌ [HTTP FALLBACK] No se pudo actualizar la búsqueda {saved_search_id}')

@@ -210,7 +210,9 @@ class SearchProgressConsumer(WebsocketConsumer):
 
                 def _background_task():
                     try:
-                        run_scraper(
+                        # Ejecutar el scraper y capturar el retorno. En búsquedas SIN keywords,
+                        # run_scraper retorna la lista de resultados de FASE 1 (title/url).
+                        scraper_return = run_scraper(
                             filters=filtros,
                             keywords=keywords,
                             max_paginas=1,
@@ -227,73 +229,32 @@ class SearchProgressConsumer(WebsocketConsumer):
                                 from core.search_manager import update_search, normalizar_texto
 
                                 # 1) Preferir resultados ya enviados por run_scraper vía WebSocket (buffer)
+                                # 2) Si no hubo buffer (o está vacío), usar el retorno directo del scraper
+                                #    (en búsquedas SIN keywords, devuelve la lista de FASE 1)
+                                origen = []
+                                if isinstance(self._scraper_results_buffer, list) and len(self._scraper_results_buffer) > 0:
+                                    origen = self._scraper_results_buffer
+                                elif isinstance(scraper_return, list) and len(scraper_return) > 0:
+                                    origen = scraper_return
+
                                 resultados = []
-                                if self._scraper_results_buffer and isinstance(self._scraper_results_buffer, list):
-                                    # El buffer puede venir como [{'title','url'},...] o con clave 'titulo'
-                                    for item in self._scraper_results_buffer:
-                                        url = item.get('url')
-                                        titulo = item.get('title') or item.get('titulo') or 'Sin título'
-                                        if not url:
-                                            continue
-                                        # Intentar enriquecer con precio si existe la propiedad
-                                        try:
-                                            prop = Propiedad.objects.filter(url=url).first()
-                                            meta = (prop.metadata or {}) if prop else {}
-                                            precio_fmt = (f"{meta.get('precio_valor')} {meta.get('precio_moneda','')}".strip() if meta.get('precio_valor') else 'Precio no disponible')
-                                        except Exception:
-                                            precio_fmt = 'Precio no disponible'
-                                        resultados.append({'titulo': titulo, 'url': url, 'precio': precio_fmt})
-
-                                # 2) Fallback: si no hay buffer (p. ej., reconexiones), usar relaciones en BD (sin rematch textual)
-                                if not resultados:
-                                    if keywords:
-                                        from core.scraper import extraer_variantes_keywords
-                                        variantes = extraer_variantes_keywords(keywords)
-                                        variantes_norm = [normalizar_texto(str(v)) for v in variantes]
-
-                                        matching_palabras_ids = []
-                                        for pk in PalabraClave.objects.all():
-                                            if normalizar_texto(pk.texto) in variantes_norm:
-                                                matching_palabras_ids.append(pk.id)
-                                                continue
-                                            for s in pk.sinonimos_list:
-                                                if normalizar_texto(str(s)) in variantes_norm:
-                                                    matching_palabras_ids.append(pk.id)
-                                                    break
-
-                                        busqueda_ids = list(
-                                            BusquedaPalabraClave.objects.filter(
-                                                palabra_clave_id__in=matching_palabras_ids
-                                            ).values_list('busqueda_id', flat=True)
-                                        ) if matching_palabras_ids else []
-
-                                        propiedades_ids_agregadas = set()
-                                        if busqueda_ids:
-                                            resultados_qs = (
-                                                ResultadoBusqueda.objects
-                                                .filter(busqueda_id__in=busqueda_ids, coincide=True)
-                                                .select_related('propiedad')
-                                            )
-                                            for res in resultados_qs:
-                                                prop = res.propiedad
-                                                if prop.id in propiedades_ids_agregadas:
-                                                    continue
-                                                propiedades_ids_agregadas.add(prop.id)
-                                                meta = prop.metadata or {}
-                                                resultados.append({
-                                                    'titulo': prop.titulo or 'Sin título',
-                                                    'url': prop.url or '#',
-                                                    'precio': (f"{meta.get('precio_valor')} {meta.get('precio_moneda','')}".strip() if meta.get('precio_valor') else 'Precio no disponible')
-                                                })
-                                    else:
-                                        propiedades = Propiedad.objects.order_by('-id')[:50]
-                                        for prop in propiedades:
-                                            meta = prop.metadata or {}
-                                            resultados.append({
-                                                'titulo': prop.titulo or 'Sin título',
-                                                'url': prop.url or '#',
-                                                'precio': (f"{meta.get('precio_valor')} {meta.get('precio_moneda','')}".strip() if meta.get('precio_valor') else 'Precio no disponible')
-                                            })
+                                for item in origen:
+                                    url = (item.get('url') if isinstance(item, dict) else None)
+                                    titulo = None
+                                    if isinstance(item, dict):
+                                        titulo = item.get('title') or item.get('titulo')
+                                    if not url:
+                                        continue
+                                    if not titulo:
+                                        titulo = 'Sin título'
+                                    # Intentar enriquecer con precio si existe la propiedad (opcional)
+                                    try:
+                                        prop = Propiedad.objects.filter(url=url).first()
+                                        meta = (prop.metadata or {}) if prop else {}
+                                        precio_fmt = (f"{meta.get('precio_valor')} {meta.get('precio_moneda','')}".strip() if meta.get('precio_valor') else 'Precio no disponible')
+                                    except Exception:
+                                        precio_fmt = 'Precio no disponible'
+                                    resultados.append({'titulo': titulo, 'url': url, 'precio': precio_fmt})
                                 
                                 # Actualizar la búsqueda con los resultados
                                 update_data = {
