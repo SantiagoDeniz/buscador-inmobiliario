@@ -7,7 +7,7 @@ from .url_builder import build_mercadolibre_url
 from .mercadolibre import extraer_total_resultados_mercadolibre
 from .extractors import scrape_detalle_con_requests, recolectar_urls_de_pagina
 from .progress import send_progress_update
-from .utils import stemming_basico, extraer_variantes_keywords
+from .utils import stemming_basico, extraer_variantes_keywords, build_keyword_groups
 
 
 def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, workers_fase1: int = 1, workers_fase2: int = 1):
@@ -16,6 +16,7 @@ def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, work
 
     from core.search_manager import procesar_keywords
     keywords_filtradas = procesar_keywords(' '.join(keywords)) if keywords else []
+    keyword_groups = build_keyword_groups(keywords_filtradas)
     keywords_con_variantes = extraer_variantes_keywords(keywords_filtradas)
     print(f"🔍 [SCRAPER] Keywords filtradas: {keywords_filtradas}")
 
@@ -226,43 +227,44 @@ def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, work
                         caracteristicas = datos_propiedad.get('caracteristicas_texto', '').lower()
                         texto_total = f"{titulo_propiedad.lower()} {descripcion} {caracteristicas}"
                         cumple = True
-                        if keywords_con_variantes:
+                        if keyword_groups:
                             def normalizar(texto):
                                 return unicodedata.normalize('NFKD', str(texto)).encode('ASCII', 'ignore').decode('ASCII').lower()
-                            keywords_norm = [normalizar(kw) for kw in keywords_con_variantes]
                             texto_total_norm = normalizar(texto_total)
-                            keywords_encontradas = 0
-                            for kw in keywords_norm:
-                                encontrada = False
-                                if kw in texto_total_norm:
-                                    encontrada = True
-                                elif not encontrada:
-                                    kw_stem = stemming_basico(kw)
-                                    if kw_stem in texto_total_norm:
-                                        encontrada = True
-                                elif not encontrada and len(kw) > 4:
-                                    raiz = kw[:len(kw)-2]
-                                    if raiz in texto_total_norm:
-                                        encontrada = True
-                                if encontrada:
-                                    keywords_encontradas += 1
-                            porcentaje_requerido = 0.7
-                            cumple = keywords_encontradas >= len(keywords_norm) * porcentaje_requerido
+                            grupos_ok = []
+                            for grupo in keyword_groups:
+                                variantes_norm = [normalizar(v) for v in grupo]
+                                any_match = False
+                                for v in variantes_norm:
+                                    if v in texto_total_norm:
+                                        any_match = True
+                                        break
+                                    v_stem = stemming_basico(v)
+                                    if v_stem and v_stem in texto_total_norm:
+                                        any_match = True
+                                        break
+                                    if len(v) > 4 and v[:-2] in texto_total_norm:
+                                        any_match = True
+                                        break
+                                grupos_ok.append(any_match)
+                            cumple = all(grupos_ok) if grupos_ok else True
                             if cumple:
-                                print(f"({i+1}/{len(urls_a_visitar_final)}) ✅ Coincide: {titulo_propiedad} ({keywords_encontradas}/{len(keywords_norm)} keywords)")
+                                print(f"({i+1}/{len(urls_a_visitar_final)}) ✅ Coincide (100% grupos): {titulo_propiedad}")
                                 send_progress_update(current_search_item=f"({i+1}/{len(mapa_futuros)}) ✅ Coincide: {titulo_propiedad}")
                             else:
-                                print(f"({i+1}/{len(urls_a_visitar_final)}) ❌ No coincide: {titulo_propiedad} ({keywords_encontradas}/{len(keywords_norm)} keywords)")
+                                print(f"({i+1}/{len(urls_a_visitar_final)}) ❌ No coincide (grupos incompletos): {titulo_propiedad}")
                                 send_progress_update(current_search_item=f"({i+1}/{len(mapa_futuros)}) ❌ No coincide: {titulo_propiedad}")
                         else:
+                            # Sin keywords: mantener mensaje neutro
                             send_progress_update(current_search_item=f"Procesando publicación {i+1}/{len(urls_lista)}: {titulo_propiedad}")
+
                         if cumple:
-                            print(f"✅ [GUARDADO] {titulo_propiedad[:60]}...")
+                            # Guardar propiedad
                             try:
                                 datos_propiedad['operacion'] = filters.get('operacion', 'venta')
                                 datos_propiedad['departamento'] = filters.get('departamento', filters.get('ciudad', 'N/A'))
                                 if not datos_propiedad.get('tipo_inmueble') or datos_propiedad.get('tipo_inmueble') == 'N/A':
-                                   datos_propiedad['tipo_inmueble'] = filters.get('tipo', 'apartamento')
+                                    datos_propiedad['tipo_inmueble'] = filters.get('tipo', 'apartamento')
                                 if not datos_propiedad.get('titulo'):
                                     print(f"⚠️ [GUARDADO] Advertencia: título vacío para {url_original}")
                                     datos_propiedad['titulo'] = f"Propiedad en {datos_propiedad.get('departamento', 'N/A')}"
@@ -307,7 +309,10 @@ def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, work
                             except Exception as save_error:
                                 print(f"❌ [GUARDADO] Error guardando propiedad: {save_error}")
                                 print(f"❌ [GUARDADO] Datos originales: {datos_propiedad}")
-                                print(f"❌ [GUARDADO] Datos mapeados: {datos_mapeados}")
+                                try:
+                                    print(f"❌ [GUARDADO] Datos mapeados: {datos_mapeados}")
+                                except Exception:
+                                    pass
                     else:
                         print(f"⚠️ [SCRAPING] No se pudieron extraer datos de: {url_original}")
                         send_progress_update(current_search_item=f"Procesando publicación {i+1}/{len(urls_lista)}: Error al procesar")

@@ -20,7 +20,11 @@
       {% endfor %}
     </ul>
     {% if search.created_at or search.ultima_revision %}
-      <p class="mb-1"><strong>Última revisión:</strong> {{ search.ultima_revision|default:search.created_at }}</p>
+      {% with ult=search.ultima_revision|default:search.created_at %}
+        {% if ult %}
+          <p class="mb-1"><strong>Última revisión:</strong> {{ ult|slice:":10" }} {{ ult|slice:"11:16" }}</p>
+        {% endif %}
+      {% endwith %}
     {% endif %}
   </div>
   <div class="col-md-6">

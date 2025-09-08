@@ -7,7 +7,7 @@ from typing import List, Dict, Any
 from .browser import iniciar_driver, cargar_cookies
 from .progress import tomar_captura_debug, send_progress_update
 from .url_builder import build_mercadolibre_url
-from .utils import extraer_variantes_keywords
+from .utils import extraer_variantes_keywords, build_keyword_groups, stemming_basico
 from .constants import HEADERS
 
 
@@ -210,8 +210,10 @@ def scrape_mercadolibre(filters: Dict[str, Any], keywords: List[str], max_pages:
                 return False
         return False
 
-    from core.search_manager import procesar_keywords
+    from core.search_manager import procesar_keywords, normalizar_texto
     keywords_filtradas = procesar_keywords(' '.join(keywords))
+    # Construir grupos (OR interno) y lista plana solo para logs
+    keyword_groups = build_keyword_groups(keywords_filtradas)
     keywords_con_variantes = extraer_variantes_keywords(keywords_filtradas)
     base_url = build_mercadolibre_url(filters)
     print(f"[scraper] URL base de búsqueda: {base_url}")
@@ -338,17 +340,37 @@ def scrape_mercadolibre(filters: Dict[str, Any], keywords: List[str], max_pages:
                     return unicodedata.normalize('NFKD', str(texto)).encode('ASCII', 'ignore').decode('ASCII').lower()
 
                 texto_total_norm = normalizar(f"{titulo_text} {descripcion} {caracteristicas}")
-                keywords_norm = [normalizar(kw) for kw in keywords_con_variantes]
-                encontrados = [kw for kw in keywords_con_variantes if normalizar(kw) in texto_total_norm]
-                no_encontrados = [kw for kw in keywords_con_variantes if normalizar(kw) not in texto_total_norm]
-                if not keywords_norm:
+                # AND entre grupos; OR dentro de cada grupo
+                if not keyword_groups:
                     print("⚠️  No se especificaron palabras clave para filtrar.\n")
                     cumple = True
-                elif all(kw in texto_total_norm for kw in keywords_norm):
-                    print(f"✅ Cumple todos los requisitos. Palabras encontradas: {encontrados}\n")
-                    cumple = True
                 else:
-                    print(f"❌ No se encontraron todas las palabras clave. Encontradas: {encontrados} | Faltantes: {no_encontrados}\n")
+                    grupos_ok = []
+                    for grupo in keyword_groups:
+                        variantes_norm = [normalizar(v) for v in grupo]
+                        # OR: encontrada si alguna variante aparece (directa, stem o raíz aproximada)
+                        any_match = False
+                        for v in variantes_norm:
+                            if v in texto_total_norm:
+                                any_match = True
+                                break
+                            v_stem = stemming_basico(v)
+                            if v_stem and v_stem in texto_total_norm:
+                                any_match = True
+                                break
+                            if len(v) > 4 and v[:-2] in texto_total_norm:
+                                any_match = True
+                                break
+                        grupos_ok.append(any_match)
+                    if grupos_ok:
+                        cumple = all(grupos_ok)
+                        if cumple:
+                            print(f"✅ Cumple grupos de keywords (100% de grupos).\n")
+                        else:
+                            encontrados = sum(1 for x in grupos_ok if x)
+                            print(f"❌ No cumple grupos ({encontrados}/{len(grupos_ok)}).\n")
+                    else:
+                        cumple = True
             except Exception as e:
                 print(f"[scraper] Error al analizar publicación {pub['url']}: {e}")
             if cumple:

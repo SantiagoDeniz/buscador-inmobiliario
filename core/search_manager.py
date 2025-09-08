@@ -269,34 +269,48 @@ def buscar_coincidencias(busqueda_id: str, propiedades: List[Dict]) -> List[Dict
         return []
 
 def verificar_coincidencia(palabras_clave_rel, propiedad_data: Dict) -> Dict:
-    """Verifica si una propiedad coincide con las palabras clave de búsqueda"""
+    """Verifica coincidencia con lógica de grupos (OR dentro de sinónimos, AND entre palabras)."""
     texto_propiedad = f"{propiedad_data.get('titulo', '')} {propiedad_data.get('descripcion', '')}"
     texto_normalizado = normalizar_texto(texto_propiedad)
-    
+
     coincidencias_encontradas = []
     total_palabras = len(palabras_clave_rel)
-    
+
+    grupos_ok = []
     for rel in palabras_clave_rel:
         palabra_clave = rel.palabra_clave
-        todas_variantes = [palabra_clave.texto] + palabra_clave.sinonimos_list
-        
-        for variante in todas_variantes:
-            if variante.lower() in texto_normalizado:
-                coincidencias_encontradas.append({
-                    'palabra_original': palabra_clave.texto,
-                    'variante_encontrada': variante,
-                    'sinonimo': variante != palabra_clave.texto
-                })
+        variantes = [palabra_clave.texto] + (palabra_clave.sinonimos_list or [])
+        variantes_norm = [normalizar_texto(v) for v in variantes]
+        encontrada = None
+        for v, v_norm in zip(variantes, variantes_norm):
+            if v_norm in texto_normalizado:
+                encontrada = v
                 break
-    
-    porcentaje_coincidencia = (len(coincidencias_encontradas) / max(total_palabras, 1)) * 100
-    
+            if len(v_norm) > 4 and v_norm[:-2] in texto_normalizado:
+                encontrada = v
+                break
+        grupos_ok.append(bool(encontrada))
+        if encontrada:
+            coincidencias_encontradas.append({
+                'palabra_original': palabra_clave.texto,
+                'variante_encontrada': encontrada,
+                'sinonimo': encontrada != palabra_clave.texto
+            })
+
+    if total_palabras:
+        encontrados = sum(1 for x in grupos_ok if x)
+        coincide_flag = all(grupos_ok)
+        porcentaje = (encontrados / total_palabras) * 100
+    else:
+        coincide_flag = True
+        porcentaje = 100.0
+
     return {
-        'coincide': len(coincidencias_encontradas) > 0,
-        'porcentaje': porcentaje_coincidencia,
+        'coincide': coincide_flag,
+        'porcentaje': porcentaje,
         'palabras_encontradas': coincidencias_encontradas,
         'total_palabras': total_palabras,
-        'palabras_coincidentes': len(coincidencias_encontradas)
+        'palabras_coincidentes': sum(1 for x in grupos_ok if x)
     }
 
 def crear_o_actualizar_propiedad(prop_data: Dict) -> Propiedad:

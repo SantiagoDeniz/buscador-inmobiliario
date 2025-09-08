@@ -314,22 +314,32 @@ def http_search_fallback(request):
                 texto_propiedad = f"{prop.titulo or ''} {prop.descripcion or ''} {caracteristicas_txt}".lower()
                 texto_norm = normalizar(texto_propiedad)
                 # Keywords puede venir como lista de dicts; extraer 'texto' y 'sinonimos'
-                from core.scraper import extraer_variantes_keywords
-                keywords_con_variantes = extraer_variantes_keywords(keywords)
-                keywords_norm = [normalizar(kw) for kw in keywords_con_variantes]
+                from core.scraper import build_keyword_groups, stemming_basico
+                keyword_groups = build_keyword_groups(keywords)
 
-                # Usar lógica flexible como en el scraper
-                from core.scraper import stemming_basico
-                texto_stemmed = stemming_basico(texto_norm)
-                keywords_stemmed = [stemming_basico(kw) for kw in keywords_norm]
+                # AND entre grupos, OR dentro del grupo (igual que en scraper)
+                if keyword_groups:
+                    grupos_ok = []
+                    for grupo in keyword_groups:
+                        variantes_norm = [normalizar(v) for v in grupo]
+                        any_match = False
+                        for v in variantes_norm:
+                            if v in texto_norm:
+                                any_match = True
+                                break
+                            v_stem = stemming_basico(v)
+                            if v_stem and v_stem in texto_norm:
+                                any_match = True
+                                break
+                            if len(v) > 4 and v[:-2] in texto_norm:
+                                any_match = True
+                                break
+                        grupos_ok.append(any_match)
+                    coincide_kw = all(grupos_ok)
+                else:
+                    coincide_kw = True
 
-                coincidencias = 0
-                for kw_stemmed in keywords_stemmed:
-                    if kw_stemmed in texto_stemmed or any(kw_stemmed in word for word in texto_stemmed.split()):
-                        coincidencias += 1
-
-                # Si coincide al menos el 70% de las keywords
-                if len(keywords_stemmed) > 0 and coincidencias / len(keywords_stemmed) >= 0.7:
+                if coincide_kw:
                     resultados.append({
                         'title': prop.titulo or 'Sin título',
                         'url': prop.url or '#',

@@ -91,3 +91,5 @@ Objetivo: ayudarte a ser productivo de inmediato en este proyecto Django (scrapi
 - Ver capturas debug: `GET /debug_screenshots/` (lee `static/debug_screenshots/latest_screenshots.json`).
 
 ¿Algo poco claro o faltante? Indica qué flujo necesitas mejorar (scraper, DB, IA, export, websockets) y lo iteramos.
+
+Si tienes dudas sobre algo, antes de implementarlo haz las preguntas necesarias.

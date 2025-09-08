@@ -20,7 +20,7 @@ __all__ = [
 	# orchestration
 	'run_scraper',
 	# utils
-	'stemming_basico', 'extraer_variantes_keywords',
+	'stemming_basico', 'extraer_variantes_keywords', 'build_keyword_groups',
 ]
 
 # --- URL Builder ---
@@ -94,6 +94,10 @@ def extraer_variantes_keywords(*args, **kwargs):
 	from .utils import extraer_variantes_keywords as _impl
 	return _impl(*args, **kwargs)
 
+def build_keyword_groups(*args, **kwargs):
+	from .utils import build_keyword_groups as _impl
+	return _impl(*args, **kwargs)
+
 # Fallback para cualquier acceso no envuelto explícitamente
 def __getattr__(name):
 	try:
@@ -123,6 +127,7 @@ def __getattr__(name):
 			# utils
 			'stemming_basico': ('core.scraper.utils', 'stemming_basico'),
 			'extraer_variantes_keywords': ('core.scraper.utils', 'extraer_variantes_keywords'),
+			'build_keyword_groups': ('core.scraper.utils', 'build_keyword_groups'),
 		}
 		if name in mapping:
 			mod_name, attr = mapping[name]
