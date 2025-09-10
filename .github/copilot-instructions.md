@@ -51,8 +51,11 @@ Objetivo: ayudarte a ser productivo de inmediato en este proyecto Django (scrapi
 - ScrapingBee opcional: activa cuando `USE_THREADS=True` y `SCRAPINGBEE_API_KEY` esté presente.
 
 ## Datos y persistencia
-- Modelos clave: `Busqueda` (UUID, `filtros` JSON), `PalabraClave` (sinónimos como string JSON por compatibilidad), `Propiedad`, `ResultadoBusqueda` y auxiliares.
+- Modelos clave: `Busqueda` (UUID, `filtros` JSON, `guardado` Boolean), `PalabraClave` (sinónimos como string JSON por compatibilidad), `Propiedad`, `ResultadoBusqueda` y auxiliares.
+- **Sistema de guardado**: TODAS las búsquedas se almacenan en BD. Flag `guardado=True` para búsquedas visibles en lista ("Buscar y Guardar"), `guardado=False` para historial interno ("Buscar").
 - Gestor de búsquedas: `core/search_manager.py` implementa:
+  - `get_all_searches()` → solo búsquedas con `guardado=True` (interfaz); `get_all_search_history()` → todas las búsquedas (análisis).
+  - `delete_search()` → elimina búsqueda de la lista del usuario (implementación suave preservando datos); `restore_search_from_history()` → función administrativa para recuperar eliminadas.
   - `procesar_keywords(texto)` → normaliza y agrega sinónimos; usa en scraper y vistas.
   - `save_search/create_search/update_search` → compatibilidad con flujos previos y vistas/consumers.
   - `save_results/load_results` → puente entre scraping y BD.
@@ -87,6 +90,7 @@ Objetivo: ayudarte a ser productivo de inmediato en este proyecto Django (scrapi
 
 ## Ejemplos rápidos
 - Filtros típicos para `run_scraper`: `{ tipo:'apartamento', operacion:'alquiler', departamento:'Montevideo', ciudad:'Pocitos', moneda:'USD', precio_min:500, precio_max:1000 }`.
+- **Diferencia botones**: "Buscar" (`guardado=False`, no aparece en lista) vs "Buscar y Guardar" (`guardado=True`, visible en interfaz). Ambos se almacenan en BD.
 - Probar Redis/Channels: `GET /redis_diagnostic/`.
 - Ver capturas debug: `GET /debug_screenshots/` (lee `static/debug_screenshots/latest_screenshots.json`).
 

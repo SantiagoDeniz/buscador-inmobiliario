@@ -6,6 +6,10 @@
 
 El sistema Buscador Inmobiliario ha sido completamente migrado de un sistema basado en archivos JSON a una arquitectura de base de datos relacional moderna. Esta migración proporciona mayor escalabilidad, integridad de datos y capacidades de consulta avanzadas.
 
+**Sistema de Búsquedas Unificado**: Todas las búsquedas (tanto "Buscar" como "Buscar y Guardar") se almacenan en BD. El flag `guardado` determina visibilidad:
+- `guardado=True`: Visible en la interfaz de usuario
+- `guardado=False`: Solo para historial y análisis interno
+
 ---
 
 ## 🗃️ Arquitectura de Base de Datos
@@ -87,6 +91,32 @@ class Propiedad(models.Model):
 - **BusquedaPalabraClave**: Many-to-Many entre Búsquedas y Palabras Clave
 - **ResultadoBusqueda**: Relaciona Búsquedas con Propiedades encontradas
 
+### 🎯 Sistema de Guardado Unificado
+
+#### **Diferencias entre "Buscar" y "Buscar y Guardar"**
+
+| Acción | "Buscar" | "Buscar y Guardar" |
+|--------|----------|-------------------|
+| **Se almacena en BD** | ✅ Sí | ✅ Sí |
+| **Flag `guardado`** | `False` | `True` |
+| **Visible en interfaz** | ❌ No | ✅ Sí |
+| **Botón "Eliminar"** | ❌ N/A | ✅ Sí (elimina de la lista) |
+| **Propósito** | Análisis interno | Lista de búsquedas del usuario |
+| **Ejecuta scraping** | ✅ Sí | ✅ Sí |
+| **Notifica al cliente** | ❌ No | ✅ Sí |
+
+#### **Comportamiento del Botón "Eliminar"**
+- **Desde la perspectiva del usuario**: Elimina completamente la búsqueda
+- **Implementación técnica**: Eliminación suave que preserva datos para análisis
+- **Resultado visible**: La búsqueda desaparece permanentemente de la interfaz
+- **Beneficio del sistema**: Se mantiene trazabilidad y métricas sin afectar la experiencia
+
+#### **Ventajas del Sistema Unificado**
+- **Análisis completo**: Historial de todas las búsquedas realizadas
+- **Métricas precisas**: Patrones de uso y preferencias del usuario  
+- **Debugging**: Trazabilidad completa de operaciones
+- **Escalabilidad**: Base para funciones avanzadas (recomendaciones, ML)
+
 ---
 
 ## 🔧 Sistema de Gestión (search_manager.py)
@@ -95,10 +125,13 @@ class Propiedad(models.Model):
 
 #### **Gestión de Búsquedas**
 ```python
-def get_all_searches() -> List[Dict[str, Any]]
+def get_all_searches() -> List[Dict[str, Any]]  # Solo búsquedas guardadas (interfaz)
+def get_all_search_history() -> List[Dict[str, Any]]  # Todas las búsquedas (análisis)
 def get_search(search_id: str) -> Optional[Dict[str, Any]]
 def save_search(search_data: Dict[str, Any]) -> str
-def delete_search(search_id: str) -> bool
+def delete_search(search_id: str) -> bool  # Elimina búsqueda del usuario
+def restore_search_from_history(search_id: str) -> bool  # Función administrativa: recuperar eliminadas
+def delete_search_permanently(search_id: str) -> bool  # Eliminación física total (mantenimiento)
 ```
 
 #### **Procesamiento de Palabras Clave**
@@ -366,8 +399,8 @@ def save_search(search_data):
 stats = get_search_stats()
 # Retorna:
 {
-    'total_searches': 15,
-    'saved_searches': 12,
+    'total_searches': 25,           # TODAS las búsquedas (guardadas + historial)
+    'saved_searches': 12,           # Solo las visibles en interfaz (guardado=True)
     'total_keywords': 45,
     'total_properties': 120,
     'total_results': 89,

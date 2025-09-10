@@ -248,25 +248,29 @@ def http_search_fallback(request):
             print(f'🎚️ [HTTP FALLBACK] Filtros fusionados: {filtros_final}')
             print(f'🔍 [HTTP FALLBACK] Keywords de IA: {keywords}')
 
-            # Guardar búsqueda si fue solicitado
+            # Guardar TODAS las búsquedas (tanto "Buscar" como "Buscar y Guardar")
             saved_search_id = None
-            if should_save:
-                print(f'💾 [HTTP FALLBACK] Iniciando guardado de búsqueda: "{search_name}"')
-                try:
-                    from core.search_manager import create_search
-                    from datetime import datetime
-                    search_data = {
-                        'name': search_name or f'Búsqueda {datetime.now().strftime("%d/%m/%Y %H:%M")}',
-                        'keywords': keywords,
-                        'original_text': texto,
-                        'filters': filtros_final
-                    }
-                    created_search = create_search(search_data)
-                    saved_search_id = created_search.get('id')
-                    print(f'✅ [HTTP FALLBACK] Búsqueda guardada con ID: {saved_search_id}')
-                except Exception as save_error:
-                    print(f'❌ [HTTP FALLBACK] Error guardando búsqueda: {save_error}')
-                    # No retornar, continuar con el scraping
+            print(f'💾 [HTTP FALLBACK] Iniciando guardado de búsqueda (guardado={should_save}): "{search_name}"')
+            try:
+                from core.search_manager import save_search
+                from datetime import datetime
+                search_data = {
+                    'nombre_busqueda': search_name or f'Búsqueda {datetime.now().strftime("%d/%m/%Y %H:%M")}',
+                    'texto_original': texto,
+                    'palabras_clave': keywords,
+                    'filtros': filtros_final,
+                    'guardado': should_save  # TRUE para "Buscar y Guardar", FALSE para "Buscar"
+                }
+                saved_search_id = save_search(search_data)
+                
+                if should_save:
+                    print(f'✅ [HTTP FALLBACK] Búsqueda guardada con ID: {saved_search_id} (visible en lista)')
+                else:
+                    print(f'✅ [HTTP FALLBACK] Búsqueda registrada en historial con ID: {saved_search_id} (no visible en lista)')
+                    
+            except Exception as save_error:
+                print(f'❌ [HTTP FALLBACK] Error guardando búsqueda: {save_error}')
+                # No retornar, continuar con el scraping
 
         except Exception as e:
             print(f'🤖 [HTTP FALLBACK] Error procesando con IA: {e}')
@@ -275,25 +279,29 @@ def http_search_fallback(request):
             keywords = procesar_keywords(texto) if texto else []
             filtros_final = filtros_manual
 
-            # Guardar búsqueda si fue solicitado (aún con fallback básico)
+            # Guardar TODAS las búsquedas (aún con fallback básico)
             saved_search_id = None
-            if should_save:
-                print(f'💾 [HTTP FALLBACK] Iniciando guardado de búsqueda (modo fallback): "{search_name}"')
-                try:
-                    from core.search_manager import create_search
-                    from datetime import datetime
-                    search_data = {
-                        'name': search_name or f'Búsqueda {datetime.now().strftime("%d/%m/%Y %H:%M")}',
-                        'keywords': keywords,
-                        'original_text': texto,
-                        'filters': filtros_final
-                    }
-                    created_search = create_search(search_data)
-                    saved_search_id = created_search.get('id')
-                    print(f'✅ [HTTP FALLBACK] Búsqueda guardada con ID: {saved_search_id}')
-                except Exception as save_error:
-                    print(f'❌ [HTTP FALLBACK] Error guardando búsqueda: {save_error}')
-                    # No retornar, continuar con el scraping
+            print(f'💾 [HTTP FALLBACK] Iniciando guardado de búsqueda (modo fallback, guardado={should_save}): "{search_name}"')
+            try:
+                from core.search_manager import save_search
+                from datetime import datetime
+                search_data = {
+                    'nombre_busqueda': search_name or f'Búsqueda {datetime.now().strftime("%d/%m/%Y %H:%M")}',
+                    'texto_original': texto,
+                    'palabras_clave': keywords,
+                    'filtros': filtros_final,
+                    'guardado': should_save  # TRUE para "Buscar y Guardar", FALSE para "Buscar"
+                }
+                saved_search_id = save_search(search_data)
+                
+                if should_save:
+                    print(f'✅ [HTTP FALLBACK] Búsqueda guardada con ID: {saved_search_id} (visible en lista)')
+                else:
+                    print(f'✅ [HTTP FALLBACK] Búsqueda registrada en historial con ID: {saved_search_id} (no visible en lista)')
+                    
+            except Exception as save_error:
+                print(f'❌ [HTTP FALLBACK] Error guardando búsqueda: {save_error}')
+                # No retornar, continuar con el scraping
 
         # Ejecutar scraper con los filtros y keywords procesados
         from .scraper import run_scraper

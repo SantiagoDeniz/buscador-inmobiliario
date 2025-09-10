@@ -16,7 +16,7 @@ from .models import (
     PalabraClave, BusquedaPalabraClave, Propiedad, ResultadoBusqueda
 )
 from .search_manager import (
-    get_all_searches, get_search, save_search, delete_search,
+    get_all_searches, get_all_search_history, get_search, save_search, delete_search,
     procesar_keywords, get_or_create_palabra_clave, 
     buscar_coincidencias, create_search, update_search,
     load_results, save_results, get_search_stats
@@ -184,24 +184,72 @@ class TestSearchManagerDatabase(TestCase):
         self.assertEqual(result['id'], str(busqueda.id))
     
     def test_delete_search(self):
-        """Test eliminar búsqueda"""
+        """Test eliminar búsqueda del usuario (implementación con preservación de datos)"""
         busqueda = Busqueda.objects.create(
             nombre_busqueda="To Delete",
             texto_original="delete test",
+            guardado=True,  # Búsqueda visible del usuario
             usuario=self.usuario
         )
         
         search_id = str(busqueda.id)
         
-        # Verificar que existe
-        self.assertTrue(Busqueda.objects.filter(id=search_id).exists())
+        # Verificar que existe y está visible
+        self.assertTrue(Busqueda.objects.filter(id=search_id, guardado=True).exists())
         
-        # Eliminar
+        # Eliminar desde la perspectiva del usuario
         success = delete_search(search_id)
         self.assertTrue(success)
         
-        # Verificar que se eliminó
-        self.assertFalse(Busqueda.objects.filter(id=search_id).exists())
+        # Verificar que ya no es visible para el usuario (eliminación exitosa)
+        searches = get_all_searches()
+        search_ids = [s['id'] for s in searches]
+        self.assertNotIn(search_id, search_ids)
+        
+        # Verificación técnica: datos preservados para análisis (transparente al usuario)
+        busqueda_updated = Busqueda.objects.get(id=search_id)
+        self.assertFalse(busqueda_updated.guardado)  # Marcada como no visible
+        self.assertEqual(busqueda_updated.nombre_busqueda, "To Delete")  # Datos preservados
+        
+        # Los datos siguen disponibles para análisis del sistema
+        all_searches = get_all_search_history()
+        all_search_ids = [s['id'] for s in all_searches]
+        self.assertIn(search_id, all_search_ids)
+    
+    def test_restore_search_from_history(self):
+        """Test función administrativa: recuperar búsqueda eliminada por el usuario"""
+        from .search_manager import restore_search_from_history
+        
+        # Crear búsqueda previamente "eliminada" por el usuario
+        busqueda = Busqueda.objects.create(
+            nombre_busqueda="Previously Deleted",
+            texto_original="restore test",
+            guardado=False,  # Ya eliminada de la vista del usuario
+            usuario=self.usuario
+        )
+        
+        search_id = str(busqueda.id)
+        
+        # Verificar estado inicial: eliminada para el usuario pero en análisis del sistema
+        searches = get_all_searches()
+        search_ids = [s['id'] for s in searches]
+        self.assertNotIn(search_id, search_ids)
+        
+        all_searches = get_all_search_history()
+        all_search_ids = [s['id'] for s in all_searches]
+        self.assertIn(search_id, all_search_ids)
+        
+        # Función administrativa: recuperar búsqueda eliminada
+        success = restore_search_from_history(search_id)
+        self.assertTrue(success)
+        
+        # Verificar que vuelve a ser visible para el usuario
+        busqueda_updated = Busqueda.objects.get(id=search_id)
+        self.assertTrue(busqueda_updated.guardado)
+        
+        searches_after = get_all_searches()
+        search_ids_after = [s['id'] for s in searches_after]
+        self.assertIn(search_id, search_ids_after)
     
     def test_procesar_keywords(self):
         """Test procesamiento de palabras clave"""

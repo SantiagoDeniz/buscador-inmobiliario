@@ -31,7 +31,9 @@ Completados:
 🔄 SIGUIENTES PRIORIDADES:
 
   Funcionalidades a agregar / reparar / revisar:
-    -  [Revisar] Búsquedas con keywords y sinónimos (1 h)
+    - [Revisar] eliminado de búsquedas desde interfaz
+    - Las propiedades que encuentran (por ahora solo guarda coincidentes. Debería guardar las no coincidentes con 'coincide' valor False)
+    - [Revisar] Búsquedas con keywords y sinónimos (1 h)
     - Se sigue mostrando los resultados encontrados de forma distinta a las búsquedas guardadas. (3 hs)
   Otras acciones:
     - Agregar búsqueda de InfoCasas (3 hs)

@@ -155,31 +155,41 @@ class SearchProgressConsumer(WebsocketConsumer):
                 print(f'🔨 [DEPURACIÓN] JSON final para búsqueda: \n{resultado_busqueda}\n')
                 self.send(text_data=json.dumps({'message': 'Búsqueda iniciada', 'data': resultado_busqueda}))
 
-                # Guardar búsqueda si fue solicitado
+                # Guardar TODAS las búsquedas (tanto "Buscar" como "Buscar y Guardar")
                 saved_search_id = None
                 saved_search_name = None
+                
+                print(f'💾 [GUARDADO] Iniciando guardado de búsqueda (guardado={should_save}): "{search_name}"')
                 if should_save:
-                    print(f'💾 [GUARDADO] Iniciando guardado de búsqueda: "{search_name}"')
                     self.send(text_data=json.dumps({'message': 'Guardando búsqueda...'}))
-                    try:
-                        from core.search_manager import create_search
-                        search_data = {
-                            'name': search_name or f'Búsqueda {datetime.now().strftime("%d/%m/%Y %H:%M")}',
-                            'keywords': ia_result.get('keywords', []),
-                            'original_text': query_text,
-                            'filters': filtros_final
-                        }
-                        created_search = create_search(search_data)
-                        saved_search_id = created_search.get('id')
-                        saved_search_name = created_search.get('name') or search_data['name']
-                        print(f'✅ [GUARDADO] Búsqueda guardada con ID: {saved_search_id} (nombre: "{saved_search_name}")')
+                else:
+                    self.send(text_data=json.dumps({'message': 'Registrando búsqueda en historial...'}))
+                
+                try:
+                    from core.search_manager import save_search
+                    search_data = {
+                        'nombre_busqueda': search_name or f'Búsqueda {datetime.now().strftime("%d/%m/%Y %H:%M")}',
+                        'texto_original': query_text,
+                        'palabras_clave': ia_result.get('keywords', []),
+                        'filtros': filtros_final,
+                        'guardado': should_save  # TRUE para "Buscar y Guardar", FALSE para "Buscar"
+                    }
+                    saved_search_id = save_search(search_data)
+                    saved_search_name = search_data['nombre_busqueda']
+                    
+                    if should_save:
+                        print(f'✅ [GUARDADO] Búsqueda guardada con ID: {saved_search_id} (visible en lista)')
                         # No enviar al cliente la búsqueda todavía: esperaremos hasta que termine el scraper
                         # para poder mostrar resultados y el título definitivo. Solo avisamos que quedó programada.
                         self.send(text_data=json.dumps({'message': f'Búsqueda guardada (id: {saved_search_id}), se agregará cuando finalice el proceso.'}))
-                    except Exception as save_error:
-                        print(f'❌ [GUARDADO] Error guardando búsqueda: {save_error}')
-                        self.send(text_data=json.dumps({'message': f'Error guardando búsqueda: {str(save_error)}'}))
-                        # No retornar, continuar con el scraping
+                    else:
+                        print(f'✅ [HISTORIAL] Búsqueda registrada en historial con ID: {saved_search_id} (no visible en lista)')
+                        self.send(text_data=json.dumps({'message': f'Búsqueda registrada en historial (id: {saved_search_id})'}))
+                        
+                except Exception as save_error:
+                    print(f'❌ [GUARDADO] Error guardando búsqueda: {save_error}')
+                    self.send(text_data=json.dumps({'message': f'Error guardando búsqueda: {str(save_error)}'}))
+                    # No retornar, continuar con el scraping
             except Exception as e:
                 print(f'🛑 [DEPURACIÓN] Error construyendo JSON final: {e}')
                 self.send(text_data=json.dumps({'message': 'Error construyendo JSON final', 'error': str(e)}))
@@ -207,6 +217,7 @@ class SearchProgressConsumer(WebsocketConsumer):
                 # Ejecutar en un hilo para que el consumer quede libre y procese eventos WebSocket en tiempo real
                 import threading
                 current_search_id = self.search_id
+                current_should_save = should_save  # Capturar para usar en el hilo
 
                 def _background_task():
                     try:
@@ -221,7 +232,7 @@ class SearchProgressConsumer(WebsocketConsumer):
                         )
                         print('\n✅ [DEPURACIÓN] run_scraper completado (hilo)\n')
                         
-                        # Actualizar búsqueda guardada con resultados si existe
+                        # Actualizar búsqueda con resultados si existe
                         if saved_search_id:
                             print(f'🔄 [ACTUALIZANDO] Actualizando búsqueda {saved_search_id} con resultados...')
                             try:
@@ -295,7 +306,13 @@ class SearchProgressConsumer(WebsocketConsumer):
                                         }
                                     except Exception:
                                         update_payload = {'id': saved_search_id}
-                                    self.send(text_data=json.dumps({'message': {'saved_search_updated': update_payload}}))
+                                    
+                                    # Solo notificar al cliente si la búsqueda debe aparecer en la lista (guardado=True)
+                                    if current_should_save:
+                                        self.send(text_data=json.dumps({'message': {'saved_search_updated': update_payload}}))
+                                        print(f'📡 [NOTIFICACIÓN] Búsqueda guardada notificada al cliente: {saved_search_id}')
+                                    else:
+                                        print(f'📝 [SISTEMA] Búsqueda de análisis actualizada: {saved_search_id}')
                                 else:
                                     print(f'❌ [ACTUALIZANDO] No se pudo actualizar la búsqueda {saved_search_id}')
                                     

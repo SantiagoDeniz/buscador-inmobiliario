@@ -25,9 +25,10 @@ from .models import (
 # ================================
 
 def get_all_searches() -> List[Dict[str, Any]]:
-    """Obtiene todas las búsquedas del usuario actual"""
+    """Obtiene todas las búsquedas GUARDADAS del usuario actual (solo guardado=True para la interfaz)"""
     searches = []
-    for busqueda in Busqueda.objects.select_related('usuario').all():
+    # Filtrar solo las búsquedas que deben aparecer en la interfaz
+    for busqueda in Busqueda.objects.select_related('usuario').filter(guardado=True):
         search_dict = {
             'id': str(busqueda.id),
             'nombre_busqueda': busqueda.nombre_busqueda,
@@ -36,6 +37,30 @@ def get_all_searches() -> List[Dict[str, Any]]:
             'filtros': busqueda.filtros,
             # Alias de compatibilidad para tests/consumidores antiguos
             'filters': busqueda.filtros,
+            'usuario': busqueda.usuario.nombre if busqueda.usuario else None,
+            'created_at': busqueda.created_at.isoformat(),
+            'palabras_clave': [
+                {
+                    'texto': rel.palabra_clave.texto,
+                    'idioma': rel.palabra_clave.idioma,
+                    'sinonimos': rel.palabra_clave.sinonimos_list
+                }
+                for rel in busqueda.busquedapalabraclave_set.select_related('palabra_clave').all()
+            ]
+        }
+        searches.append(search_dict)
+    return searches
+
+def get_all_search_history() -> List[Dict[str, Any]]:
+    """Obtiene TODAS las búsquedas (guardadas y no guardadas) para análisis/debugging"""
+    searches = []
+    for busqueda in Busqueda.objects.select_related('usuario').all():
+        search_dict = {
+            'id': str(busqueda.id),
+            'nombre_busqueda': busqueda.nombre_busqueda,
+            'texto_original': busqueda.texto_original,
+            'guardado': busqueda.guardado,
+            'filtros': busqueda.filtros,
             'usuario': busqueda.usuario.nombre if busqueda.usuario else None,
             'created_at': busqueda.created_at.isoformat(),
             'palabras_clave': [
@@ -119,12 +144,41 @@ def save_search(search_data: Dict[str, Any]) -> str:
     return search_id
 
 def delete_search(search_id: str) -> bool:
-    """Elimina una búsqueda por ID"""
+    """Elimina una búsqueda de la lista del usuario
+    Nota técnica: Implementa eliminación suave (guardado=False) preservando datos para análisis"""
+    try:
+        busqueda = Busqueda.objects.get(id=search_id, guardado=True)
+        busqueda.guardado = False
+        busqueda.save()
+        print(f"[BÚSQUEDA] Búsqueda {search_id} eliminada de la lista del usuario")
+        return True
+    except Busqueda.DoesNotExist:
+        print(f"[BÚSQUEDA] No se encontró búsqueda con ID {search_id}")
+        return False
+
+def delete_search_permanently(search_id: str) -> bool:
+    """Elimina una búsqueda físicamente de la base de datos (solo para mantenimiento)
+    ⚠️ CUIDADO: Esta operación es irreversible y elimina todos los datos relacionados"""
     try:
         busqueda = Busqueda.objects.get(id=search_id)
         busqueda.delete()
+        print(f"[MANTENIMIENTO] Búsqueda {search_id} eliminada permanentemente")
         return True
     except Busqueda.DoesNotExist:
+        print(f"[MANTENIMIENTO] No se encontró búsqueda con ID {search_id}")
+        return False
+
+def restore_search_from_history(search_id: str) -> bool:
+    """Función administrativa: Recupera una búsqueda previamente eliminada por el usuario
+    Nota técnica: Cambia guardado=False a guardado=True para mostrarla nuevamente en la interfaz"""
+    try:
+        busqueda = Busqueda.objects.get(id=search_id, guardado=False)
+        busqueda.guardado = True
+        busqueda.save()
+        print(f"[ADMINISTRACIÓN] Búsqueda {search_id} recuperada y mostrada en la interfaz del usuario")
+        return True
+    except Busqueda.DoesNotExist:
+        print(f"[ADMINISTRACIÓN] No se encontró búsqueda eliminada con ID {search_id}")
         return False
 
 # ================================
