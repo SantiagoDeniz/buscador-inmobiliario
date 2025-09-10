@@ -10,6 +10,74 @@ from .progress import send_progress_update
 from .utils import stemming_basico, extraer_variantes_keywords, build_keyword_groups
 
 
+def buscar_en_contenido_almacenado(prop, keyword_groups, keywords_ya_cubiertas=None):
+    """
+    Busca keywords en el contenido almacenado de una propiedad.
+    Si keywords_ya_cubiertas se proporciona, solo busca las faltantes.
+    """
+    # Construir texto completo de la propiedad desde los datos almacenados
+    titulo = prop.titulo or ''
+    descripcion = prop.descripcion or ''
+    caracteristicas = ''
+    
+    # Extraer características del metadata si existe
+    if prop.metadata and isinstance(prop.metadata, dict):
+        caracteristicas = prop.metadata.get('caracteristicas', '')
+    
+    texto_total = f"{titulo.lower()} {descripcion.lower()} {caracteristicas.lower()}"
+    
+    # Verificar coincidencia con keyword_groups
+    if not keyword_groups:
+        return True
+    
+    def normalizar(texto):
+        return unicodedata.normalize('NFKD', str(texto)).encode('ASCII', 'ignore').decode('ASCII').lower()
+    
+    texto_total_norm = normalizar(texto_total)
+    grupos_ok = []
+    
+    for grupo in keyword_groups:
+        # Si ya tenemos keywords cubiertas, verificar si este grupo ya está cubierto
+        if keywords_ya_cubiertas:
+            grupo_ya_cubierto = False
+            for keyword in grupo:
+                from core.search_manager import normalizar_texto
+                keyword_norm = normalizar_texto(str(keyword))
+                if keyword_norm in keywords_ya_cubiertas:
+                    grupo_ya_cubierto = True
+                    break
+            if grupo_ya_cubierto:
+                grupos_ok.append(True)
+                continue
+        
+        # Buscar en contenido almacenado
+        variantes_norm = [normalizar(v) for v in grupo]
+        any_match = False
+        for v in variantes_norm:
+            if v in texto_total_norm:
+                any_match = True
+                break
+            # Busqueda con stemming
+            v_stem = stemming_basico(v)
+            if v_stem and v_stem in texto_total_norm:
+                any_match = True
+                break
+            # Busqueda parcial para palabras largas
+            if len(v) > 4 and v[:-2] in texto_total_norm:
+                any_match = True
+                break
+        grupos_ok.append(any_match)
+    
+    cumple = all(grupos_ok) if grupos_ok else True
+    
+    if cumple:
+        print(f"✅ [CONTENIDO] Coincide en contenido almacenado: {prop.titulo}")
+    else:
+        print(f"❌ [CONTENIDO] No coincide en contenido almacenado: {prop.titulo}")
+    
+    return cumple
+
+
 def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, workers_fase1: int = 1, workers_fase2: int = 1):
     print(f"🚀 [SCRAPER] Iniciando búsqueda - Filtros: {len(filters)} | Keywords: {len(keywords) if keywords else 0}")
     matched_publications_titles: List[dict] = []
@@ -109,14 +177,14 @@ def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, work
         # Inicialmente, visitaremos las URLs que no están en la BD
         urls_a_visitar_final = set(urls_recolectadas_bruto) - set(urls_existentes)
 
-        # Si hay URLs existentes y keywords (con variantes), usar las relaciones en BD
+        # Si hay URLs existentes y keywords (con variantes), analizar coincidencias
         if urls_existentes and keywords_con_variantes:
             # Cargar propiedades existentes
             existing_properties_qs = Propiedad.objects.filter(url__in=urls_existentes)
+            print(f"🔍 [ANALISIS BD] Analizando {existing_properties_qs.count()} propiedades existentes para keywords: {keywords_con_variantes}")
 
             # Normalizar variantes y buscar PalabraClave que coincidan (texto o sinónimos)
             from core.search_manager import normalizar_texto
-
             variantes_norm = [normalizar_texto(str(v)) for v in keywords_con_variantes]
 
             # Recolectar PalabraClave que tengan texto o algún sinónimo en las variantes
@@ -138,44 +206,86 @@ def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, work
             else:
                 busqueda_ids = []
 
-            # Si no hay búsquedas relacionadas, trataremos las URLs existentes como no coincidentes (se scrapearán)
-            if not busqueda_ids:
-                # Añadir todas las existentes a la cola de scrapping
-                urls_a_visitar_final.update(urls_existentes)
-            else:
-                # Buscar resultados existentes que vinculen esas búsquedas con las propiedades
-                resultados_qs = ResultadoBusqueda.objects.filter(busqueda_id__in=busqueda_ids, propiedad__in=existing_properties_qs).select_related('propiedad', 'busqueda')
-
-                # Propiedades que ya están registradas como resultado de alguna búsqueda relacionada
-                propiedades_con_resultado = {r.propiedad_id: r for r in resultados_qs}
-
-                for prop in existing_properties_qs:
-                    if prop.id in propiedades_con_resultado:
-                        # Marcar como coincidencia y añadir a la lista de existentes
-                        resultado = propiedades_con_resultado[prop.id]
-                        try:
-                            # Asegurar que el campo coincide esté en True
-                            if not resultado.coincide:
-                                ResultadoBusqueda.objects.filter(id=resultado.id).update(coincide=True)
-                        except Exception:
-                            pass
-                        existing_publications_titles.append({
-                            'title': prop.titulo or 'Sin título',
-                            'url': prop.url
-                        })
+            # Analizar cada propiedad individualmente
+            for prop in existing_properties_qs:
+                coincide_propiedad = False
+                
+                if busqueda_ids:
+                    # Verificar si esta propiedad tiene resultados relacionados con las búsquedas de keywords coincidentes
+                    resultados_relacionados = ResultadoBusqueda.objects.filter(
+                        busqueda_id__in=busqueda_ids, 
+                        propiedad=prop
+                    ).select_related('busqueda')
+                    
+                    if resultados_relacionados.exists():
+                        # Verificar si todas las unidades de keywords están cubiertas por las búsquedas relacionadas
+                        keywords_cubiertas = set()
+                        for resultado in resultados_relacionados:
+                            # Obtener keywords de la búsqueda relacionada
+                            busqueda_keywords = BusquedaPalabraClave.objects.filter(
+                                busqueda=resultado.busqueda
+                            ).select_related('palabra_clave')
+                            
+                            for bpk in busqueda_keywords:
+                                pk = bpk.palabra_clave
+                                # Verificar si esta palabra clave coincide con nuestras keywords actuales
+                                texto_norm = normalizar_texto(pk.texto)
+                                if texto_norm in variantes_norm:
+                                    keywords_cubiertas.add(texto_norm)
+                                for s in pk.sinonimos_list:
+                                    if normalizar_texto(str(s)) in variantes_norm:
+                                        keywords_cubiertas.add(normalizar_texto(str(s)))
+                        
+                        # Verificar si todas las keyword_groups están cubiertas
+                        grupos_cubiertos = 0
+                        if keyword_groups:
+                            for grupo in keyword_groups:
+                                grupo_cubierto = False
+                                for keyword in grupo:
+                                    keyword_norm = normalizar_texto(str(keyword))
+                                    if keyword_norm in keywords_cubiertas:
+                                        grupo_cubierto = True
+                                        break
+                                if grupo_cubierto:
+                                    grupos_cubiertos += 1
+                        
+                        # Si todas las unidades están cubiertas, coincide
+                        if grupos_cubiertos == len(keyword_groups):
+                            coincide_propiedad = True
+                            print(f"✅ [BD RELACION] Coincide por búsquedas relacionadas: {prop.titulo}")
+                        else:
+                            # Hay coincidencia parcial, buscar keywords faltantes en contenido almacenado
+                            print(f"🔍 [PARCIAL] Coincidencia parcial ({grupos_cubiertos}/{len(keyword_groups)}) para: {prop.titulo}")
+                            coincide_contenido = buscar_en_contenido_almacenado(prop, keyword_groups, keywords_cubiertas)
+                            coincide_propiedad = coincide_contenido
                     else:
-                        # No hay relación en BD entre las keywords/búsquedas y esta propiedad.
-                        # Debe ser scrapeada para verificar contenido actual.
-                        urls_a_visitar_final.add(prop.url)
+                        # No hay relación en BD, buscar en contenido almacenado
+                        print(f"🔍 [SIN RELACION] Sin relación en BD para: {prop.titulo}")
+                        coincide_propiedad = buscar_en_contenido_almacenado(prop, keyword_groups)
+                else:
+                    # No hay búsquedas relacionadas a las keywords, buscar en contenido almacenado
+                    print(f"🔍 [SIN BUSQUEDAS] Sin búsquedas relacionadas para: {prop.titulo}")
+                    coincide_propiedad = buscar_en_contenido_almacenado(prop, keyword_groups)
+                
+                # Agregar resultado según coincidencia
+                if coincide_propiedad:
+                    existing_publications_titles.append({
+                        'title': prop.titulo or 'Sin título',
+                        'url': prop.url
+                    })
+                
+                # Nota: No agregamos a urls_a_visitar_final porque nunca re-scrapeamos URLs existentes
+
+        # URLs que no están en la BD son candidatas para scraping (mantener solo URLs nuevas)
+        urls_a_visitar_final = set(urls_recolectadas_bruto) - set(urls_existentes)
 
         # NOTE: no se contempla el caso "urls_existentes y NO keywords_con_variantes" según la especificación
 
         # Logs internos y mensaje de estado simplificado para el usuario
-        # print(f"🗃️  [DEDUP] {cant_propiedades_omitidas} URLs existentes en la base de datos")
-        print(f"🆕  [DEDUP] A procesar (posibles nuevas): {len(urls_a_visitar_final)}")
-        print(f"🗃️  [DEDUP] Coincidentes existentes tras keywords: {len(existing_publications_titles)}")
-        # Para el usuario, solo informar cuántas existentes hay (sin mostrarlas como 'encontradas anteriormente')
-        send_progress_update(current_search_item=f"🗃️ {cant_propiedades_omitidas} URLs existentes en la base de datos")
+        print(f"🆕  [DEDUP] URLs nuevas a procesar: {len(urls_a_visitar_final)}")
+        print(f"🗃️  [DEDUP] Coincidentes existentes tras análisis: {len(existing_publications_titles)}")
+        # Para el usuario, solo informar cuántas existentes hay
+        send_progress_update(current_search_item=f"🗃️ {cant_propiedades_omitidas} URLs existentes analizadas en la base de datos")
     else:
         print("❌ [RECOLECCIÓN] No se obtuvieron URLs")
         send_progress_update(current_search_item="No se encontraron URLs para procesar.")
@@ -249,11 +359,11 @@ def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, work
                                 grupos_ok.append(any_match)
                             cumple = all(grupos_ok) if grupos_ok else True
                             if cumple:
-                                print(f"({i+1}/{len(urls_a_visitar_final)}) ✅ Coincide (100% grupos): {titulo_propiedad}")
+                                # print(f"({i+1}/{len(urls_a_visitar_final)}) ✅ Coincide (100% grupos): {titulo_propiedad}")
                                 send_progress_update(current_search_item=f"({i+1}/{len(mapa_futuros)}) ✅ Coincide: {titulo_propiedad}")
                             else:
-                                print(f"({i+1}/{len(urls_a_visitar_final)}) ❌ No coincide (grupos incompletos): {titulo_propiedad}")
-                                send_progress_update(current_search_item=f"({i+1}/{len(mapa_futuros)}) ❌ No coincide: {titulo_propiedad}")
+                                # print(f"({i+1}/{len(urls_a_visitar_final)}) ❌ No coincide (grupos incompletos): {titulo_propiedad}")
+                                send_progress_update(current_search_item=f"({i+1}/{len(mapa_futuros)}) ❌ No coincide: {titulo_propiedad} \npara: {keyword_groups}\n\n")
                         else:
                             # Sin keywords: mantener mensaje neutro
                             send_progress_update(current_search_item=f"Procesando publicación {i+1}/{len(urls_lista)}: {titulo_propiedad}")
