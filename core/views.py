@@ -548,35 +548,3 @@ def debug_screenshots(request):
         
     except Exception as e:
         return JsonResponse({'error': str(e)})
-
-
-@require_POST
-def nueva(request):
-    """Crea una nueva búsqueda desde el formulario simple y redirige a home (302)."""
-    try:
-        data = request.POST
-        filtros = {
-            'departamento': data.get('departamento', '').strip(),
-            'ciudad': data.get('ciudad', '').strip(),
-            'operacion': data.get('operacion', '').strip(),
-            'tipo': data.get('tipo', '').strip(),
-        }
-        # keywords puede venir como 'a,b,c'
-        raw_keywords = data.get('keywords', '') or ''
-        keywords = [k.strip() for k in raw_keywords.split(',') if k.strip()]
-
-        search_data = {
-            'name': data.get('name', 'Búsqueda rápida'),
-            'original_text': data.get('original_text', ''),
-            'filters': filtros,
-            'keywords': keywords,
-        }
-        from .search_manager import create_search
-        create_search(search_data)
-        return redirect('core:home')
-    except Exception as e:
-        # Mantener compatibilidad del test: ante error devolver 302 a home para no romper flujo
-        try:
-            return redirect('core:home')
-        except Exception:
-            return JsonResponse({'error': str(e)}, status=500)

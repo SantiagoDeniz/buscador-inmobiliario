@@ -6,7 +6,6 @@ from . import views
 app_name = 'core'
 urlpatterns = [
     path('', views.home, name='home'),
-    path('nueva/', views.nueva, name='nueva'),
     path('busqueda/<str:search_id>/', views.search_detail, name='search_detail'),
     path('eliminar/<str:search_id>/', views.delete_search, name='delete_search'),
     path('ajax/busqueda/<str:search_id>/', views.search_detail_ajax, name='search_detail_ajax'),

@@ -8,16 +8,20 @@ class FiltrosBusquedaTest(TestCase):
 
 	def test_formulario_filtros(self):
 		# Simulación: Montevideo, ciudad Pocitos, Venta, Apartamento
-		data = {
+		search_data = {
 			'name': 'Test Montevideo',
-			'departamento': 'Montevideo',
-			'ciudad': 'Pocitos',
-			'operacion': 'Venta',
-			'tipo': 'Apartamento',
-			'keywords': 'terraza,garaje',
+			'filters': {
+				'departamento': 'Montevideo',
+				'ciudad': 'Pocitos',
+				'operacion': 'Venta',
+				'tipo': 'Apartamento',
+			},
+			'keywords': ['terraza', 'garaje'],
+			'original_text': '',
 		}
-		response = self.client.post('/nueva/', data)
-		self.assertEqual(response.status_code, 302)
+		created_search = create_search(search_data)
+		self.assertIsNotNone(created_search.get('id'))
+		
 		busquedas = get_all_searches()
 		self.assertTrue(any(b['filters']['departamento'] == 'Montevideo' and b['filters']['ciudad'] == 'Pocitos' for b in busquedas))
 
