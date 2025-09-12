@@ -3,6 +3,11 @@ import os
 import unicodedata
 from typing import Dict, Any, List
 from core.models import Propiedad, Plataforma, PalabraClave, BusquedaPalabraClave, ResultadoBusqueda, Busqueda
+from core.search_manager import (
+    normalizar_texto, procesar_keywords, get_or_create_palabra_clave, 
+    procesar_propiedad_existente, verificar_coincidencias_keywords, 
+    procesar_propiedad_nueva
+)
 from .url_builder import build_mercadolibre_url
 from .mercadolibre import extraer_total_resultados_mercadolibre
 from .extractors import scrape_detalle_con_requests, recolectar_urls_de_pagina
@@ -41,7 +46,6 @@ def buscar_en_contenido_almacenado(prop, keyword_groups, keywords_ya_cubiertas=N
         if keywords_ya_cubiertas:
             grupo_ya_cubierto = False
             for keyword in grupo:
-                from core.search_manager import normalizar_texto
                 keyword_norm = normalizar_texto(str(keyword))
                 if keyword_norm in keywords_ya_cubiertas:
                     grupo_ya_cubierto = True
@@ -82,7 +86,6 @@ def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, work
     print(f"🚀 [SCRAPER] Iniciando búsqueda - Filtros: {len(filters)} | Keywords: {len(keywords) if keywords else 0}")
     matched_publications_titles: List[dict] = []
 
-    from core.search_manager import procesar_keywords
     keywords_filtradas = procesar_keywords(' '.join(keywords)) if keywords else []
     keyword_groups = build_keyword_groups(keywords_filtradas)
     keywords_con_variantes = extraer_variantes_keywords(keywords_filtradas)
@@ -177,104 +180,48 @@ def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, work
         # Inicialmente, visitaremos las URLs que no están en la BD
         urls_a_visitar_final = set(urls_recolectadas_bruto) - set(urls_existentes)
 
-        # Si hay URLs existentes y keywords (con variantes), analizar coincidencias
+        # Si hay URLs existentes y keywords, usar el nuevo sistema de verificación
         if urls_existentes and keywords_con_variantes:
+            print(f"🔍 [NUEVO SISTEMA] Procesando {len(urls_existentes)} propiedades existentes con nuevo sistema keywords")
+            
+            # Procesar keywords de la búsqueda actual
+            keywords_procesadas = procesar_keywords(' '.join(keywords_con_variantes))
+            palabras_clave_busqueda = []
+            
+            for keyword_data in keywords_procesadas:
+                palabra_clave = get_or_create_palabra_clave(keyword_data['texto'])
+                palabras_clave_busqueda.append(palabra_clave)
+            
             # Cargar propiedades existentes
             existing_properties_qs = Propiedad.objects.filter(url__in=urls_existentes)
-            print(f"🔍 [ANALISIS BD] Analizando {existing_properties_qs.count()} propiedades existentes para keywords: {keywords_con_variantes}")
-
-            # Normalizar variantes y buscar PalabraClave que coincidan (texto o sinónimos)
-            from core.search_manager import normalizar_texto
-            variantes_norm = [normalizar_texto(str(v)) for v in keywords_con_variantes]
-
-            # Recolectar PalabraClave que tengan texto o algún sinónimo en las variantes
-            matching_palabras = []
-            for pk in PalabraClave.objects.all():
-                texto_norm = normalizar_texto(pk.texto)
-                if texto_norm in variantes_norm:
-                    matching_palabras.append(pk)
-                    continue
-                for s in pk.sinonimos_list:
-                    if normalizar_texto(str(s)) in variantes_norm:
-                        matching_palabras.append(pk)
-                        break
-
-            if matching_palabras:
-                palabra_ids = [p.id for p in matching_palabras]
-                # Buscar búsquedas relacionadas a esas palabras clave
-                busqueda_ids = list(BusquedaPalabraClave.objects.filter(palabra_clave_id__in=palabra_ids).values_list('busqueda_id', flat=True))
-            else:
-                busqueda_ids = []
-
-            # Analizar cada propiedad individualmente
+            
+            # Procesar cada propiedad existente
             for prop in existing_properties_qs:
-                coincide_propiedad = False
-                
-                if busqueda_ids:
-                    # Verificar si esta propiedad tiene resultados relacionados con las búsquedas de keywords coincidentes
-                    resultados_relacionados = ResultadoBusqueda.objects.filter(
-                        busqueda_id__in=busqueda_ids, 
-                        propiedad=prop
-                    ).select_related('busqueda')
+                try:
+                    # Usar el nuevo sistema para verificar keywords
+                    resultados_keywords = procesar_propiedad_existente(prop, palabras_clave_busqueda)
                     
-                    if resultados_relacionados.exists():
-                        # Verificar si todas las unidades de keywords están cubiertas por las búsquedas relacionadas
-                        keywords_cubiertas = set()
-                        for resultado in resultados_relacionados:
-                            # Obtener keywords de la búsqueda relacionada
-                            busqueda_keywords = BusquedaPalabraClave.objects.filter(
-                                busqueda=resultado.busqueda
-                            ).select_related('palabra_clave')
-                            
-                            for bpk in busqueda_keywords:
-                                pk = bpk.palabra_clave
-                                # Verificar si esta palabra clave coincide con nuestras keywords actuales
-                                texto_norm = normalizar_texto(pk.texto)
-                                if texto_norm in variantes_norm:
-                                    keywords_cubiertas.add(texto_norm)
-                                for s in pk.sinonimos_list:
-                                    if normalizar_texto(str(s)) in variantes_norm:
-                                        keywords_cubiertas.add(normalizar_texto(str(s)))
-                        
-                        # Verificar si todas las keyword_groups están cubiertas
-                        grupos_cubiertos = 0
-                        if keyword_groups:
-                            for grupo in keyword_groups:
-                                grupo_cubierto = False
-                                for keyword in grupo:
-                                    keyword_norm = normalizar_texto(str(keyword))
-                                    if keyword_norm in keywords_cubiertas:
-                                        grupo_cubierto = True
-                                        break
-                                if grupo_cubierto:
-                                    grupos_cubiertos += 1
-                        
-                        # Si todas las unidades están cubiertas, coincide
-                        if grupos_cubiertos == len(keyword_groups):
-                            coincide_propiedad = True
-                            print(f"✅ [BD RELACION] Coincide por búsquedas relacionadas: {prop.titulo}")
-                        else:
-                            # Hay coincidencia parcial, buscar keywords faltantes en contenido almacenado
-                            print(f"🔍 [PARCIAL] Coincidencia parcial ({grupos_cubiertos}/{len(keyword_groups)}) para: {prop.titulo}")
-                            coincide_contenido = buscar_en_contenido_almacenado(prop, keyword_groups, keywords_cubiertas)
-                            coincide_propiedad = coincide_contenido
+                    # Verificar si todas las keywords coinciden
+                    todas_encontradas = all(resultados_keywords.values())
+                    
+                    if todas_encontradas:
+                        existing_publications_titles.append({
+                            'title': prop.titulo or 'Sin título',
+                            'url': prop.url
+                        })
+                        print(f"✅ [NUEVO SISTEMA] Coincide: {prop.titulo or prop.url}")
                     else:
-                        # No hay relación en BD, buscar en contenido almacenado
-                        print(f"🔍 [SIN RELACION] Sin relación en BD para: {prop.titulo}")
-                        coincide_propiedad = buscar_en_contenido_almacenado(prop, keyword_groups)
-                else:
-                    # No hay búsquedas relacionadas a las keywords, buscar en contenido almacenado
-                    print(f"🔍 [SIN BUSQUEDAS] Sin búsquedas relacionadas para: {prop.titulo}")
+                        print(f"❌ [NUEVO SISTEMA] No coincide: {prop.titulo or prop.url}")
+                        
+                except Exception as e:
+                    print(f"❌ [ERROR NUEVO SISTEMA] Error procesando {prop.url}: {str(e)}")
+                    # Fallback al sistema anterior
                     coincide_propiedad = buscar_en_contenido_almacenado(prop, keyword_groups)
-                
-                # Agregar resultado según coincidencia
-                if coincide_propiedad:
-                    existing_publications_titles.append({
-                        'title': prop.titulo or 'Sin título',
-                        'url': prop.url
-                    })
-                
-                # Nota: No agregamos a urls_a_visitar_final porque nunca re-scrapeamos URLs existentes
+                    if coincide_propiedad:
+                        existing_publications_titles.append({
+                            'title': prop.titulo or 'Sin título',
+                            'url': prop.url
+                        })
 
         # URLs que no están en la BD son candidatas para scraping (mantener solo URLs nuevas)
         urls_a_visitar_final = set(urls_recolectadas_bruto) - set(urls_existentes)
@@ -322,112 +269,122 @@ def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, work
         return matched_publications_titles
 
     if urls_a_visitar_final:
-        print(f"\n--- FASE 2: Scrapeo de detalles en paralelo (hasta {workers_fase2} hilos)... ---")
-        send_progress_update(current_search_item=f"FASE 2: Scrapeando detalles de {len(urls_a_visitar_final)} publicaciones...")
+        print(f"\n--- FASE 2: Procesamiento de propiedades nuevas con sistema keywords ({len(urls_a_visitar_final)} URLs)... ---")
+        send_progress_update(current_search_item=f"FASE 2: Procesando {len(urls_a_visitar_final)} publicaciones nuevas...")
+        
+        # Obtener plataforma MercadoLibre
+        try:
+            plataforma_ml = Plataforma.objects.get(nombre='MercadoLibre')
+        except Plataforma.DoesNotExist:
+            plataforma_ml = Plataforma.objects.create(
+                nombre='MercadoLibre',
+                url='https://www.mercadolibre.com.uy'
+            )
+        
+        # Procesar keywords de la búsqueda actual
+        if keywords_con_variantes:
+            keywords_procesadas = procesar_keywords(' '.join(keywords_con_variantes))
+            palabras_clave_busqueda = []
+            
+            for keyword_data in keywords_procesadas:
+                palabra_clave = get_or_create_palabra_clave(keyword_data['texto'])
+                palabras_clave_busqueda.append(palabra_clave)
+        else:
+            palabras_clave_busqueda = []
+        
         urls_lista = list(urls_a_visitar_final)
+        
+        # Procesar con ThreadPoolExecutor
         with concurrent.futures.ThreadPoolExecutor(max_workers=workers_fase2) as executor:
-            mapa_futuros = {executor.submit(scrape_detalle_con_requests, url, API_KEY, USE_THREADS): url for url in urls_lista}
+            
+            def procesar_propiedad_wrapper(url):
+                """Wrapper para procesar cada URL con el nuevo sistema"""
+                try:
+                    if palabras_clave_busqueda:
+                        # Usar el nuevo sistema para propiedades con keywords
+                        propiedad, resultados_keywords = procesar_propiedad_nueva(
+                            url, plataforma_ml, palabras_clave_busqueda
+                        )
+                        
+                        # Verificar si todas las keywords coinciden
+                        todas_encontradas = all(resultados_keywords.values())
+                        
+                        return {
+                            'success': True,
+                            'propiedad': propiedad,
+                            'coincide': todas_encontradas,
+                            'resultados_keywords': resultados_keywords
+                        }
+                    else:
+                        # Sin keywords, usar el sistema original de scraping
+                        datos_propiedad = scrape_detalle_con_requests(url, None, False)
+                        
+                        if datos_propiedad:
+                            # Crear propiedad directamente
+                            propiedad = Propiedad.objects.create(
+                                url=url,
+                                plataforma=plataforma_ml,
+                                titulo=datos_propiedad.get('titulo', ''),
+                                descripcion=datos_propiedad.get('descripcion', ''),
+                                metadata=datos_propiedad.get('caracteristicas', {})
+                            )
+                            
+                            return {
+                                'success': True,
+                                'propiedad': propiedad,
+                                'coincide': True,  # Sin keywords, siempre coincide
+                                'resultados_keywords': {}
+                            }
+                        else:
+                            return {'success': False, 'error': 'No se pudieron obtener datos'}
+                            
+                except Exception as e:
+                    return {'success': False, 'error': str(e)}
+            
+            # Enviar tareas al pool
+            mapa_futuros = {executor.submit(procesar_propiedad_wrapper, url): url for url in urls_lista}
+            
+            # Procesar resultados
             for i, futuro in enumerate(concurrent.futures.as_completed(mapa_futuros)):
                 url_original = mapa_futuros[futuro]
-                print(f"Procesando resultado {i+1}/{len(urls_lista)}: {url_original}")
+                
                 try:
-                    if datos_propiedad := futuro.result():
-                        titulo_propiedad = datos_propiedad.get('titulo', 'Sin título')
-                        descripcion = datos_propiedad.get('descripcion', '').lower()
-                        caracteristicas = datos_propiedad.get('caracteristicas_texto', '').lower()
-                        texto_total = f"{titulo_propiedad.lower()} {descripcion} {caracteristicas}"
-                        cumple = True
-                        if keyword_groups:
-                            def normalizar(texto):
-                                return unicodedata.normalize('NFKD', str(texto)).encode('ASCII', 'ignore').decode('ASCII').lower()
-                            texto_total_norm = normalizar(texto_total)
-                            grupos_ok = []
-                            for grupo in keyword_groups:
-                                variantes_norm = [normalizar(v) for v in grupo]
-                                any_match = False
-                                for v in variantes_norm:
-                                    if v in texto_total_norm:
-                                        any_match = True
-                                        break
-                                    v_stem = stemming_basico(v)
-                                    if v_stem and v_stem in texto_total_norm:
-                                        any_match = True
-                                        break
-                                    if len(v) > 4 and v[:-2] in texto_total_norm:
-                                        any_match = True
-                                        break
-                                grupos_ok.append(any_match)
-                            cumple = all(grupos_ok) if grupos_ok else True
-                            if cumple:
-                                # print(f"({i+1}/{len(urls_a_visitar_final)}) ✅ Coincide (100% grupos): {titulo_propiedad}")
-                                send_progress_update(current_search_item=f"({i+1}/{len(mapa_futuros)}) ✅ Coincide: {titulo_propiedad}")
-                            else:
-                                # print(f"({i+1}/{len(urls_a_visitar_final)}) ❌ No coincide (grupos incompletos): {titulo_propiedad}")
-                                send_progress_update(current_search_item=f"({i+1}/{len(mapa_futuros)}) ❌ No coincide: {titulo_propiedad} \npara: {keyword_groups}\n\n")
+                    resultado = futuro.result()
+                    
+                    if resultado['success']:
+                        propiedad = resultado['propiedad']
+                        coincide = resultado['coincide']
+                        
+                        titulo_propiedad = propiedad.titulo or 'Sin título'
+                        
+                        if coincide:
+                            nuevas_propiedades_guardadas += 1
+                            matched_publications_titles.append({
+                                'title': titulo_propiedad,
+                                'url': propiedad.url
+                            })
+                            
+                            print(f"✅ [NUEVO SISTEMA] ({i+1}/{len(urls_lista)}) Coincide: {titulo_propiedad}")
+                            send_progress_update(
+                                current_search_item=f"({i+1}/{len(urls_lista)}) ✅ Coincide: {titulo_propiedad}",
+                                matched_publications=matched_publications_titles
+                            )
                         else:
-                            # Sin keywords: mantener mensaje neutro
-                            send_progress_update(current_search_item=f"Procesando publicación {i+1}/{len(urls_lista)}: {titulo_propiedad}")
-
-                        if cumple:
-                            # Guardar propiedad
-                            try:
-                                datos_propiedad['operacion'] = filters.get('operacion', 'venta')
-                                datos_propiedad['departamento'] = filters.get('departamento', filters.get('ciudad', 'N/A'))
-                                if not datos_propiedad.get('tipo_inmueble') or datos_propiedad.get('tipo_inmueble') == 'N/A':
-                                    datos_propiedad['tipo_inmueble'] = filters.get('tipo', 'apartamento')
-                                if not datos_propiedad.get('titulo'):
-                                    print(f"⚠️ [GUARDADO] Advertencia: título vacío para {url_original}")
-                                    datos_propiedad['titulo'] = f"Propiedad en {datos_propiedad.get('departamento', 'N/A')}"
-                                print(f"📝 [DEBUG] Guardando: {datos_propiedad.get('titulo')} - {datos_propiedad.get('precio_valor')} {datos_propiedad.get('precio_moneda', '')}")
-                                def mapear_datos_propiedad(datos):
-                                    try:
-                                        plataforma_ml = Plataforma.objects.get(nombre='MercadoLibre')
-                                    except Plataforma.DoesNotExist:
-                                        plataforma_ml = Plataforma.objects.create(
-                                            nombre='MercadoLibre',
-                                            url='https://www.mercadolibre.com.uy'
-                                        )
-                                    datos_mapeados = {
-                                        'url': datos.get('url'),
-                                        'titulo': datos.get('titulo'),
-                                        'descripcion': datos.get('descripcion', ''),
-                                        'plataforma': plataforma_ml,
-                                        'metadata': {
-                                            'precio_valor': datos.get('precio_valor'),
-                                            'precio_moneda': datos.get('precio_moneda'),
-                                            'operacion': datos.get('operacion'),
-                                            'tipo_inmueble': datos.get('tipo_inmueble'),
-                                            'departamento': datos.get('departamento'),
-                                            'caracteristicas': datos.get('caracteristicas_texto', ''),
-                                            'dormitorios': datos.get('dormitorios'),
-                                            'banos': datos.get('banos'),
-                                            'superficie': datos.get('superficie_total'),
-                                            'direccion': datos.get('direccion')
-                                        }
-                                    }
-                                    datos_mapeados['metadata'] = {k: v for k, v in datos_mapeados['metadata'].items() if v is not None}
-                                    return datos_mapeados
-                                datos_mapeados = mapear_datos_propiedad(datos_propiedad)
-                                propiedad_creada = Propiedad.objects.create(**datos_mapeados)
-                                nuevas_propiedades_guardadas += 1
-                                matched_publications_titles.append({
-                                    'title': propiedad_creada.titulo,
-                                    'url': propiedad_creada.url
-                                })
-                                print(f"✅ [GUARDADO] Éxito - ID: {propiedad_creada.id}")
-                                send_progress_update(matched_publications=matched_publications_titles)
-                            except Exception as save_error:
-                                print(f"❌ [GUARDADO] Error guardando propiedad: {save_error}")
-                                print(f"❌ [GUARDADO] Datos originales: {datos_propiedad}")
-                                try:
-                                    print(f"❌ [GUARDADO] Datos mapeados: {datos_mapeados}")
-                                except Exception:
-                                    pass
+                            print(f"❌ [NUEVO SISTEMA] ({i+1}/{len(urls_lista)}) No coincide: {titulo_propiedad}")
+                            send_progress_update(
+                                current_search_item=f"({i+1}/{len(urls_lista)}) ❌ No coincide: {titulo_propiedad}"
+                            )
                     else:
-                        print(f"⚠️ [SCRAPING] No se pudieron extraer datos de: {url_original}")
-                        send_progress_update(current_search_item=f"Procesando publicación {i+1}/{len(urls_lista)}: Error al procesar")
+                        print(f"⚠️ [ERROR] ({i+1}/{len(urls_lista)}) Error procesando {url_original}: {resultado['error']}")
+                        send_progress_update(
+                            current_search_item=f"({i+1}/{len(urls_lista)}) ⚠️ Error procesando URL"
+                        )
+                        
                 except Exception as exc:
-                    print(f'❌ [SCRAPER] URL {url_original[:100]}... generó excepción: {exc}')
+                    print(f'❌ [EXCEPCIÓN] URL {url_original[:100]}... generó excepción: {exc}')
+                    send_progress_update(
+                        current_search_item=f"({i+1}/{len(urls_lista)}) ❌ Excepción procesando URL"
+                    )
     print(f"✅ [COMPLETADO] {nuevas_propiedades_guardadas} nuevas propiedades guardadas")
     # Para la UI actual: mostrar todo bajo 'nuevas' y no poblar 'existentes'
     combined_for_ui = matched_publications_titles + existing_publications_titles

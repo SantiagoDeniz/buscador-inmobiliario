@@ -16,9 +16,10 @@ from django.db import transaction
 from django.utils import timezone
 from django.db.models import Q, Count
 from .models import (
-    Busqueda, PalabraClave, BusquedaPalabraClave,
+    Busqueda, PalabraClave, BusquedaPalabraClave, PalabraClavePropiedad,
     Usuario, Plataforma, Propiedad, ResultadoBusqueda, Inmobiliaria
 )
+from .scraper.utils import stemming_basico
 
 # ================================
 # FUNCIONES PRINCIPALES DE BÚSQUEDA
@@ -588,3 +589,299 @@ def update_search(search_id: str, data: Dict[str, Any]) -> bool:
         
     except Busqueda.DoesNotExist:
         return False
+
+
+# ================================
+# GESTIÓN DE KEYWORDS EN PROPIEDADES
+# ================================
+
+def verificar_keywords_en_propiedad(propiedad: Propiedad, palabras_clave: List[PalabraClave]) -> Dict[str, bool]:
+    """
+    Verifica si cada palabra clave (o sus sinónimos) se encuentra en una propiedad específica.
+    
+    Args:
+        propiedad: Instancia de Propiedad
+        palabras_clave: Lista de instancias de PalabraClave
+    
+    Returns:
+        Dict con palabra_clave.texto como key y bool como value indicando si fue encontrada
+    """
+    # Construir texto completo de la propiedad
+    titulo = propiedad.titulo or ''
+    descripcion = propiedad.descripcion or ''
+    caracteristicas = ''
+    
+    # Extraer características del metadata si existe
+    if propiedad.metadata and isinstance(propiedad.metadata, dict):
+        caracteristicas = propiedad.metadata.get('caracteristicas', '')
+        if isinstance(caracteristicas, dict):
+            # Si caracteristicas es un dict, extraer todos los valores
+            caracteristicas = ' '.join(str(v) for v in caracteristicas.values())
+    
+    texto_total = f"{titulo} {descripcion} {caracteristicas}".lower()
+    texto_normalizado = normalizar_texto(texto_total)
+    
+    resultados = {}
+    
+    for palabra_clave in palabras_clave:
+        encontrada = False
+        
+        # Crear lista de variantes a buscar (palabra + sinónimos)
+        variantes = [palabra_clave.texto] + palabra_clave.sinonimos_list
+        
+        # Buscar cada variante en el texto
+        for variante in variantes:
+            variante_norm = normalizar_texto(variante)
+            
+            # Búsqueda exacta
+            if variante_norm in texto_normalizado:
+                encontrada = True
+                break
+            
+            # Búsqueda con stemming básico
+            variante_stem = stemming_basico(variante_norm)
+            if variante_stem and variante_stem in texto_normalizado:
+                encontrada = True
+                break
+            
+            # Búsqueda parcial para palabras largas (>4 caracteres)
+            if len(variante_norm) > 4 and variante_norm[:-2] in texto_normalizado:
+                encontrada = True
+                break
+        
+        resultados[palabra_clave.texto] = encontrada
+        
+        # Log para debugging
+        estado = "✓" if encontrada else "✗"
+        print(f"[KEYWORD] {palabra_clave.texto} {estado} en {propiedad.titulo or propiedad.url}")
+    
+    return resultados
+
+
+def actualizar_relaciones_keywords(propiedad: Propiedad, palabras_clave: List[PalabraClave], 
+                                 resultados_busqueda: Dict[str, bool] = None) -> Dict[str, bool]:
+    """
+    Actualiza o crea las relaciones palabra_clave-propiedad con el estado encontrada.
+    
+    Args:
+        propiedad: Instancia de Propiedad
+        palabras_clave: Lista de instancias de PalabraClave
+        resultados_busqueda: Dict opcional con resultados previos de búsqueda
+    
+    Returns:
+        Dict con palabra_clave.texto como key y bool como value del estado encontrada
+    """
+    if not resultados_busqueda:
+        resultados_busqueda = verificar_keywords_en_propiedad(propiedad, palabras_clave)
+    
+    resultados_finales = {}
+    
+    with transaction.atomic():
+        for palabra_clave in palabras_clave:
+            encontrada = resultados_busqueda.get(palabra_clave.texto, False)
+            
+            # Crear o actualizar la relación
+            relacion, created = PalabraClavePropiedad.objects.update_or_create(
+                palabra_clave=palabra_clave,
+                propiedad=propiedad,
+                defaults={'encontrada': encontrada}
+            )
+            
+            resultados_finales[palabra_clave.texto] = encontrada
+            
+            # Log para debugging
+            accion = "creada" if created else "actualizada"
+            estado = "encontrada" if encontrada else "no encontrada"
+            print(f"[RELACIÓN] {accion}: {palabra_clave.texto} - {propiedad.titulo or propiedad.url} ({estado})")
+    
+    return resultados_finales
+
+
+def verificar_coincidencias_keywords(busqueda: Busqueda, propiedad: Propiedad) -> bool:
+    """
+    Verifica si todas las palabras clave de una búsqueda tienen encontrada=True para una propiedad.
+    
+    Args:
+        busqueda: Instancia de Busqueda
+        propiedad: Instancia de Propiedad
+    
+    Returns:
+        True si todas las keywords de la búsqueda fueron encontradas, False en caso contrario
+    """
+    # Obtener todas las palabras clave de la búsqueda
+    palabras_clave_busqueda = [
+        rel.palabra_clave 
+        for rel in busqueda.busquedapalabraclave_set.select_related('palabra_clave').all()
+    ]
+    
+    if not palabras_clave_busqueda:
+        # Si no hay keywords específicas, consideramos que coincide
+        return True
+    
+    # Verificar que existan relaciones para todas las palabras clave
+    for palabra_clave in palabras_clave_busqueda:
+        try:
+            relacion = PalabraClavePropiedad.objects.get(
+                palabra_clave=palabra_clave,
+                propiedad=propiedad
+            )
+            if not relacion.encontrada:
+                print(f"[COINCIDENCIA] ✗ {palabra_clave.texto} no encontrada en {propiedad.titulo or propiedad.url}")
+                return False
+        except PalabraClavePropiedad.DoesNotExist:
+            print(f"[COINCIDENCIA] ✗ Sin relación para {palabra_clave.texto} en {propiedad.titulo or propiedad.url}")
+            return False
+    
+    print(f"[COINCIDENCIA] ✓ Todas las keywords encontradas en {propiedad.titulo or propiedad.url}")
+    return True
+
+
+def procesar_propiedad_existente(propiedad: Propiedad, palabras_clave: List[PalabraClave]) -> Dict[str, bool]:
+    """
+    Procesa una propiedad existente en BD verificando relaciones keywords existentes.
+    Solo busca keywords que no tienen relación previa con la propiedad.
+    
+    Args:
+        propiedad: Instancia de Propiedad existente
+        palabras_clave: Lista de PalabraClave de la búsqueda actual
+    
+    Returns:
+        Dict con resultados finales de todas las keywords
+    """
+    print(f"[PROCESANDO] Propiedad existente: {propiedad.titulo or propiedad.url}")
+    
+    resultados_finales = {}
+    palabras_sin_relacion = []
+    
+    # Verificar qué keywords ya tienen relación
+    for palabra_clave in palabras_clave:
+        try:
+            relacion = PalabraClavePropiedad.objects.get(
+                palabra_clave=palabra_clave,
+                propiedad=propiedad
+            )
+            # Ya existe relación, usar el valor almacenado
+            resultados_finales[palabra_clave.texto] = relacion.encontrada
+            print(f"[RELACIÓN EXISTENTE] {palabra_clave.texto}: {relacion.encontrada}")
+        except PalabraClavePropiedad.DoesNotExist:
+            # No existe relación, necesita ser procesada
+            palabras_sin_relacion.append(palabra_clave)
+    
+    # Procesar keywords sin relación previa
+    if palabras_sin_relacion:
+        print(f"[PROCESANDO] {len(palabras_sin_relacion)} keywords sin relación previa")
+        resultados_nuevos = actualizar_relaciones_keywords(propiedad, palabras_sin_relacion)
+        resultados_finales.update(resultados_nuevos)
+    
+    return resultados_finales
+
+
+def procesar_propiedad_nueva(url: str, plataforma: Plataforma, palabras_clave: List[PalabraClave]) -> Tuple[Propiedad, Dict[str, bool]]:
+    """
+    Procesa una propiedad nueva: scrapea, guarda en BD y crea relaciones keywords.
+    
+    Args:
+        url: URL de la propiedad a scrapear
+        plataforma: Instancia de Plataforma
+        palabras_clave: Lista de PalabraClave de la búsqueda
+    
+    Returns:
+        Tuple con (Propiedad creada, Dict con resultados keywords)
+    """
+    print(f"[PROCESANDO] Propiedad nueva: {url}")
+    
+    # Importar funciones de scraping
+    from .scraper.extractors import scrape_detalle_con_requests
+    
+    try:
+        # Scrapear detalles de la propiedad
+        detalles = scrape_detalle_con_requests(url)
+        
+        if not detalles:
+            print(f"[ERROR] No se pudieron obtener detalles para {url}")
+            # Crear propiedad básica sin detalles
+            with transaction.atomic():
+                propiedad = Propiedad.objects.create(
+                    url=url,
+                    plataforma=plataforma,
+                    titulo="",
+                    descripcion="",
+                    metadata={}
+                )
+                
+                # Marcar todas las keywords como no encontradas
+                resultados = {palabra.texto: False for palabra in palabras_clave}
+                actualizar_relaciones_keywords(propiedad, palabras_clave, resultados)
+                
+                return propiedad, resultados
+        
+        # Crear propiedad con detalles scrapeados
+        with transaction.atomic():
+            propiedad = Propiedad.objects.create(
+                url=url,
+                plataforma=plataforma,
+                titulo=detalles.get('titulo', ''),
+                descripcion=detalles.get('descripcion', ''),
+                metadata=detalles.get('caracteristicas', {})
+            )
+            
+            print(f"[CREADA] Propiedad: {propiedad.titulo or propiedad.url}")
+            
+            # Procesar keywords en la nueva propiedad
+            resultados = actualizar_relaciones_keywords(propiedad, palabras_clave)
+            
+            return propiedad, resultados
+            
+    except Exception as e:
+        print(f"[ERROR] Error procesando propiedad nueva {url}: {str(e)}")
+        # Crear propiedad básica en caso de error
+        with transaction.atomic():
+            propiedad = Propiedad.objects.create(
+                url=url,
+                plataforma=plataforma,
+                titulo="",
+                descripcion="",
+                metadata={}
+            )
+            
+            # Marcar todas las keywords como no encontradas
+            resultados = {palabra.texto: False for palabra in palabras_clave}
+            actualizar_relaciones_keywords(propiedad, palabras_clave, resultados)
+            
+            return propiedad, resultados
+
+
+def guardar_resultado_busqueda_con_keywords(busqueda: Busqueda, propiedad: Propiedad) -> ResultadoBusqueda:
+    """
+    Guarda un resultado de búsqueda verificando coincidencias de keywords usando el nuevo sistema.
+    
+    Args:
+        busqueda: Instancia de Busqueda
+        propiedad: Instancia de Propiedad
+    
+    Returns:
+        Instancia de ResultadoBusqueda creada o actualizada
+    """
+    # Verificar si todas las keywords de la búsqueda coinciden
+    coincide = verificar_coincidencias_keywords(busqueda, propiedad)
+    
+    # Crear o actualizar el resultado
+    resultado, created = ResultadoBusqueda.objects.update_or_create(
+        busqueda=busqueda,
+        propiedad=propiedad,
+        defaults={
+            'coincide': coincide,
+            'last_seen_at': timezone.now(),
+        }
+    )
+    
+    # Incrementar contador si ya existía
+    if not created:
+        resultado.seen_count += 1
+        resultado.save()
+    
+    accion = "creado" if created else "actualizado"
+    estado = "coincide" if coincide else "no coincide"
+    print(f"[RESULTADO] {accion}: {busqueda.nombre_busqueda or 'Búsqueda'} - {propiedad.titulo or propiedad.url} ({estado})")
+    
+    return resultado

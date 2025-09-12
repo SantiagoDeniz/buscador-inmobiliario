@@ -139,6 +139,28 @@ class Propiedad(models.Model):
     def __str__(self):
         return self.titulo or self.url
 
+class PalabraClavePropiedad(models.Model):
+    id = models.AutoField(primary_key=True)
+    palabra_clave = models.ForeignKey(PalabraClave, on_delete=models.CASCADE)
+    propiedad = models.ForeignKey(Propiedad, on_delete=models.CASCADE)
+    encontrada = models.BooleanField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'palabra_clave_propiedad'
+        unique_together = ('palabra_clave', 'propiedad')
+        verbose_name = 'Palabra Clave - Propiedad'
+        verbose_name_plural = 'Palabras Clave - Propiedades'
+        indexes = [
+            models.Index(fields=['palabra_clave', 'encontrada']),
+            models.Index(fields=['propiedad', 'encontrada']),
+        ]
+    
+    def __str__(self):
+        estado = "✓" if self.encontrada else "✗"
+        return f"{self.palabra_clave.texto} {estado} {self.propiedad.titulo or self.propiedad.url}"
+
 class ResultadoBusqueda(models.Model):
     id = models.AutoField(primary_key=True)
     busqueda = models.ForeignKey(Busqueda, on_delete=models.CASCADE)
