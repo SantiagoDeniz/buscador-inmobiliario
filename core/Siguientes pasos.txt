@@ -31,13 +31,15 @@ Completados:
 🔄 SIGUIENTES PRIORIDADES:
 
   Funcionalidades a agregar / reparar / revisar:
-    - [Revisar] eliminado de búsquedas desde interfaz
+    - [Revisar] eliminado de búsquedas desde interfaz. No quedan guardadas actualmente.
     - Las propiedades que encuentran (por ahora solo guarda coincidentes. Debería guardar las no coincidentes con 'coincide' valor False)
+    - guardar características
     - [Revisar] Búsquedas con keywords y sinónimos (1 h)
     - Se sigue mostrando los resultados encontrados de forma distinta a las búsquedas guardadas. (3 hs)
   Otras acciones:
     - Agregar búsqueda de InfoCasas (3 hs)
     - Cron jobs para automatización (2 hs)
+    - Que la IA genere sinónimos para la palabra clave
     - Sin subtítulos en resultados encontrados cuando se busca y guarda por primera vez. (30 mins)
     - Botón de reiniciar búsqueda en búsquedas guardadas (2 hs)
     - Optimizar Consultas: Añadir índices y select_related (2 hs)
