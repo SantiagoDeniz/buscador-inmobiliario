@@ -31,19 +31,23 @@ Completados:
 🔄 SIGUIENTES PRIORIDADES:
 
   Funcionalidades a agregar / reparar / revisar:
-    - [Revisar] eliminado de búsquedas desde interfaz. No quedan guardadas actualmente.
-    - Las propiedades que encuentran (por ahora solo guarda coincidentes. Debería guardar las no coincidentes con 'coincide' valor False)
-    - guardar características
-    - [Revisar] Búsquedas con keywords y sinónimos (1 h)
-    - Se sigue mostrando los resultados encontrados de forma distinta a las búsquedas guardadas. (3 hs)
+    - (1h) [Revisar] eliminado de búsquedas desde interfaz. No quedan guardadas actualmente.
+    - (1,30') Las propiedades que encuentran (por ahora solo guarda coincidentes. Debería guardar las no coincidentes con 'coincide' valor False)
+    - (40') Guardar características en la tabla de propiedades.
+    - (1h) [Revisar] Búsquedas con keywords y sinónimos 
+    - (2h) Se sigue mostrando los resultados encontrados de forma distinta a las búsquedas guardadas. 
   Otras acciones:
-    - Agregar búsqueda de InfoCasas (3 hs)
-    - Cron jobs para automatización (2 hs)
+    - (4h) Agregar búsqueda de InfoCasas
+    - (2,5h) Cron jobs para automatización 
     - Que la IA genere sinónimos para la palabra clave
     - Sin subtítulos en resultados encontrados cuando se busca y guarda por primera vez. (30 mins)
     - Botón de reiniciar búsqueda en búsquedas guardadas (2 hs)
     - Optimizar Consultas: Añadir índices y select_related (2 hs)
     - Dashboard de métricas y estadísticas (3 hs)
+  ⚙️ Otras acciones (opcionales):
+    - Documentar integración con Google Sheets (en README) y ejemplo de importación
+    - Ajustar retención de snapshots según política (keep=N) si se desea histórico
+
 
 📝 Arreglitos del pasado futuro:
   Se implementó “Buscar nuevamente” para relanzar búsquedas guardadas: endpoint backend, botón en UI y refresco parcial del HTML.
@@ -58,9 +62,6 @@ Completados:
   Guardado/lectura: search_manager.py (save_results, load_results).
   Render UI: search_detail_partial.html y JS en home.html.
 
-⚙️ Otras acciones (opcionales):
-- Documentar integración con Google Sheets (en README) y ejemplo de importación
-- Ajustar retención de snapshots según política (keep=N) si se desea histórico
 
 🚀 Cosas a tener en cuenta para deplegar el proyecto para producción:
   Cookies mias: Solucionar de otra forma (¿capaz utilizando concurrencia y proxy se soluciona?)
@@ -69,3 +70,5 @@ Completados:
 📊 TESTS: 17/17 tests pasando (antiguo)
 ⚡ PERFORMANCE: Optimizada para producción
 📚 DOCUMENTACIÓN: falta actualizar y documentar última actualización acá.
+
+

@@ -509,22 +509,26 @@ def save_results(search_id: str, results: List[Dict]) -> bool:
             propiedad = crear_o_actualizar_propiedad(result_data)
             
             # Crear resultado si no existe
+            # Usar el campo coincide del resultado si está disponible, sino True por defecto
+            coincide_valor = result_data.get('coincide', True)
+            
             resultado, created = ResultadoBusqueda.objects.get_or_create(
                 busqueda=busqueda,
                 propiedad=propiedad,
                 defaults={
-                    'coincide': True,
+                    'coincide': coincide_valor,
                     'metadata': result_data,
                     'seen_count': 1,
                     'last_seen_at': timezone.now()
                 }
             )
             if not created:
-                # Actualizar métricas de visualización sin sobreescribir metadata buena
+                # Actualizar métricas de visualización y coincidencia
                 try:
                     ResultadoBusqueda.objects.filter(id=resultado.id).update(
                         seen_count=(resultado.seen_count or 0) + 1,
-                        last_seen_at=timezone.now()
+                        last_seen_at=timezone.now(),
+                        coincide=coincide_valor  # Actualizar coincidencia también
                     )
                 except Exception:
                     pass

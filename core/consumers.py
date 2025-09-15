@@ -221,6 +221,15 @@ class SearchProgressConsumer(WebsocketConsumer):
 
                 def _background_task():
                     try:
+                        # Obtener la instancia de Busqueda si existe
+                        busqueda_instance = None
+                        if saved_search_id:
+                            try:
+                                from core.models import Busqueda
+                                busqueda_instance = Busqueda.objects.get(id=saved_search_id)
+                            except Busqueda.DoesNotExist:
+                                print(f'⚠️ [BUSQUEDA] No se encontró la búsqueda con ID {saved_search_id}')
+                        
                         # Ejecutar el scraper y capturar el retorno. En búsquedas SIN keywords,
                         # run_scraper retorna la lista de resultados de FASE 1 (title/url).
                         scraper_return = run_scraper(
@@ -228,7 +237,8 @@ class SearchProgressConsumer(WebsocketConsumer):
                             keywords=keywords,
                             max_paginas=1,
                             workers_fase1=1,
-                            workers_fase2=1
+                            workers_fase2=1,
+                            busqueda=busqueda_instance
                         )
                         print('\n✅ [DEPURACIÓN] run_scraper completado (hilo)\n')
                         
@@ -252,8 +262,14 @@ class SearchProgressConsumer(WebsocketConsumer):
                                 for item in origen:
                                     url = (item.get('url') if isinstance(item, dict) else None)
                                     titulo = None
+                                    coincide = True  # Valor por defecto para compatibilidad
+                                    
                                     if isinstance(item, dict):
                                         titulo = item.get('title') or item.get('titulo')
+                                        # Preservar el campo coincide del scraper
+                                        if 'coincide' in item:
+                                            coincide = item['coincide']
+                                    
                                     if not url:
                                         continue
                                     if not titulo:
@@ -265,7 +281,7 @@ class SearchProgressConsumer(WebsocketConsumer):
                                         precio_fmt = (f"{meta.get('precio_valor')} {meta.get('precio_moneda','')}".strip() if meta.get('precio_valor') else 'Precio no disponible')
                                     except Exception:
                                         precio_fmt = 'Precio no disponible'
-                                    resultados.append({'titulo': titulo, 'url': url, 'precio': precio_fmt})
+                                    resultados.append({'titulo': titulo, 'url': url, 'precio': precio_fmt, 'coincide': coincide})
                                 
                                 # Actualizar la búsqueda con los resultados
                                 update_data = {

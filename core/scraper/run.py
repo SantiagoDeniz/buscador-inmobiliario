@@ -2,6 +2,7 @@ import concurrent.futures
 import os
 import unicodedata
 from typing import Dict, Any, List
+from django.utils import timezone
 from core.models import Propiedad, Plataforma, PalabraClave, BusquedaPalabraClave, ResultadoBusqueda, Busqueda
 from core.search_manager import (
     normalizar_texto, procesar_keywords, get_or_create_palabra_clave, 
@@ -82,7 +83,7 @@ def buscar_en_contenido_almacenado(prop, keyword_groups, keywords_ya_cubiertas=N
     return cumple
 
 
-def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, workers_fase1: int = 1, workers_fase2: int = 1):
+def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, workers_fase1: int = 1, workers_fase2: int = 1, busqueda: 'Busqueda' = None):
     print(f"🚀 [SCRAPER] Iniciando búsqueda - Filtros: {len(filters)} | Keywords: {len(keywords) if keywords else 0}")
     matched_publications_titles: List[dict] = []
 
@@ -204,11 +205,20 @@ def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, work
                     # Verificar si todas las keywords coinciden
                     todas_encontradas = all(resultados_keywords.values())
                     
+                    # Agregar todas las propiedades existentes con su estado de coincidencia
+                    existing_publications_titles.append({
+                        'title': prop.titulo or 'Sin título',
+                        'url': prop.url,
+                        'coincide': todas_encontradas
+                    })
+                    
+                    # Crear ResultadoBusqueda si se proporciona la búsqueda
+                    if busqueda:
+                        from core.search_manager import guardar_resultado_busqueda_con_keywords
+                        # Usar función que evalúa automáticamente las keywords
+                        guardar_resultado_busqueda_con_keywords(busqueda, prop)
+                    
                     if todas_encontradas:
-                        existing_publications_titles.append({
-                            'title': prop.titulo or 'Sin título',
-                            'url': prop.url
-                        })
                         print(f"✅ [NUEVO SISTEMA] Coincide: {prop.titulo or prop.url}")
                     else:
                         print(f"❌ [NUEVO SISTEMA] No coincide: {prop.titulo or prop.url}")
@@ -217,11 +227,24 @@ def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, work
                     print(f"❌ [ERROR NUEVO SISTEMA] Error procesando {prop.url}: {str(e)}")
                     # Fallback al sistema anterior
                     coincide_propiedad = buscar_en_contenido_almacenado(prop, keyword_groups)
-                    if coincide_propiedad:
-                        existing_publications_titles.append({
-                            'title': prop.titulo or 'Sin título',
-                            'url': prop.url
-                        })
+                    existing_publications_titles.append({
+                        'title': prop.titulo or 'Sin título',
+                        'url': prop.url,
+                        'coincide': coincide_propiedad
+                    })
+                    
+                    # Crear ResultadoBusqueda si se proporciona la búsqueda
+                    if busqueda:
+                        from core.search_manager import guardar_resultado_busqueda_con_keywords
+                        # Crear manualmente con el resultado del fallback
+                        resultado, created = ResultadoBusqueda.objects.update_or_create(
+                            busqueda=busqueda,
+                            propiedad=prop,
+                            defaults={
+                                'coincide': coincide_propiedad,
+                                'last_seen_at': timezone.now(),
+                            }
+                        )
 
         # URLs que no están en la BD son candidatas para scraping (mantener solo URLs nuevas)
         urls_a_visitar_final = set(urls_recolectadas_bruto) - set(urls_existentes)
@@ -247,11 +270,36 @@ def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, work
         resultados_fase1 = [
             {
                 'title': titulos_por_url_total.get(u) or 'Publicación',
-                'url': u
+                'url': u,
+                'coincide': True  # Sin keywords, todas coinciden
             }
             for u in sorted(list(urls_recolectadas_bruto))
         ]
         matched_publications_titles = list(resultados_fase1)
+        
+        # Crear ResultadoBusqueda para todas las URLs si se proporciona búsqueda
+        if busqueda:
+            for url in urls_recolectadas_bruto:
+                # Buscar o crear la propiedad
+                propiedad, created = Propiedad.objects.get_or_create(
+                    url=url,
+                    defaults={
+                        'plataforma': Plataforma.objects.get_or_create(nombre='MercadoLibre')[0],
+                        'titulo': titulos_por_url_total.get(url) or 'Publicación',
+                        'descripcion': '',
+                        'metadata': {}
+                    }
+                )
+                
+                # Crear ResultadoBusqueda (sin keywords, todas coinciden)
+                resultado_busqueda, created = ResultadoBusqueda.objects.update_or_create(
+                    busqueda=busqueda,
+                    propiedad=propiedad,
+                    defaults={
+                        'coincide': True,  # Sin keywords, todas coinciden
+                        'last_seen_at': timezone.now(),
+                    }
+                )
 
         # Para la UI actual: mostrar todo bajo 'nuevas' y no poblar 'existentes'
         all_matched_properties = {
@@ -357,13 +405,26 @@ def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, work
                         
                         titulo_propiedad = propiedad.titulo or 'Sin título'
                         
+                        # Guardar TODAS las propiedades (coincidentes y no coincidentes)
+                        nuevas_propiedades_guardadas += 1
+                        matched_publications_titles.append({
+                            'title': titulo_propiedad,
+                            'url': propiedad.url,
+                            'coincide': coincide
+                        })
+                        
+                        # Crear ResultadoBusqueda si se proporciona la búsqueda
+                        if busqueda:
+                            resultado_busqueda, created = ResultadoBusqueda.objects.update_or_create(
+                                busqueda=busqueda,
+                                propiedad=propiedad,
+                                defaults={
+                                    'coincide': coincide,
+                                    'last_seen_at': timezone.now(),
+                                }
+                            )
+                        
                         if coincide:
-                            nuevas_propiedades_guardadas += 1
-                            matched_publications_titles.append({
-                                'title': titulo_propiedad,
-                                'url': propiedad.url
-                            })
-                            
                             print(f"✅ [NUEVO SISTEMA] ({i+1}/{len(urls_lista)}) Coincide: {titulo_propiedad}")
                             send_progress_update(
                                 current_search_item=f"({i+1}/{len(urls_lista)}) ✅ Coincide: {titulo_propiedad}",

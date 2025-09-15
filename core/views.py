@@ -303,9 +303,18 @@ def http_search_fallback(request):
                 print(f'❌ [HTTP FALLBACK] Error guardando búsqueda: {save_error}')
                 # No retornar, continuar con el scraping
 
+        # Obtener la instancia de Busqueda si existe
+        busqueda_instance = None
+        if saved_search_id:
+            try:
+                from core.models import Busqueda
+                busqueda_instance = Busqueda.objects.get(id=saved_search_id)
+            except Busqueda.DoesNotExist:
+                print(f'⚠️ [HTTP FALLBACK] No se encontró la búsqueda con ID {saved_search_id}')
+
         # Ejecutar scraper con los filtros y keywords procesados
         from .scraper import run_scraper
-        resultados_scraper = run_scraper(filtros_final, keywords, max_paginas=2, workers_fase1=1, workers_fase2=1) or []
+        resultados_scraper = run_scraper(filtros_final, keywords, max_paginas=2, workers_fase1=1, workers_fase2=1, busqueda=busqueda_instance) or []
         # Obtener resultados de la base de datos
         from .models import Propiedad
         propiedades = Propiedad.objects.order_by('-id')[:50]  # Últimas 50 para buscar coincidencias
@@ -361,13 +370,15 @@ def http_search_fallback(request):
                     for item in resultados_scraper:
                         url = item.get('url')
                         titulo = item.get('title') or item.get('titulo') or 'Publicación'
+                        coincide = item.get('coincide', True)  # Preservar campo coincide
                         if not url:
                             continue
                         resultados.append({
                             'title': titulo,
                             'url': url,
                             'titulo': titulo,
-                            'precio': 'Precio no disponible'
+                            'precio': 'Precio no disponible',
+                            'coincide': coincide
                         })
                     break  # Ya poblamos resultados desde el scraper; no seguir iterando propiedades
                 else:
