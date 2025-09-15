@@ -1,166 +1,623 @@
 # 📚 Documentación Técnica - Buscador Inmobiliario
 
-## 🎯 Migración Completa a Base de Datos Relacional
+## 🎯 Arquitectura del Sistema
 
-### 📋 Resumen de la Migración
+### 📋 Resumen Ejecutivo
 
-El sistema Buscador Inmobiliario ha sido completamente migrado de un sistema basado en archivos JSON a una arquitectura de base de datos relacional moderna. Esta migración proporciona mayor escalabilidad, integridad de datos y capacidades de consulta avanzadas.
+El **Buscador Inmobiliario Inteligente** es una aplicación web Django moderna que ha evolucionado de un sistema basado en archivos JSON a una arquitectura de base de datos relacional robusta y escalable. La aplicación utiliza inteligencia artificial, scraping modular y comunicación en tiempo real para automatizar la búsqueda de propiedades inmobiliarias.
 
-**Sistema de Búsquedas Unificado**: Todas las búsquedas (tanto "Buscar" como "Buscar y Guardar") se almacenan en BD. El flag `guardado` determina visibilidad:
-- `guardado=True`: Visible en la interfaz de usuario
-- `guardado=False`: Solo para historial y análisis interno
+**Versión actual**: 2.0 (Base de datos relacional + Scraper modular)  
+**Stack principal**: Django 5.1 + PostgreSQL/SQLite + Redis + WebSockets  
+**Arquitectura**: Modular, microservicios-ready, cloud-native  
+
+### 🏗️ **Principios de Diseño**
+- **Modularidad**: Componentes independientes y reutilizables
+- **Escalabilidad**: Diseño preparado para crecimiento horizontal
+- **Observabilidad**: Logging, métricas y debugging comprehensive
+- **Resilencia**: Manejo de errores robusto y fallbacks
+- **Developer Experience**: APIs claras y documentación completa
+
+---
+
+## 🕸️ Arquitectura del Scraper Modular
+
+### 📦 **Estructura del Paquete `core/scraper/`**
+
+```
+core/scraper/
+├── __init__.py              # API pública y fachada del scraper
+├── run.py                   # Orquestador principal del proceso
+├── mercadolibre.py          # Lógica específica de MercadoLibre
+├── browser.py               # Gestión de navegadores (Selenium + stealth)
+├── extractors.py            # Extracción y parsing de datos
+├── url_builder.py           # Construcción inteligente de URLs
+├── utils.py                 # Utilidades (stemming, keywords, validación)
+├── progress.py              # Sistema de progreso y notificaciones
+└── constants.py             # Constantes y configuración
+```
+
+### 🔧 **Componentes Principales**
+
+#### **1. API Pública (`__init__.py`)**
+Fachada que expone funciones principales con imports perezosos:
+```python
+# Funciones principales
+from .run import run_scraper
+from .mercadolibre import scrape_mercadolibre, extraer_total_resultados_mercadolibre
+from .url_builder import build_mercadolibre_url, normalizar_para_url
+from .extractors import scrape_detalle_con_requests, recolectar_urls_de_pagina
+
+# Gestión de navegador
+from .browser import iniciar_driver, manejar_popups_cookies, verificar_necesita_login, cargar_cookies
+
+# Utilidades
+from .utils import stemming_basico, extraer_variantes_keywords
+from .progress import send_progress_update, tomar_captura_debug
+```
+
+#### **2. Orquestador (`run.py`)**
+Coordina todo el proceso de scraping en fases:
+```python
+def run_scraper(filtros, search_id=None, channel_layer=None, 
+                user_channel=None, palabras_clave=None):
+    """
+    Ejecuta el scraping completo en fases:
+    1. Análisis de filtros y construcción de URL
+    2. Recolección de URLs de propiedades
+    3. Extracción detallada de cada propiedad
+    4. Filtrado por keywords
+    5. Persistencia y notificación
+    """
+```
+
+#### **3. Lógica MercadoLibre (`mercadolibre.py`)**
+Implementa la lógica específica del portal:
+```python
+def scrape_mercadolibre(url, num_paginas=None, max_hilos=3):
+    """Scraping específico de MercadoLibre con múltiples estrategias"""
+
+def procesar_pagina_con_requests(url, max_reintentos=3):
+    """Estrategia rápida con requests/BeautifulSoup"""
+
+def procesar_pagina_con_selenium(url):
+    """Estrategia robusta con Selenium para casos complejos"""
+```
+
+#### **4. Gestión de Navegador (`browser.py`)**
+Encapsula la configuración y manejo de Selenium:
+```python
+def iniciar_driver(headless=True, stealth=True):
+    """Inicializa Chrome con configuración optimizada"""
+
+def manejar_popups_cookies(driver):
+    """Maneja popups automáticamente"""
+
+def verificar_necesita_login(driver, tomar_captura=True):
+    """Detecta si se requiere login"""
+```
+
+#### **5. Extractores (`extractors.py`)**
+Centraliza toda la lógica de extracción:
+```python
+def extraer_propiedades_de_pagina(soup):
+    """Extrae lista de propiedades de una página de resultados"""
+
+def extraer_detalle_propiedad(url, usar_selenium=False):
+    """Extrae detalles completos de una propiedad individual"""
+
+def extraer_precio_desde_elemento(elemento):
+    """Normaliza precios de diferentes formatos"""
+```
+
+### 🔄 **Flujo de Ejecución**
+
+```mermaid
+graph TD
+    A[run_scraper] --> B[Análisis IA + Construcción URL]
+    B --> C[Recolección URLs]
+    C --> D{Estrategia}
+    D -->|Rápida| E[Requests + BeautifulSoup]
+    D -->|Robusta| F[Selenium + Stealth]
+    D -->|Proxy| G[ScrapingBee]
+    E --> H[Extracción Detallada]
+    F --> H
+    G --> H
+    H --> I[Filtrado Keywords]
+    I --> J[Persistencia BD]
+    J --> K[Notificación WebSocket]
+```
+
+### ⚡ **Estrategias de Scraping**
+
+| Estrategia | Velocidad | Robustez | Uso de Recursos | Casos de Uso |
+|-----------|-----------|----------|-----------------|--------------|
+| **Requests + BS4** | ⚡⚡⚡ | ⭐⭐ | 🔋 | Recolección masiva |
+| **Selenium** | ⚡ | ⭐⭐⭐ | 🔋🔋🔋 | Navegación compleja |
+| **ScrapingBee** | ⚡⚡ | ⭐⭐⭐⭐ | 💰 | Anti-bot avanzado |
+
+### 🛡️ **Características de Resilencia**
+
+#### **Manejo de Errores Multicapa**
+```python
+# Nivel 1: Reintentos automáticos
+@retry(max_attempts=3, backoff_factor=2)
+def procesar_url(url):
+    pass
+
+# Nivel 2: Fallback de estrategias
+def procesar_con_fallback(url):
+    try:
+        return procesar_con_requests(url)
+    except Exception:
+        return procesar_con_selenium(url)
+
+# Nivel 3: Continuación con errores parciales
+def procesar_lote_urls(urls):
+    resultados = []
+    for url in urls:
+        try:
+            resultado = procesar_url(url)
+            resultados.append(resultado)
+        except Exception as e:
+            logger.warning(f"Error en {url}: {e}")
+            continue  # Continúa con las siguientes
+    return resultados
+```
+
+#### **Rate Limiting Inteligente**
+```python
+class RateLimiter:
+    def __init__(self, requests_per_second=2):
+        self.delay = 1.0 / requests_per_second
+        self.last_request = 0
+    
+    def wait_if_needed(self):
+        elapsed = time.time() - self.last_request
+        if elapsed < self.delay:
+            time.sleep(self.delay - elapsed)
+        self.last_request = time.time()
+```
 
 ---
 
 ## 🗃️ Arquitectura de Base de Datos
 
-### Modelos Principales
+### 📊 **Diagrama de Entidades y Relaciones**
 
-#### 1. **Inmobiliaria**
-```python
-class Inmobiliaria(models.Model):
-    nombre = models.CharField(max_length=200)
-    plan = models.CharField(max_length=50, default='básico')
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+```mermaid
+erDiagram
+    Inmobiliaria ||--o{ Usuario : tiene
+    Usuario ||--o{ Busqueda : crea
+    Busqueda ||--o{ BusquedaPalabraClave : contiene
+    PalabraClave ||--o{ BusquedaPalabraClave : referencia
+    Busqueda ||--o{ ResultadoBusqueda : produce
+    Propiedad ||--o{ ResultadoBusqueda : aparece_en
+    Plataforma ||--o{ Propiedad : aloja
+
+    Inmobiliaria {
+        uuid id PK
+        string nombre
+        string plan
+        datetime created_at
+        datetime updated_at
+    }
+
+    Usuario {
+        uuid id PK
+        string nombre
+        email email UK
+        uuid inmobiliaria_id FK
+        datetime created_at
+        datetime updated_at
+    }
+
+    Busqueda {
+        uuid id PK
+        string nombre_busqueda
+        text texto_original
+        json filtros
+        boolean guardado
+        uuid usuario_id FK
+        datetime created_at
+        datetime updated_at
+    }
+
+    PalabraClave {
+        uuid id PK
+        string texto UK
+        string idioma
+        text sinonimos
+        datetime created_at
+        datetime updated_at
+    }
+
+    BusquedaPalabraClave {
+        uuid id PK
+        uuid busqueda_id FK
+        uuid palabra_clave_id FK
+        datetime created_at
+    }
+
+    Propiedad {
+        uuid id PK
+        url url UK
+        string titulo
+        text descripcion
+        json metadata
+        uuid plataforma_id FK
+        datetime created_at
+        datetime updated_at
+    }
+
+    ResultadoBusqueda {
+        uuid id PK
+        uuid busqueda_id FK
+        uuid propiedad_id FK
+        boolean es_nueva
+        json match_info
+        datetime created_at
+    }
+
+    Plataforma {
+        uuid id PK
+        string nombre
+        url url
+        text descripcion
+        datetime created_at
+        datetime updated_at
+    }
 ```
 
-#### 2. **Usuario**
-```python
-class Usuario(models.Model):
-    nombre = models.CharField(max_length=100)
-    email = models.EmailField(unique=True)
-    inmobiliaria = models.ForeignKey(Inmobiliaria, on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-```
+### 🏛️ **Modelos de Datos Detallados**
 
-#### 3. **Plataforma**
-```python
-class Plataforma(models.Model):
-    nombre = models.CharField(max_length=100)
-    url = models.URLField()
-    descripcion = models.TextField(blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-```
+#### **1. Sistema de Búsquedas Unificado**
 
-#### 4. **Búsqueda** (Modelo Principal)
+**Búsqueda** - Modelo central del sistema:
 ```python
 class Busqueda(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     nombre_busqueda = models.CharField(max_length=200)
     texto_original = models.TextField()
-    filtros = models.JSONField(default=dict)
-    guardado = models.BooleanField(default=False)
+    filtros = models.JSONField(default=dict)  # Filtros estructurados
+    guardado = models.BooleanField(default=False)  # Visibilidad en UI
     usuario = models.ForeignKey(Usuario, on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['usuario', 'guardado', 'created_at']),
+            models.Index(fields=['guardado', 'created_at']),
+        ]
+        ordering = ['-created_at']
 ```
 
-#### 5. **Palabra Clave**
+**Diferenciación de Búsquedas**:
+- `guardado=True`: Visible en interfaz ("Buscar y Guardar")
+- `guardado=False`: Solo historial interno ("Buscar")
+- **Beneficio**: Análisis completo sin cluttering de UI
+
+#### **2. Sistema de Palabras Clave Inteligente**
+
 ```python
 class PalabraClave(models.Model):
     texto = models.CharField(max_length=100, unique=True)
     idioma = models.CharField(max_length=10, default='es')
-    sinonimos = models.TextField(blank=True, default='')  # JSON string para SQLite
+    sinonimos = models.TextField(blank=True, default='')  # JSON serializado
     
     @property
     def sinonimos_list(self):
-        """Convertir string JSON a lista"""
-        return json.loads(self.sinonimos) if self.sinonimos else []
+        """Convierte JSON string a lista para compatibilidad SQLite"""
+        try:
+            return json.loads(self.sinonimos) if self.sinonimos else []
+        except json.JSONDecodeError:
+            return []
     
     def set_sinonimos(self, lista):
-        """Convertir lista a string JSON"""
-        self.sinonimos = json.dumps(lista)
+        """Convierte lista a JSON string"""
+        self.sinonimos = json.dumps(lista, ensure_ascii=False)
+        
+    def add_sinonimo(self, palabra):
+        """Añade sinónimo si no existe"""
+        sinonimos = self.sinonimos_list
+        if palabra.lower() not in [s.lower() for s in sinonimos]:
+            sinonimos.append(palabra)
+            self.set_sinonimos(sinonimos)
 ```
 
-#### 6. **Propiedad**
+#### **3. Sistema de Propiedades y Resultados**
+
 ```python
 class Propiedad(models.Model):
-    url = models.URLField(unique=True)
+    url = models.URLField(unique=True)  # Clave de deduplicación
     titulo = models.CharField(max_length=500, blank=True, null=True)
     descripcion = models.TextField(blank=True, null=True)
     metadata = models.JSONField(default=dict, blank=True)
     plataforma = models.ForeignKey(Plataforma, on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    
+    def get_precio(self):
+        """Extrae precio normalizado del metadata"""
+        return self.metadata.get('precio', {})
+    
+    def get_caracteristicas(self):
+        """Extrae características normalizadas"""
+        return self.metadata.get('caracteristicas', {})
+    
+    def get_imagen_principal(self):
+        """URL de imagen principal"""
+        return self.metadata.get('imagen_url', '')
+
+class ResultadoBusqueda(models.Model):
+    busqueda = models.ForeignKey(Busqueda, on_delete=models.CASCADE)
+    propiedad = models.ForeignKey(Propiedad, on_delete=models.CASCADE)
+    es_nueva = models.BooleanField(default=True)  # Nueva vs ya existente
+    match_info = models.JSONField(default=dict)  # Info de coincidencias
+    
+    class Meta:
+        unique_together = ['busqueda', 'propiedad']
+        indexes = [
+            models.Index(fields=['busqueda', 'es_nueva']),
+            models.Index(fields=['created_at']),
+        ]
 ```
 
-#### 7. **Relaciones**
-- **BusquedaPalabraClave**: Many-to-Many entre Búsquedas y Palabras Clave
-- **ResultadoBusqueda**: Relaciona Búsquedas con Propiedades encontradas
+### 🔍 **Sistema de Índices y Optimización**
 
-### 🎯 Sistema de Guardado Unificado
+```python
+# Índices para consultas frecuentes
+class Meta:
+    indexes = [
+        # Búsquedas por usuario
+        models.Index(fields=['usuario', 'guardado', 'created_at']),
+        
+        # Resultados por búsqueda
+        models.Index(fields=['busqueda', 'es_nueva', 'created_at']),
+        
+        # Propiedades por plataforma
+        models.Index(fields=['plataforma', 'created_at']),
+        
+        # Palabras clave por idioma
+        models.Index(fields=['idioma', 'texto']),
+    ]
+```
 
-#### **Diferencias entre "Buscar" y "Buscar y Guardar"**
+### 📊 **Ejemplo de Metadata JSON**
 
-| Acción | "Buscar" | "Buscar y Guardar" |
-|--------|----------|-------------------|
-| **Se almacena en BD** | ✅ Sí | ✅ Sí |
-| **Flag `guardado`** | `False` | `True` |
-| **Visible en interfaz** | ❌ No | ✅ Sí |
-| **Botón "Eliminar"** | ❌ N/A | ✅ Sí (elimina de la lista) |
-| **Propósito** | Análisis interno | Lista de búsquedas del usuario |
-| **Ejecuta scraping** | ✅ Sí | ✅ Sí |
-| **Notifica al cliente** | ❌ No | ✅ Sí |
+```json
+// Propiedad.metadata
+{
+  "precio": {
+    "valor": 175000,
+    "moneda": "USD",
+    "tipo": "venta"
+  },
+  "caracteristicas": {
+    "dormitorios": 2,
+    "baños": 1,
+    "superficie_total": 65,
+    "superficie_util": 58,
+    "garage": true,
+    "terraza": false,
+    "piscina": false
+  },
+  "ubicacion": {
+    "departamento": "Montevideo",
+    "ciudad": "Montevideo", 
+    "barrio": "Pocitos"
+  },
+  "imagen_url": "https://http2.mlstatic.com/...",
+  "fuente": {
+    "portal": "MercadoLibre",
+    "fecha_scraping": "2025-09-15T10:30:00Z",
+    "url_original": "https://..."
+  }
+}
 
-#### **Comportamiento del Botón "Eliminar"**
-- **Desde la perspectiva del usuario**: Elimina completamente la búsqueda
-- **Implementación técnica**: Eliminación suave que preserva datos para análisis
-- **Resultado visible**: La búsqueda desaparece permanentemente de la interfaz
-- **Beneficio del sistema**: Se mantiene trazabilidad y métricas sin afectar la experiencia
-
-#### **Ventajas del Sistema Unificado**
-- **Análisis completo**: Historial de todas las búsquedas realizadas
-- **Métricas precisas**: Patrones de uso y preferencias del usuario  
-- **Debugging**: Trazabilidad completa de operaciones
-- **Escalabilidad**: Base para funciones avanzadas (recomendaciones, ML)
+// ResultadoBusqueda.match_info
+{
+  "keywords_matched": ["luminoso", "terraza"],
+  "keywords_total": 3,
+  "match_score": 0.85,
+  "filtros_aplicados": {
+    "precio_range": true,
+    "tipo_propiedad": true,
+    "ubicacion": true
+  }
+}
+```
 
 ---
 
 ## 🔧 Sistema de Gestión (search_manager.py)
 
-### Funciones Principales
+### 🎯 **Arquitectura del Gestor de Búsquedas**
 
-#### **Gestión de Búsquedas**
+El `search_manager.py` es el núcleo del sistema de gestión de búsquedas, actuando como una capa de abstracción entre las vistas/consumers y los modelos de base de datos. Proporciona APIs consistentes y manejo de lógica de negocio compleja.
+
+### 📋 **Funciones Principales**
+
+#### **🔍 Gestión de Búsquedas**
+
 ```python
-def get_all_searches() -> List[Dict[str, Any]]  # Solo búsquedas guardadas (interfaz)
-def get_all_search_history() -> List[Dict[str, Any]]  # Todas las búsquedas (análisis)
-def get_search(search_id: str) -> Optional[Dict[str, Any]]
-def save_search(search_data: Dict[str, Any]) -> str
-def delete_search(search_id: str) -> bool  # Elimina búsqueda del usuario
-def restore_search_from_history(search_id: str) -> bool  # Función administrativa: recuperar eliminadas
-def delete_search_permanently(search_id: str) -> bool  # Eliminación física total (mantenimiento)
+def get_all_searches() -> List[Dict[str, Any]]:
+    """
+    Retorna solo búsquedas visibles en interfaz (guardado=True)
+    Optimizada con select_related para evitar N+1 queries
+    """
+
+def get_all_search_history() -> List[Dict[str, Any]]:
+    """
+    Retorna TODAS las búsquedas para análisis interno
+    Incluye tanto guardadas como temporales
+    """
+
+def get_search(search_id: str) -> Optional[Dict[str, Any]]:
+    """
+    Obtiene búsqueda específica con resultados relacionados
+    Incluye prefetch de propiedades y palabras clave
+    """
+
+def save_search(search_data: Dict[str, Any]) -> str:
+    """
+    Crea nueva búsqueda con validación y relaciones
+    Retorna UUID de la búsqueda creada
+    """
+
+def delete_search(search_id: str) -> bool:
+    """
+    Eliminación suave: remueve de lista del usuario
+    Preserva datos para análisis y métricas
+    """
+
+def restore_search_from_history(search_id: str) -> bool:
+    """
+    Función administrativa: recupera búsqueda eliminada
+    Marca guardado=True para que vuelva a ser visible
+    """
 ```
 
-#### **Procesamiento de Palabras Clave**
+#### **📊 Procesamiento de Palabras Clave**
+
 ```python
-def procesar_keywords(texto_busqueda: str) -> List[Dict[str, Any]]
-def get_or_create_palabra_clave(texto: str, idioma: str = 'es') -> PalabraClave
-def generar_sinonimos(palabra: str) -> List[str]
+def procesar_keywords(texto_busqueda: str) -> List[Dict[str, Any]]:
+    """
+    Pipeline completo de procesamiento de keywords:
+    1. Normalización de texto (acentos, minúsculas)
+    2. Tokenización inteligente
+    3. Stemming básico en español
+    4. Generación de sinónimos
+    5. Persistencia en BD con relaciones
+    """
+
+def get_or_create_palabra_clave(texto: str, idioma: str = 'es') -> PalabraClave:
+    """
+    Obtiene o crea palabra clave con sinónimos
+    Implementa cache en memoria para performance
+    """
+
+def generar_sinonimos(palabra: str) -> List[str]:
+    """
+    Genera sinónimos automáticos:
+    - Stemming básico (luminoso → lumin)
+    - Variaciones comunes (garage → garaje)
+    - Plurales y singulares
+    """
 ```
 
-#### **Sistema de Coincidencias**
+#### **🎯 Sistema de Coincidencias**
+
 ```python
-def buscar_coincidencias(busqueda_id: str, propiedades: List[Dict]) -> List[Dict]
-def verificar_coincidencia(palabras_clave_rel, propiedad_data: Dict) -> Dict
+def buscar_coincidencias(busqueda_id: str, propiedades: List[Dict]) -> List[Dict]:
+    """
+    Algoritmo fuzzy matching para keywords:
+    - Coincidencia del 70% mínima
+    - Peso por importancia de keyword
+    - Score agregado por propiedad
+    """
+
+def verificar_coincidencia(palabras_clave_rel, propiedad_data: Dict) -> Dict:
+    """
+    Verifica coincidencia individual propiedad-keywords
+    Retorna score detallado y keywords matched
+    """
 ```
 
-#### **Estadísticas y Reportes**
+#### **📈 Estadísticas y Analytics**
+
 ```python
-def get_search_stats() -> Dict[str, Any]
-def get_popular_keywords(limit: int = 10) -> List[Dict[str, Any]]
+def get_search_stats() -> Dict[str, Any]:
+    """
+    Métricas completas del sistema:
+    - Total de búsquedas (todas vs guardadas)
+    - Propiedades únicas encontradas
+    - Keywords más populares
+    - Tasas de éxito de coincidencias
+    """
+
+def get_popular_keywords(limit: int = 10) -> List[Dict[str, Any]]:
+    """
+    Top keywords por frecuencia de uso
+    Incluye conteos y tendencias temporales
+    """
+
+def get_user_activity_summary(usuario_id: str) -> Dict[str, Any]:
+    """
+    Resumen de actividad por usuario:
+    - Búsquedas realizadas
+    - Patrones de uso
+    - Propiedades favoritas
+    """
 ```
 
-### Funciones de Compatibilidad
-Para mantener compatibilidad con el sistema anterior:
+### 🔄 **Funciones de Compatibilidad**
+
+Para mantener compatibilidad con el sistema anterior y facilitar la migración:
 
 ```python
-def load_results(search_id: str) -> List[Dict]  # Compatible con storage.py
-def save_results(search_id: str, results: List[Dict]) -> bool
-def create_search(search_data: Dict[str, Any]) -> Dict[str, Any]  # Compatible con consumers.py
-def update_search(search_id: str, data: Dict[str, Any]) -> bool
+def load_results(search_id: str) -> List[Dict]:
+    """Compatible con storage.py legacy"""
+
+def save_results(search_id: str, results: List[Dict]) -> bool:
+    """Convierte resultados de scraping a modelos BD"""
+
+def create_search(search_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Compatible con consumers.py WebSocket"""
+
+def update_search(search_id: str, data: Dict[str, Any]) -> bool:
+    """Actualización incremental de búsquedas"""
+```
+
+### ⚡ **Optimizaciones de Performance**
+
+#### **Consultas Optimizadas**
+```python
+# ❌ N+1 Query Problem
+for busqueda in Busqueda.objects.all():
+    print(busqueda.usuario.nombre)  # Query por cada búsqueda
+
+# ✅ Optimización con select_related
+busquedas = Busqueda.objects.select_related('usuario').all()
+for busqueda in busquedas:
+    print(busqueda.usuario.nombre)  # Solo 1 query total
+
+# ✅ Many-to-many con prefetch_related
+busqueda = Busqueda.objects.prefetch_related(
+    'busquedapalabraclave_set__palabra_clave'
+).get(id=search_id)
+```
+
+#### **Cache de Keywords**
+```python
+class KeywordCache:
+    _cache = {}
+    
+    @classmethod
+    def get_or_create(cls, texto: str) -> PalabraClave:
+        if texto not in cls._cache:
+            cls._cache[texto], _ = PalabraClave.objects.get_or_create(
+                texto=texto
+            )
+        return cls._cache[texto]
+```
+
+#### **Bulk Operations**
+```python
+def save_multiple_results(search_id: str, properties: List[Dict]) -> int:
+    """
+    Inserción masiva de resultados para mejor performance
+    Usa bulk_create cuando es posible
+    """
+    resultados = []
+    for prop_data in properties:
+        resultado = ResultadoBusqueda(
+            busqueda_id=search_id,
+            propiedad=get_or_create_property(prop_data),
+            es_nueva=not property_exists(prop_data['url'])
+        )
+        resultados.append(resultado)
+    
+    return ResultadoBusqueda.objects.bulk_create(
+        resultados, 
+        ignore_conflicts=True
+    )
 ```
 
 ---

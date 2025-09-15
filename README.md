@@ -1,134 +1,278 @@
+# 🏠 Buscador Inmobiliario Inteligente
 
-# Guía Técnica para Desarrolladores: Buscador Inmobiliario
+**Automatiza tu búsqueda de propiedades con inteligencia artificial**
 
-## Propósito
-Este documento está dirigido a desarrolladores que colaboren en el proyecto. Aquí encontrarás la estructura, convenciones, selectores clave y detalles técnicos para mantener, mejorar y depurar el código.
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Django 5.1](https://img.shields.io/badge/django-5.1-green.svg)](https://djangoproject.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![WebSocket](https://img.shields.io/badge/WebSocket-Tiempo%20Real-orange.svg)]()
 
-## Descripción General
-El proyecto es una aplicación web en Django para búsqueda y gestión de propiedades inmobiliarias. Incluye scraping, almacenamiento, enriquecimiento de datos y una interfaz web. El foco está en la extensibilidad y la automatización de procesos.
+---
 
-## Estructura del Proyecto
+## 🎯 ¿Qué es?
 
+**Buscador Inmobiliario Inteligente** es una aplicación web que revoluciona la forma de buscar propiedades inmobiliarias. Utiliza inteligencia artificial para interpretar búsquedas en lenguaje natural y automatiza el proceso de scraping de MercadoLibre Uruguay, mostrando resultados organizados en tiempo real.
 
-### Estructura principal
-- **buscador/**: Configuración Django (settings, urls, wsgi, asgi).
-- **core/**: Lógica de negocio, scraping, modelos, vistas, administración, almacenamiento, tests.
-   - `scraper.py`: Scraping y extracción de datos.
-   - `search_manager.py`: Gestión de búsquedas y resultados.
-   - `models.py`: Modelos de datos.
-   - `views.py`: Vistas y endpoints.
-   - `admin.py`: Panel de administración.
-   - `storage.py`: Persistencia de resultados.
-   - `scheduler.py`: Tareas programadas.
-   - `urls.py`: Rutas core.
-   - `tests.py` y `test_procesar_keywords.py`: Pruebas unitarias.
-- **management/commands/**: Comandos custom para scraping y enriquecimiento.
-- **migrations/**: Migraciones de base de datos.
-- **templates/**: HTML para la UI.
-- **static/**: Archivos estáticos.
-- **user_data/**: Búsquedas y resultados en JSON.
-- **requirements.txt**: Dependencias.
-- **Dockerfile**: Contenedores Docker.
-- **manage.py**: Script de gestión Django.
+### ✨ **Características Principales**
 
-## Principales Funcionalidades
+- 🤖 **Búsqueda con IA**: Escribe en lenguaje natural y la IA completa automáticamente los filtros
+- ⚡ **Tiempo real**: Ve el progreso de tu búsqueda en vivo con WebSockets
+- 💾 **Búsquedas guardadas**: Guarda tus búsquedas favoritas y re-ejecútalas cuando quieras
+- 🎯 **Filtrado inteligente**: Encuentra propiedades con keywords específicas (luminoso, terraza, garage)
+- 📊 **Resultados organizados**: Separación clara entre propiedades nuevas y ya encontradas
+- 📱 **Responsive**: Funciona perfectamente en desktop, tablet y móvil
 
-### Funcionalidades principales
-### Nueva funcionalidad: Búsqueda inteligente con IA
+---
 
-Al realizar una búsqueda, el texto libre ingresado por el usuario se envía a un modelo de IA (Gemini 2.5 Flash, gratuito) que interpreta el texto y completa automáticamente los filtros del formulario. El resto del texto se transforma en palabras clave para la búsqueda. Esto permite búsquedas más naturales y rápidas.
+## 🚀 Instalación Rápida
 
-Además, la interfaz minimiza los filtros con una animación mientras se realiza la búsqueda, restaurándolos al finalizar o detener la búsqueda.
+### Requisitos Previos
+- **Python 3.10+** ([Descargar aquí](https://www.python.org/downloads/))
+- **Git** ([Descargar aquí](https://git-scm.com/downloads))
 
-## Instalación y Ejecución
+### 1️⃣ Clonar el Repositorio
+```bash
+git clone https://github.com/tu-usuario/buscador-inmobiliario.git
+cd buscador-inmobiliario
+```
 
-### Instalación y ejecución
-1. Clona el repo y crea un entorno virtual.
-2. Instala dependencias:
+### 2️⃣ Crear Entorno Virtual
+```bash
+# Windows
+python -m venv .venv
+.venv\Scripts\activate
+
+# Linux/Mac
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+### 3️⃣ Instalar Dependencias
+```bash
+pip install -r requirements.txt
+```
+
+### 4️⃣ Configurar Base de Datos
+```bash
+python manage.py migrate
+```
+
+### 5️⃣ Ejecutar la Aplicación
+```bash
+python manage.py runserver
+```
+
+**¡Listo!** Abre tu navegador en **http://localhost:8000**
+
+---
+
+## 🔧 Configuración Opcional
+
+### 🤖 **Búsqueda con IA (Recomendado)**
+
+Para habilitar las búsquedas inteligentes con IA:
+
+1. **Obtén una clave gratuita** de Google AI Studio: https://aistudio.google.com/
+2. **Configura la variable de entorno**:
    ```bash
-   pip install -r requirements.txt
+   # Windows (PowerShell)
+   $env:GEMINI_API_KEY="tu_clave_aqui"
+   
+   # Linux/Mac
+   export GEMINI_API_KEY="tu_clave_aqui"
    ```
-3. Aplica migraciones:
+3. **Opcional**: Crea un archivo `.env` en la raíz del proyecto:
+   ```
+   GEMINI_API_KEY=tu_clave_aqui
+   ```
+
+### 📊 **Redis para Mejor Performance (Opcional)**
+
+Para mejor performance en producción:
+
+1. **Instala Redis**:
+   - Windows: https://github.com/microsoftarchive/redis/releases
+   - Linux: `sudo apt install redis-server`
+   - Mac: `brew install redis`
+
+2. **Configura la variable**:
    ```bash
-   python manage.py migrate
+   # Local
+   REDIS_URL=redis://localhost:6379
+   
+   # Upstash (cloud)
+   REDIS_URL=rediss://usuario:password@host:port
    ```
-4. Ejecuta el servidor:
-   ```bash
-   python manage.py runserver
-   ```
 
-### Configuración de la API de Gemini
-Para usar la búsqueda inteligente, necesitas una clave de API gratuita de Gemini. Regístrate en https://aistudio.google.com/ y obtén tu clave. Luego, crea una variable de entorno:
+---
+
+## 🎮 Cómo Usar
+
+### 🔍 **Búsqueda Básica**
+
+1. **Escribe tu búsqueda** en lenguaje natural:
+   - *"Apartamento 2 dormitorios Pocitos hasta 180 mil dólares"*
+   - *"Casa con garage en Punta del Este"*
+   - *"Oficina luminosa zona centro"*
+
+2. **La IA completa automáticamente** los filtros
+
+3. **Elige tu acción**:
+   - **"Buscar"**: Búsqueda temporal (no se guarda en la lista)
+   - **"Buscar y Guardar"**: Se guarda en tu lista de búsquedas
+
+### 📊 **Panel de Progreso**
+
+Mientras se ejecuta la búsqueda, verás:
+- ✅ **Fases del proceso**: Análisis IA → Construcción URL → Recolección → Extracción
+- 📈 **Métricas en tiempo real**: Propiedades encontradas, nuevas, existentes
+- 🎯 **Coincidencias de keywords**: Cuántas palabras clave coinciden
+- ⏱️ **Tiempo estimado**: Progreso y tiempo restante
+
+### 🏠 **Resultados**
+
+Los resultados se organizan en:
+- **✨ Nuevas Propiedades**: Que no habías visto antes
+- **🔄 Encontradas Anteriormente**: Que ya aparecieron en búsquedas pasadas
+
+Cada propiedad muestra:
+- 🖼️ Imagen principal
+- 🏠 Título y descripción
+- 📍 Ubicación (departamento, ciudad, barrio)
+- 💰 Precio (USD/UYU)
+- 🛏️ Características (dormitorios, baños, superficie)
+- 🔗 Enlace directo a MercadoLibre
+
+### 💾 **Búsquedas Guardadas**
+
+En tu lista de búsquedas guardadas puedes:
+- 👀 **Ver resultados** de búsquedas anteriores
+- 🔄 **Re-ejecutar** la misma búsqueda para encontrar nuevas propiedades
+- 🗑️ **Eliminar** búsquedas que ya no necesitas
+
+---
+
+## 🎯 Casos de Uso
+
+### 👤 **Usuario Casual**
+- Busca su primera vivienda
+- Explora diferentes zonas y precios
+- Descubre propiedades que cumplan criterios específicos
+
+### 🏢 **Agente Inmobiliario**
+- Gestiona búsquedas para múltiples clientes
+- Monitorea nuevas propiedades en el mercado
+- Mantiene un portfolio de búsquedas organizadas
+
+### 📊 **Inversor/Analista**
+- Analiza tendencias de precios por zona
+- Monitorea oportunidades de inversión
+- Exporta datos para análisis externos
+
+---
+
+## 🛠️ Troubleshooting
+
+### ❌ **Problemas Comunes**
+
+#### **"La búsqueda no encuentra propiedades"**
+- ✅ Revisa que los filtros no sean demasiado restrictivos
+- ✅ Prueba con menos keywords específicas
+- ✅ Verifica que la zona seleccionada tenga propiedades disponibles
+
+#### **"La IA no funciona"**
+- ✅ Verifica que `GEMINI_API_KEY` esté configurada correctamente
+- ✅ La búsqueda funciona sin IA, solo sin completado automático
+
+#### **"La búsqueda va muy lenta"**
+- ✅ Es normal: el scraping responsable toma 1-3 minutos
+- ✅ Puedes detener la búsqueda en cualquier momento
+- ✅ Para mayor velocidad, considera configurar Redis
+
+#### **"Error de conexión"**
+- ✅ Verifica tu conexión a internet
+- ✅ MercadoLibre puede estar temporalmente inaccesible
+- ✅ Reinicia la aplicación si persiste el error
+
+### 🔧 **Comandos Útiles**
+
 ```bash
-set GEMINI_API_KEY=tu_clave_aqui
-```
-O agrégala en tu archivo `.env` si usas dotenv.
+# Reiniciar base de datos
+python manage.py migrate --run-syncdb
 
-## Uso de Comandos Personalizados
+# Ver logs detallados
+python manage.py runserver --verbosity=2
 
-### Comandos útiles
-Ejecutar el scraper:
-```bash
-python manage.py run_scraper
-```
+# Ejecutar tests
+python manage.py test
 
-## Tests
-
-### Tests
-Para ejecutar los tests:
-```bash
-python manage.py test core
+# Crear usuario administrador
+python manage.py createsuperuser
 ```
 
-## Docker
+---
 
-### Docker
-Para construir y correr el contenedor:
-```bash
-docker build -t buscador-inmobiliario .
-docker run -p 8000:8000 buscador-inmobiliario
-```
+## 📊 Limitaciones y Consideraciones
 
-## Contacto y Soporte
+### ⚖️ **Legal**
+- ✅ Respeta robots.txt de MercadoLibre
+- ✅ Implementa delays entre requests
+- ✅ Solo extrae datos públicos disponibles
+- ⚠️ Úsalo de forma responsable y ética
 
-## Colaboración y Soporte
-Para dudas técnicas, sugerencias o reportes, contacta al propietario o abre un issue/pull request.
-Se recomienda documentar cualquier cambio relevante en esta guía.
+### 🔒 **Técnicas**
+- 📊 **Datos**: Solo propiedades de MercadoLibre Uruguay
+- ⏱️ **Velocidad**: 1-3 minutos por búsqueda (scraping responsable)
+- 💾 **Almacenamiento**: SQLite local (datos en tu computadora)
+- 🌐 **Internet**: Requiere conexión para scraping
 
-## Links y Selectores Clave Usados en el Scraping
+---
 
-### Esta sección es clave para desarrolladores que deban modificar scraping, parseo o agregar nuevos portales.
+## 🚀 Para Desarrolladores
 
-### MercadoLibre
-- **URL base de búsqueda:**
-   - `https://listado.mercadolibre.com.uy/inmuebles/{tipo_inmueble}/{operacion}/{ubicacion}/`
-   - Filtros de precio: `_PriceRange_{precio_min}USD-{precio_max}USD`
-- **Selector de items en resultados:**
-   - Selenium: `div.poly-card--grid-card`
-   - BeautifulSoup: `li.ui-search-layout__item`
-- **Selector de link/título:**
-   - Selenium: `h3.poly-component__title-wrapper > a.poly-component__title`
-   - BeautifulSoup: `a.ui-search-link`
-- **Selector de descripción:**
-   - Selenium: `p.ui-pdp-description__content[data-testid="content"]`
-   - BeautifulSoup: `p.ui-pdp-description__content`
-- **Selector de tabla de características:**
-   - BeautifulSoup: `tr.andes-table__row` (clave-valor)
-- **Selector de características destacadas:**
-   - BeautifulSoup: `div.ui-vpp-highlighted-specs__key-value`
-- **Selector de imagen principal:**
-   - BeautifulSoup: `figure.ui-pdp-gallery__figure img`
-- **Selector de precio:**
-   - BeautifulSoup: `div.ui-pdp-price__main-container span.andes-money-amount__fraction`
+¿Quieres contribuir o personalizar el sistema?
 
-### ScrapingBee
-- **URL de proxy:**
-   - `https://app.scrapingbee.com/api/v1/?api_key={API_KEY}&url={url_target}`
+- 📚 **[Documentación Técnica](DOCUMENTACION_TECNICA.md)**: Arquitectura y APIs internas
+- 🛠️ **[Guía de Contribución](CONTRIBUTING.md)**: Cómo contribuir al proyecto
+- 🐳 **[Deployment](DEPLOYMENT.md)**: Guía para producción
+- 🔧 **[Funcionalidades](core/Funcionalidades.md)**: Detalles de características
 
-### Otros detalles
-- **Función para filtrar links prohibidos:**
-   - Paths bloqueados: `/jms/`, `/adn/api` (solo si el path después del dominio coincide)
-- **Keywords:**
-   - Se procesan y normalizan para filtrar resultados relevantes.
+---
 
-Esta sección sirve como referencia rápida para modificar o depurar el scraping y extracción de datos.
+## 📝 Licencia
+
+Este proyecto está bajo la **Licencia MIT**. Eres libre de usar, modificar y distribuir el código.
+
+---
+
+## 🤝 Contribuciones
+
+¡Las contribuciones son bienvenidas! Por favor:
+
+1. 🍴 Haz fork del proyecto
+2. 🌿 Crea una rama para tu feature (`git checkout -b feature/AmazingFeature`)
+3. 💾 Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
+4. 📤 Push a la rama (`git push origin feature/AmazingFeature`)
+5. 🔃 Abre un Pull Request
+
+---
+
+## 📞 Soporte
+
+- 🐛 **Reportar bugs**: Abre un [issue en GitHub](../../issues)
+- 💡 **Sugerencias**: Comparte tus ideas en [discussions](../../discussions)
+- 📧 **Contacto directo**: [tu-email@ejemplo.com]
+
+---
+
+## 🌟 ¿Te gusta el proyecto?
+
+Si este proyecto te resulta útil, considera:
+- ⭐ Darle una estrella en GitHub
+- 🔄 Compartirlo con otros desarrolladores
+- 💡 Contribuir con mejoras
+- 📝 Escribir sobre tu experiencia
+
+---
+
+*Desarrollado con ❤️ para automatizar la búsqueda inmobiliaria*

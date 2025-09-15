@@ -35,10 +35,8 @@ Completados:
     - (30') [Testear] Las propiedades que encuentran (por ahora solo guarda coincidentes. Debería guardar las no coincidentes con 'coincide' valor False)
     - (20') [Testear] Guardar características en la tabla de propiedades.
     - (tiempos muertos) Actualizar documentaciones:
-      Qué debería tener una documentación técnica del proyecto?
-      Revisa nuestro documento 'DOCUMENTACION_TECNICA.md' y haz las actualizaciones necesarias.
-      Qué debería tener el documento de instrucciones para el copilot del proyecto?
-      Revisa nuestro documento 'copilot-instructions.md' y haz las actualizaciones necesarias.
+      Qué debería tener una documentación de las funcionalidades del proyecto? y de la documentación técnica? y de las instrucciones para copilot?
+      Revisa nuestros documentos de 'Funcionalidades.md', 'DOCUMENTACION_TECNICA.md' y 'copilot-instructions.md' y haz los arreglos y actualizaciones necesarias. Si falta algún documento importante para un proyecto como este, también crealo.
       Revisa el documento 'siguientes pasos.txt', no borrar nada pero agregar lo que creas pertinente para el futuro del proyecto. Actualizar la última parte del documento.
     - (1h) [Revisar] Búsquedas con keywords y sinónimos 
     - (2h) Se sigue mostrando los resultados encontrados de forma distinta a las búsquedas guardadas. 
