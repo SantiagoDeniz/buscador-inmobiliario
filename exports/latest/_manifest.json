@@ -1,13 +1,13 @@
 {
-  "generated_at": "2025-09-03T10:27:06.142839",
-  "base_dir": "exports",
-  "latest_dir": "exports\\latest",
+  "generated_at": "2025-09-12T19:18:30.281919",
+  "base_dir": "C:\\Users\\50246022\\Documents\\Programación\\buscador-inmobiliario\\exports",
+  "latest_dir": "C:\\Users\\50246022\\Documents\\Programación\\buscador-inmobiliario\\exports\\latest",
   "files": [
     {
       "file": "_manifest.csv",
-      "bytes": 2215,
-      "rows_csv": 18,
-      "sha256": "3873a024c2794d6d89fe834f24554061ba677fc897ed6639cee1edc6821aa923",
+      "bytes": 2325,
+      "rows_csv": 19,
+      "sha256": "689c15edc9f45f900df6cdb67cc58112f1b75c69a7350e493d6d2cd0b0a75729",
       "db_table": "_manifest",
       "db_rows": null,
       "rows_match": false,
@@ -38,11 +38,11 @@
     },
     {
       "file": "auth_permission.csv",
-      "bytes": 2540,
-      "rows_csv": 56,
-      "sha256": "6f4f2674ecc19b09564c8e1fda6e4978e1865b970be2da06288b68a84420f8aa",
+      "bytes": 2822,
+      "rows_csv": 60,
+      "sha256": "418caba408e2efda551b196ed5e9732bb659104709f6b94588c0935b20b39d61",
       "db_table": "auth_permission",
-      "db_rows": 56,
+      "db_rows": 60,
       "rows_match": true,
       "dup_full_row": 0,
       "dup_pk": 0
@@ -82,11 +82,11 @@
     },
     {
       "file": "busqueda.csv",
-      "bytes": 3810,
-      "rows_csv": 6,
-      "sha256": "7b1be789ecaf609a0ca4dac0bac334e5e0cbea91b3a98c138421f3c4585c7799",
+      "bytes": 3619,
+      "rows_csv": 5,
+      "sha256": "bbf65c55636bca9f68dd7b9f0e72db99f6e1d9f99f10f4e9866536265d1dfcdc",
       "db_table": "busqueda",
-      "db_rows": 6,
+      "db_rows": 5,
       "rows_match": true,
       "dup_full_row": 0,
       "dup_pk": 0
@@ -95,7 +95,7 @@
       "file": "busqueda_palabra_clave.csv",
       "bytes": 256,
       "rows_csv": 5,
-      "sha256": "ac60cbf145906fa7631c82a96d64f0b1ca9691a1841f7906ae42c5cb961b3c94",
+      "sha256": "9cad82a14757a0cad060439290286ae7dca78be87c7b51ada8c509aa02c9e8c4",
       "db_table": "busqueda_palabra_clave",
       "db_rows": 5,
       "rows_match": true,
@@ -115,22 +115,22 @@
     },
     {
       "file": "django_content_type.csv",
-      "bytes": 307,
-      "rows_csv": 14,
-      "sha256": "cb278a5ecec1e5014e6a23988f8cbb35935403a9611b65ce59ca5f458a9f1157",
+      "bytes": 338,
+      "rows_csv": 15,
+      "sha256": "3f3a83983ad04fdea4c3a0ffe7a19b8b960d14bb0b84ca1953b251b58ca5d553",
       "db_table": "django_content_type",
-      "db_rows": 14,
+      "db_rows": 15,
       "rows_match": true,
       "dup_full_row": 0,
       "dup_pk": 0
     },
     {
       "file": "django_migrations.csv",
-      "bytes": 1556,
-      "rows_csv": 21,
-      "sha256": "aa784e7723be398da2efc75801af20cf3625d3a341a957c895ad48d4256234eb",
+      "bytes": 1625,
+      "rows_csv": 22,
+      "sha256": "acf44f192ee80efc3f67739e522fced77d290e46670e63e53d4a2f771b7eb0a7",
       "db_table": "django_migrations",
-      "db_rows": 21,
+      "db_rows": 22,
       "rows_match": true,
       "dup_full_row": 0,
       "dup_pk": 0
@@ -159,11 +159,22 @@
     },
     {
       "file": "palabra_clave.csv",
-      "bytes": 89,
-      "rows_csv": 3,
-      "sha256": "eb9a38fb8feab0f5e658fa6bb34b90c5fe3bab3186df05c8124b367778e188d4",
+      "bytes": 125,
+      "rows_csv": 4,
+      "sha256": "19367059bd086304f58d740a023765c2a2be878945bbdd2f06f112f5f02ec461",
       "db_table": "palabra_clave",
-      "db_rows": 3,
+      "db_rows": 4,
+      "rows_match": true,
+      "dup_full_row": 0,
+      "dup_pk": 0
+    },
+    {
+      "file": "palabra_clave_propiedad.csv",
+      "bytes": 2049,
+      "rows_csv": 24,
+      "sha256": "bc0cb71d9ca344b92dfd879cbcb6e0d2afa4ada57f7a8da94ba300387b228c08",
+      "db_table": "palabra_clave_propiedad",
+      "db_rows": 24,
       "rows_match": true,
       "dup_full_row": 0,
       "dup_pk": 0
@@ -181,22 +192,22 @@
     },
     {
       "file": "propiedad.csv",
-      "bytes": 23793,
-      "rows_csv": 49,
-      "sha256": "eb4417dbfacfe0adc79322577dd654cee3e6d9ed3a224843132ca22f323ae7f9",
+      "bytes": 23728,
+      "rows_csv": 10,
+      "sha256": "2e366c9fec1f498041b706f9226ff4dca0fbc2b29c5757608a3604aa6e097ba0",
       "db_table": "propiedad",
-      "db_rows": 49,
+      "db_rows": 10,
       "rows_match": true,
       "dup_full_row": 0,
       "dup_pk": 0
     },
     {
       "file": "resultado_busqueda.csv",
-      "bytes": 16917,
-      "rows_csv": 49,
-      "sha256": "d0b107a4b74dc0381c12d1a5dca1e72cd0fa4bf969dbc25fc8d32bf78bbde455",
+      "bytes": 5501,
+      "rows_csv": 14,
+      "sha256": "92a2b23b2f598448f993bf1561b7dcf7ea86226932060309a67f1ea5e5612888",
       "db_table": "resultado_busqueda",
-      "db_rows": 49,
+      "db_rows": 14,
       "rows_match": true,
       "dup_full_row": 0,
       "dup_pk": 0
@@ -225,7 +236,7 @@
       },
       "auth_permission": {
         "primary_key": "id",
-        "row_count": 56
+        "row_count": 60
       },
       "auth_user": {
         "primary_key": "id",
@@ -241,7 +252,7 @@
       },
       "busqueda": {
         "primary_key": "id",
-        "row_count": 6
+        "row_count": 5
       },
       "busqueda_palabra_clave": {
         "primary_key": "id",
@@ -253,11 +264,11 @@
       },
       "django_content_type": {
         "primary_key": "id",
-        "row_count": 14
+        "row_count": 15
       },
       "django_migrations": {
         "primary_key": "id",
-        "row_count": 21
+        "row_count": 22
       },
       "django_session": {
         "primary_key": "session_key",
@@ -269,7 +280,11 @@
       },
       "palabra_clave": {
         "primary_key": "id",
-        "row_count": 3
+        "row_count": 4
+      },
+      "palabra_clave_propiedad": {
+        "primary_key": "id",
+        "row_count": 24
       },
       "plataforma": {
         "primary_key": "id",
@@ -277,11 +292,11 @@
       },
       "propiedad": {
         "primary_key": "id",
-        "row_count": 49
+        "row_count": 10
       },
       "resultado_busqueda": {
         "primary_key": "id",
-        "row_count": 49
+        "row_count": 14
       },
       "usuario": {
         "primary_key": "id",
@@ -290,9 +305,9 @@
     }
   },
   "summary": {
-    "files": 19,
-    "rows_total_csv": 226,
-    "db_tables_counted": 18,
+    "files": 20,
+    "rows_total_csv": 183,
+    "db_tables_counted": 19,
     "csv_db_mismatches": 0,
     "files_with_duplicates": 0
   }
