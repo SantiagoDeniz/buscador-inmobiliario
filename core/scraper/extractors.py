@@ -42,6 +42,9 @@ def _parse_propiedad_html(soup: BeautifulSoup, url: str):
             value = spans[1].text.strip()
             caracteristicas_dict[key] = value
     datos['caracteristicas_texto'] = "\n".join([f"{k.capitalize()}: {v}" for k, v in caracteristicas_dict.items()])
+    
+    # NUEVO: Guardar el diccionario completo de características para metadata
+    datos['caracteristicas_dict'] = caracteristicas_dict.copy()
 
     def get_int_from_value(value: str):
         try:

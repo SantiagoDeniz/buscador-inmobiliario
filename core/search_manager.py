@@ -617,7 +617,17 @@ def verificar_keywords_en_propiedad(propiedad: Propiedad, palabras_clave: List[P
     
     # Extraer características del metadata si existe
     if propiedad.metadata and isinstance(propiedad.metadata, dict):
-        caracteristicas = propiedad.metadata.get('caracteristicas', '')
+        # Intentar usar el nuevo formato primero
+        if 'caracteristicas_texto' in propiedad.metadata:
+            caracteristicas = propiedad.metadata.get('caracteristicas_texto', '')
+        elif 'caracteristicas_dict' in propiedad.metadata:
+            # Si solo hay dict, convertir a texto
+            carac_dict = propiedad.metadata.get('caracteristicas_dict', {})
+            caracteristicas = ' '.join(f"{k}: {v}" for k, v in carac_dict.items())
+        else:
+            # Formato legacy: buscar en toda la metadata
+            caracteristicas = propiedad.metadata.get('caracteristicas', '')
+        
         if isinstance(caracteristicas, dict):
             # Si caracteristicas es un dict, extraer todos los valores
             caracteristicas = ' '.join(str(v) for v in caracteristicas.values())
@@ -821,12 +831,41 @@ def procesar_propiedad_nueva(url: str, plataforma: Plataforma, palabras_clave: L
         
         # Crear propiedad con detalles scrapeados
         with transaction.atomic():
+            # Construir metadata completo con todas las características
+            metadata_completo = {
+                'caracteristicas_dict': detalles.get('caracteristicas_dict', {}),
+                'caracteristicas_texto': detalles.get('caracteristicas_texto', ''),
+                'precio_moneda': detalles.get('precio_moneda', ''),
+                'precio_valor': detalles.get('precio_valor', 0),
+                'url_imagen': detalles.get('url_imagen', ''),
+                'tipo_inmueble': detalles.get('tipo_inmueble', ''),
+                'condicion': detalles.get('condicion', ''),
+                # Características estructurales
+                'dormitorios_min': detalles.get('dormitorios_min'),
+                'dormitorios_max': detalles.get('dormitorios_max'),
+                'banos_min': detalles.get('banos_min'),
+                'banos_max': detalles.get('banos_max'),
+                'superficie_total_min': detalles.get('superficie_total_min'),
+                'superficie_total_max': detalles.get('superficie_total_max'),
+                'superficie_cubierta_min': detalles.get('superficie_cubierta_min'),
+                'superficie_cubierta_max': detalles.get('superficie_cubierta_max'),
+                'cocheras_min': detalles.get('cocheras_min'),
+                'cocheras_max': detalles.get('cocheras_max'),
+                'antiguedad': detalles.get('antiguedad'),
+                # Características booleanas
+                'es_amoblado': detalles.get('es_amoblado', False),
+                'admite_mascotas': detalles.get('admite_mascotas', False),
+                'tiene_piscina': detalles.get('tiene_piscina', False),
+                'tiene_terraza': detalles.get('tiene_terraza', False),
+                'tiene_jardin': detalles.get('tiene_jardin', False),
+            }
+            
             propiedad = Propiedad.objects.create(
                 url=url,
                 plataforma=plataforma,
                 titulo=detalles.get('titulo', ''),
                 descripcion=detalles.get('descripcion', ''),
-                metadata=detalles.get('caracteristicas', {})
+                metadata=metadata_completo
             )
             
             print(f"[CREADA] Propiedad: {propiedad.titulo or propiedad.url}")

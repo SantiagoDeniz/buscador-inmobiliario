@@ -128,16 +128,18 @@ class TestSearchManagerDatabase(TestCase):
     
     def test_get_all_searches(self):
         """Test obtener todas las búsquedas"""
-        # Crear búsquedas de prueba
+        # Crear búsquedas de prueba con guardado=True para que aparezcan en get_all_searches()
         busqueda1 = Busqueda.objects.create(
             nombre_busqueda="Apartamento Centro",
             texto_original="apartamento centro",
+            guardado=True,  # Marcar como guardada para que aparezca en la lista
             usuario=self.usuario
         )
         
         busqueda2 = Busqueda.objects.create(
             nombre_busqueda="Casa Pocitos", 
             texto_original="casa pocitos",
+            guardado=True,  # Marcar como guardada para que aparezca en la lista
             usuario=self.usuario
         )
         
