@@ -447,16 +447,22 @@ def run_scraper(filters: dict, keywords: list = None, max_paginas: int = 3, work
                         current_search_item=f"({i+1}/{len(urls_lista)}) ❌ Excepción procesando URL"
                     )
     print(f"✅ [COMPLETADO] {nuevas_propiedades_guardadas} nuevas propiedades guardadas")
-    # Para la UI actual: mostrar todo bajo 'nuevas' y no poblar 'existentes'
-    combined_for_ui = matched_publications_titles + existing_publications_titles
+    
+    # Filtrar solo las propiedades que coinciden (coincide: True) para mostrar en la UI
+    matched_only_new = [p for p in matched_publications_titles if p.get('coincide', True)]
+    matched_only_existing = [p for p in existing_publications_titles if p.get('coincide', True)]
+    
+    # Para la UI actual: mostrar solo coincidentes bajo 'nuevas' y no poblar 'existentes'
+    combined_for_ui = matched_only_new + matched_only_existing
     all_matched_properties = {
         'nuevas': combined_for_ui,
         'existentes': []
     }
     total_coincidentes = len(combined_for_ui)
-    print(f"📊 [RESUMEN FINAL] (UI) Nuevas: {len(combined_for_ui)} | Existentes (solo log): {len(existing_publications_titles)} | Total: {total_coincidentes}")
+    total_procesadas = len(matched_publications_titles) + len(existing_publications_titles)
+    print(f"📊 [RESUMEN FINAL] (UI) Coincidentes: {total_coincidentes} de {total_procesadas} procesadas | Nuevas: {len(matched_only_new)} | Existentes: {len(matched_only_existing)}")
     send_progress_update(
-        final_message=f"✅ Búsqueda completada. {nuevas_propiedades_guardadas} nuevas propiedades guardadas.",
+        final_message=f"✅ Búsqueda completada. {nuevas_propiedades_guardadas} nuevas propiedades guardadas, {total_coincidentes} coincidentes mostradas.",
         matched_publications=combined_for_ui,
         all_matched_properties=all_matched_properties
     )

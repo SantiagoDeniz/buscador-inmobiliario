@@ -1,17 +1,17 @@
 # 🚀 Guía de Deployment para Producción
 
-Esta guía explica cómo desplegar el **Buscador Inmobiliario Inteligente** en entornos de producción usando Docker, PostgreSQL y Redis.
+Esta guía explica cómo desplegar el **Buscador Inmobiliario Inteligente** en la plataforma **Render** (opción principal) y otras alternativas como VPS con Docker.
 
 ---
 
 ## 📋 Tabla de Contenidos
 
 1. [Requisitos de Producción](#requisitos-de-producción)
-2. [Configuración con Docker](#configuración-con-docker)
-3. [Base de Datos PostgreSQL](#base-de-datos-postgresql)
+2. [Deployment en Render (Recomendado)](#deployment-en-render-recomendado)
+3. [Configuración de Base de Datos](#configuración-de-base-de-datos)
 4. [Redis para Cache y WebSockets](#redis-para-cache-y-websockets)
 5. [Variables de Entorno](#variables-de-entorno)
-6. [Nginx como Reverse Proxy](#nginx-como-reverse-proxy)
+6. [Deployment Alternativo con Docker](#deployment-alternativo-con-docker)
 7. [SSL/HTTPS](#ssl-https)
 8. [Monitoreo y Logs](#monitoreo-y-logs)
 9. [Backup y Recuperación](#backup-y-recuperación)
@@ -27,24 +27,243 @@ Esta guía explica cómo desplegar el **Buscador Inmobiliario Inteligente** en e
 - **Almacenamiento**: 20GB SSD
 - **Ancho de banda**: 100Mbps
 
-### **Software**
-- **Docker** 20.10+
-- **Docker Compose** 2.0+
-- **Nginx** (como reverse proxy)
-- **Certbot** (para SSL/HTTPS)
+## 🎯 Requisitos de Producción
 
-### **Servicios Externos**
-- **PostgreSQL** 13+ (puede ser containerizado)
-- **Redis** 6+ (para WebSockets y cache)
+### **Render (Opción Principal)**
+- **Plan Web Service**: Pro ($25/mes) o superior
+- **PostgreSQL**: Plan Starter ($7/mes) o superior
+- **Redis**: Plan Starter ($7/mes) o superior
+
+### **VPS/Cloud Alternativo**
+- **CPU**: 2 cores
+- **RAM**: 4GB (8GB recomendado)
+- **Almacenamiento**: 20GB SSD
+- **Ancho de banda**: 100Mbps
+
+### **Servicios Externos Requeridos**
+- **PostgreSQL** 13+ (Render PostgreSQL o RDS)
+- **Redis** 6+ (Render Redis o Upstash)
 - **Google Gemini API** (para búsquedas IA)
 
 ---
 
-## 🐳 Configuración con Docker
+## 🌐 Deployment en Render (Recomendado)
+
+### **1. Preparación del Repositorio**
+
+Crear `render.yaml` en la raíz del proyecto:
+
+```yaml
+services:
+  - type: web
+    name: buscador-inmobiliario
+    env: python
+    plan: starter  # o pro para producción
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "daphne -b 0.0.0.0 -p 10000 buscador.asgi:application"
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: buscador-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: buscador-redis
+          property: connectionString
+
+databases:
+  - name: buscador-db
+    plan: starter  # $7/mes
+
+services:
+  - type: redis
+    name: buscador-redis  
+    plan: starter  # $7/mes
+```
+
+### **2. Variables de Entorno en Render**
+
+En el dashboard de Render, configurar:
+
+```env
+# Base de datos (auto-configurado por Render)
+DATABASE_URL=postgresql://user:pass@host:port/db
+
+# Redis (auto-configurado por Render)  
+REDIS_URL=rediss://user:pass@host:port
+
+# Configuración Django
+DEBUG=False
+ALLOWED_HOSTS=tu-app.onrender.com,tu-dominio.com
+SECRET_KEY=tu-clave-secreta-muy-larga
+
+# APIs externas
+GEMINI_API_KEY=tu-clave-gemini
+SCRAPINGBEE_API_KEY=tu-clave-opcional
+
+# Configuración de producción
+SECURE_SSL_REDIRECT=True
+SECURE_PROXY_SSL_HEADER=HTTP_X_FORWARDED_PROTO,https
+```
+
+### **3. Configuración de Build en Render**
+
+```bash
+# Build Command
+pip install -r requirements.txt
+
+# Start Command  
+daphne -b 0.0.0.0 -p 10000 buscador.asgi:application
+```
+
+### **4. Proceso de Deployment**
+
+1. **Push a GitHub/GitLab**:
+   ```bash
+   git add .
+   git commit -m "Deploy to Render"
+   git push origin main
+   ```
+
+2. **Conectar en Render**:
+   - Crear nuevo Web Service
+   - Conectar repositorio
+   - Configurar variables de entorno
+   - Deploy automático
+
+3. **Verificar Deployment**:
+   ```bash
+   # Check de salud
+   curl https://tu-app.onrender.com/health/
+   
+   # Verificar WebSockets
+   curl https://tu-app.onrender.com/redis_diagnostic/
+   ```
+
+---
+
+## �️ Configuración de Base de Datos
+
+### **PostgreSQL en Render**
+
+1. **Crear base de datos**:
+   - En dashboard de Render → New → PostgreSQL
+   - Plan: Starter ($7/mes)
+   - Configurar nombre: `buscador-db`
+
+2. **Configuración automática**:
+   ```python
+   # settings.py se autoconfigura con DATABASE_URL
+   import dj_database_url
+   
+   DATABASES = {
+       'default': dj_database_url.parse(os.environ.get('DATABASE_URL'))
+   }
+   ```
+
+3. **Migraciones iniciales**:
+   ```bash
+   # En el build command de Render
+   python manage.py migrate
+   python manage.py collectstatic --noinput
+   ```
+
+### **PostgreSQL Local/VPS**
+
+Para desarrollo o VPS alternativo:
+
+```bash
+# Instalar PostgreSQL
+sudo apt update
+sudo apt install postgresql postgresql-contrib
+
+# Crear usuario y base de datos
+sudo -u postgres psql
+CREATE DATABASE buscador_inmobiliario;
+CREATE USER buscador_user WITH PASSWORD 'password';
+GRANT ALL PRIVILEGES ON DATABASE buscador_inmobiliario TO buscador_user;
+\q
+```
+
+---
+
+## 📦 Redis para Cache y WebSockets
+
+### **Redis en Render**
+
+1. **Crear servicio Redis**:
+   - En dashboard de Render → New → Redis
+   - Plan: Starter ($7/mes)
+   - Configurar nombre: `buscador-redis`
+
+2. **URL automática**:
+   ```python
+   # settings.py
+   CHANNEL_LAYERS = {
+       'default': {
+           'BACKEND': 'channels_redis.core.RedisChannelLayer',
+           'CONFIG': {
+               "hosts": [os.environ.get('REDIS_URL')],
+           },
+       },
+   }
+   ```
+
+### **Redis con Upstash (Alternativa)**
+
+Para proyectos que necesiten Redis independiente:
+
+```bash
+# 1. Crear cuenta en Upstash.com
+# 2. Crear base de datos Redis
+# 3. Copiar la REDIS_URL
+# 4. Configurar en variables de entorno
+
+REDIS_URL=rediss://default:password@host:port
+```
+
+---
+
+## 🔧 Variables de Entorno
+
+### **Render Environment Variables**
+
+Configurar en el dashboard de Render:
+
+```env
+# Configuración básica
+DEBUG=False
+SECRET_KEY=tu-clave-muy-larga-y-segura-aqui
+ALLOWED_HOSTS=tu-app.onrender.com,tu-dominio.com
+
+# Base de datos (auto-configurado)
+DATABASE_URL=postgresql://user:pass@host:port/db
+
+# Redis (auto-configurado)
+REDIS_URL=rediss://user:pass@host:port
+
+# APIs externas
+GEMINI_API_KEY=tu-clave-gemini
+SCRAPINGBEE_API_KEY=clave-opcional
+
+# Configuración de seguridad
+SECURE_SSL_REDIRECT=True
+SECURE_PROXY_SSL_HEADER=HTTP_X_FORWARDED_PROTO,https
+SECURE_BROWSER_XSS_FILTER=True
+SECURE_CONTENT_TYPE_NOSNIFF=True
+
+# Configuración de archivos estáticos
+USE_S3=False  # True si usas S3 para archivos
+```
+
+---
+
+## 🐳 Deployment Alternativo con Docker
+
+Para VPS o servidores propios:
 
 ### **1. Docker Compose para Producción**
-
-Crea `docker-compose.prod.yml`:
 
 ```yaml
 version: '3.8'

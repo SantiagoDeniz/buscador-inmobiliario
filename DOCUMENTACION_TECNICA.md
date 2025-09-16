@@ -4,7 +4,7 @@
 
 ### 📋 Resumen Ejecutivo
 
-El **Buscador Inmobiliario Inteligente** es una aplicación web Django moderna que ha evolucionado de un sistema basado en archivos JSON a una arquitectura de base de datos relacional robusta y escalable. La aplicación utiliza inteligencia artificial, scraping modular y comunicación en tiempo real para automatizar la búsqueda de propiedades inmobiliarias.
+El **Buscador Inmobiliario Inteligente** es un servicio web Django moderno que ha evolucionado de un sistema basado en archivos JSON a una arquitectura de base de datos relacional robusta y escalable. El servicio utiliza inteligencia artificial, scraping modular y comunicación en tiempo real para automatizar la búsqueda de propiedades inmobiliarias.
 
 **Versión actual**: 2.0 (Base de datos relacional + Scraper modular)  
 **Stack principal**: Django 5.1 + PostgreSQL/SQLite + Redis + WebSockets  

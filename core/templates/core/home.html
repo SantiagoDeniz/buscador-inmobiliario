@@ -493,9 +493,15 @@
     // Debug: mostrar en consola los datos recibidos
     try { console.debug('updateNuevasPublications - count:', (nuevasPublications || []).length, nuevasPublications && nuevasPublications[0]); } catch(e) {}
         
-        if (nuevasPublications && nuevasPublications.length > 0) {
+        // Filtrar solo propiedades coincidentes (respaldo en frontend)
+        const filteredPublications = (nuevasPublications || []).filter(publication => {
+            // Si no tiene campo coincide, asumir que coincide (compatibilidad)
+            return publication.coincide !== false;
+        });
+        
+        if (filteredPublications && filteredPublications.length > 0) {
             nuevasList.innerHTML = ''; // Limpiar lista anterior
-            nuevasPublications.forEach(publication => {
+            filteredPublications.forEach(publication => {
                 const li = document.createElement('li');
                 li.className = 'list-group-item animate__animated animate__fadeInUp';
                 // Compatibilidad con diferentes formatos de datos (title / titulo, url / link)
@@ -514,9 +520,15 @@
         const existentesList = document.getElementById('existentes-properties-list');
         const existentesSection = document.getElementById('existentes-section');
         
-        if (existentesPublications && existentesPublications.length > 0) {
+        // Filtrar solo propiedades coincidentes (respaldo en frontend)
+        const filteredPublications = (existentesPublications || []).filter(publication => {
+            // Si no tiene campo coincide, asumir que coincide (compatibilidad)
+            return publication.coincide !== false;
+        });
+        
+        if (filteredPublications && filteredPublications.length > 0) {
             existentesList.innerHTML = ''; // Limpiar lista anterior
-            existentesPublications.forEach(publication => {
+            filteredPublications.forEach(publication => {
                 const li = document.createElement('li');
                 li.className = 'list-group-item animate__animated animate__fadeInUp';
                 const title = publication.title || publication.titulo || publication.nombre || publication.name || '';

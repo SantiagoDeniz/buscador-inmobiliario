@@ -14,7 +14,7 @@
 
 ## 🎯 Descripción General
 
-**Buscador Inmobiliario Inteligente** es una aplicación web Django que automatiza la búsqueda de propiedades inmobiliarias en MercadoLibre Uruguay. Utiliza inteligencia artificial para interpretar búsquedas en lenguaje natural, realiza scraping inteligente y ofrece una interfaz en tiempo real para monitorear el progreso de las búsquedas.
+**Buscador Inmobiliario Inteligente** es un servicio web Django que automatiza la búsqueda de propiedades inmobiliarias en MercadoLibre Uruguay. Utiliza inteligencia artificial para interpretar búsquedas en lenguaje natural, realiza scraping inteligente y ofrece una interfaz en tiempo real para monitorear el progreso de las búsquedas.
 
 ### 🎯 **Propósito Principal**
 Simplificar y automatizar la búsqueda de propiedades inmobiliarias, permitiendo a los usuarios encontrar las mejores opciones mediante texto libre y filtros inteligentes, con resultados organizados y actualizados en tiempo real.
@@ -203,7 +203,6 @@ buscador/
 - **📋 Lista organizada**: Todas las búsquedas guardadas con metadata
 - **🔍 Vista detallada**: Filtros aplicados y resultados encontrados
 - **🗑️ Gestión**: Eliminar búsquedas de la lista (eliminación suave)
-- **🔄 Re-ejecutar**: Botón para repetir búsquedas con filtros actualizados
 
 ### 🎯 **Casos de Uso Principales**
 
@@ -269,22 +268,16 @@ buscador/
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │ ✨ Nuevas Propiedades (12)                                 │
-│ ┌─────────────────┬─────────────────────────────────────┐   │
-│ │ 🖼️ [Imagen]     │ 🏠 Apartamento 2 dormitorios        │   │
-│ │                │ 📍 Pocitos, Montevideo              │   │
-│ │                │ 💰 $175,000 USD                     │   │
-│ │                │ 🛏️ 2 dorm | 🚿 1 baño | 📐 65m²    │   │
-│ │                │ [🔗 Ver en MercadoLibre]            │   │
-│ └─────────────────┴─────────────────────────────────────┘   │
+│ ┌─────────────────────────────────────────────────────────┐   │
+│ │ 🏠 Apartamento 2 dormitorios Pocitos                   │   │
+│ │ [� Ver en MercadoLibre]                              │   │
+│ └─────────────────────────────────────────────────────────┘   │
 │                                                            │
 │ 🔄 Encontradas Anteriormente (33)                         │
-│ ┌─────────────────┬─────────────────────────────────────┐   │
-│ │ 🖼️ [Imagen]     │ 🏠 Apartamento luminoso            │   │
-│ │                │ 📍 Pocitos, Montevideo              │   │
-│ │                │ 💰 $165,000 USD                     │   │
-│ │                │ 🛏️ 2 dorm | 🚿 2 baños | 📐 70m²   │   │
-│ │                │ [🔗 Ver en MercadoLibre]            │   │
-│ └─────────────────┴─────────────────────────────────────┘   │
+│ ┌─────────────────────────────────────────────────────────┐   │
+│ │ 🏠 Apartamento luminoso Pocitos                        │   │
+│ │ [� Ver en MercadoLibre]                              │   │
+│ └─────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -298,7 +291,7 @@ buscador/
 │ │ 📅 Creada: 15/09/2025 | 🔍 Última búsqueda: hace 2h   │ │
 │ │ 🎯 Filtros: Apartamento, Pocitos, 2 dorm, <$180k USD  │ │
 │ │ 📊 Resultados: 45 encontradas (12 nuevas)             │ │
-│ │ [🔍 Ver] [🔄 Re-buscar] [🗑️ Eliminar]                │ │
+│ │ [🔍 Ver] [🗑️ Eliminar]                               │ │
 │ └─────────────────────────────────────────────────────────┘ │
 │                                                            │
 │ ┌─────────────────────────────────────────────────────────┐ │
@@ -446,7 +439,8 @@ buscador/
 ## 🔗 Enlaces y Recursos
 
 ### 🌐 **URLs del Sistema**
-- **Aplicación local**: http://localhost:10000
+- **Servicio web**: Próximamente disponible en nuestro dominio oficial
+- **Desarrollo local**: http://localhost:10000
 - **WebSocket endpoint**: ws://localhost:10000/ws/search_progress/
 - **Panel de administración**: http://localhost:10000/admin/
 - **API de exportación**: http://localhost:10000/csv/export/all/

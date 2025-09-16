@@ -4,27 +4,42 @@
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Django 5.1](https://img.shields.io/badge/django-5.1-green.svg)](https://djangoproject.com/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![WebSocket](https://img.shields.io/badge/WebSocket-Tiempo%20Real-orange.svg)]()
 
 ---
 
 ## 🎯 ¿Qué es?
 
-**Buscador Inmobiliario Inteligente** es una aplicación web que revoluciona la forma de buscar propiedades inmobiliarias. Utiliza inteligencia artificial para interpretar búsquedas en lenguaje natural y automatiza el proceso de scraping de MercadoLibre Uruguay, mostrando resultados organizados en tiempo real.
+**Buscador Inmobiliario Inteligente** es un servicio web que revoluciona la forma de buscar propiedades inmobiliarias. Utiliza inteligencia artificial para interpretar búsquedas en lenguaje natural y automatiza el proceso de scraping de MercadoLibre Uruguay (y próximamente otras plataformas), mostrando resultados organizados en tiempo real.
+
+**🌐 Acceso directo**: Próximamente disponible en nuestro dominio oficial (en desarrollo)
 
 ### ✨ **Características Principales**
 
 - 🤖 **Búsqueda con IA**: Escribe en lenguaje natural y la IA completa automáticamente los filtros
 - ⚡ **Tiempo real**: Ve el progreso de tu búsqueda en vivo con WebSockets
-- 💾 **Búsquedas guardadas**: Guarda tus búsquedas favoritas y re-ejecútalas cuando quieras
+- 💾 **Búsquedas guardadas**: Guarda tus búsquedas favoritas para acceso rápido
 - 🎯 **Filtrado inteligente**: Encuentra propiedades con keywords específicas (luminoso, terraza, garage)
 - 📊 **Resultados organizados**: Separación clara entre propiedades nuevas y ya encontradas
+- 🔗 **Enlaces directos**: Acceso directo a las publicaciones en MercadoLibre
 - 📱 **Responsive**: Funciona perfectamente en desktop, tablet y móvil
+- 🌐 **Multi-plataforma**: MercadoLibre actual, próximamente InfoCasas y más
 
 ---
 
-## 🚀 Instalación Rápida
+## 🌐 Acceso al Servicio
+
+### **Para Usuarios Finales**
+El Buscador Inmobiliario estará disponible como servicio web en nuestro dominio oficial (próximamente). 
+
+**No necesitas instalar nada en tu computadora** - simplemente accede desde tu navegador web.
+
+### **Para Desarrolladores**
+Si quieres contribuir al proyecto o ejecutar una instancia local para desarrollo, consulta la [Guía de Contribución](CONTRIBUTING.md).
+
+---
+
+## 🛠️ Setup de Desarrollo (Solo Desarrolladores)
 
 ### Requisitos Previos
 - **Python 3.10+** ([Descargar aquí](https://www.python.org/downloads/))
@@ -32,7 +47,7 @@
 
 ### 1️⃣ Clonar el Repositorio
 ```bash
-git clone https://github.com/tu-usuario/buscador-inmobiliario.git
+git clone https://github.com/santiagodeniz/buscador-inmobiliario.git
 cd buscador-inmobiliario
 ```
 
@@ -59,10 +74,10 @@ python manage.py migrate
 
 ### 5️⃣ Ejecutar la Aplicación
 ```bash
-python manage.py runserver
+.\.venv\Scripts\activate ; daphne -b 0.0.0.0 -p 10000 buscador.asgi:application
 ```
 
-**¡Listo!** Abre tu navegador en **http://localhost:8000**
+**¡Listo!** Abre tu navegador en **http://localhost:10000**
 
 ---
 
@@ -135,20 +150,15 @@ Los resultados se organizan en:
 - **✨ Nuevas Propiedades**: Que no habías visto antes
 - **🔄 Encontradas Anteriormente**: Que ya aparecieron en búsquedas pasadas
 
-Cada propiedad muestra:
-- 🖼️ Imagen principal
-- 🏠 Título y descripción
-- 📍 Ubicación (departamento, ciudad, barrio)
-- 💰 Precio (USD/UYU)
-- 🛏️ Características (dormitorios, baños, superficie)
-- 🔗 Enlace directo a MercadoLibre
+Cada resultado muestra:
+- 🏠 Título de la propiedad
+- 🔗 Enlace directo a MercadoLibre para ver detalles completos
 
 ### 💾 **Búsquedas Guardadas**
 
 En tu lista de búsquedas guardadas puedes:
 - 👀 **Ver resultados** de búsquedas anteriores
-- 🔄 **Re-ejecutar** la misma búsqueda para encontrar nuevas propiedades
-- 🗑️ **Eliminar** búsquedas que ya no necesitas
+- ️ **Eliminar** búsquedas que ya no necesitas
 
 ---
 
@@ -241,7 +251,7 @@ python manage.py createsuperuser
 
 ## 📝 Licencia
 
-Este proyecto está bajo la **Licencia MIT**. Eres libre de usar, modificar y distribuir el código.
+Por definir (próximamente).
 
 ---
 

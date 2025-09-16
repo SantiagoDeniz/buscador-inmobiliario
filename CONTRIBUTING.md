@@ -92,9 +92,8 @@ python -m venv .venv
 # Linux/Mac  
 source .venv/bin/activate
 
-# Instalar dependencias de desarrollo
+# Instalar dependencias para desarrollo
 pip install -r requirements.txt
-pip install -r requirements-dev.txt  # Si existe
 ```
 
 ### **3. Configuración de Base de Datos**
@@ -132,10 +131,10 @@ USE_THREADS=True
 # Ejecutar tests
 python manage.py test
 
-# Ejecutar servidor
-python manage.py runserver
+# Ejecutar servidor con Daphne (ASGI)
+daphne -b 0.0.0.0 -p 10000 buscador.asgi:application
 
-# Verificar que funciona en http://localhost:8000
+# Verificar que funciona en http://localhost:10000
 ```
 
 ---
@@ -442,7 +441,7 @@ def procesar_keywords(texto_busqueda: str) -> List[Dict[str, Any]]:
 ### **Actualizar Documentación**
 Cuando hagas cambios, actualiza también:
 - 📝 **Docstrings** en el código
-- 📚 **README.md** si cambia la instalación/uso
+- 📚 **README.md** si cambia el uso del servicio
 - 🔧 **DOCUMENTACION_TECNICA.md** si cambia arquitectura
 - 🤖 **copilot-instructions.md** si cambian patrones de desarrollo
 
@@ -556,7 +555,7 @@ git push origin --delete feature/nombre-descriptivo
 
 ### **Recursos**
 - 📖 **[Documentación Técnica](DOCUMENTACION_TECNICA.md)**: Arquitectura detallada
-- 🔧 **[README.md](README.md)**: Instalación y uso básico
+- 🔧 **[README.md](README.md)**: Información del servicio web
 - 🏠 **[Funcionalidades](core/Funcionalidades.md)**: Features del sistema
 
 ### **Contacto**

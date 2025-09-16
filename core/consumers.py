@@ -63,6 +63,10 @@ class SearchProgressConsumer(WebsocketConsumer):
             search_name = data.get('name', '')
             print(f'💾 [CONSUMER] Guardar búsqueda: {should_save}, Nombre: "{search_name}"')
 
+            # Limpiar buffer de resultados previos al iniciar nueva búsqueda
+            self._scraper_results_buffer = None
+            print(f'🧹 [CONSUMER] Buffer de resultados limpiado para nueva búsqueda')
+
             # Generar ID único para esta búsqueda y registrarla como activa
             self.search_id = str(uuid.uuid4())
             from core.views import register_active_search, is_search_stopped
