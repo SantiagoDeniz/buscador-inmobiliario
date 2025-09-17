@@ -58,10 +58,11 @@ class SearchProgressConsumer(WebsocketConsumer):
             data = json.loads(text_data)
             print(f'🔥 [CONSUMER] JSON parseado correctamente: {data}')
 
-            # Extraer información de guardado desde el principio
+            # Extraer información de guardado y plataforma desde el principio
             should_save = data.get('guardar', False)
             search_name = data.get('name', '')
-            print(f'💾 [CONSUMER] Guardar búsqueda: {should_save}, Nombre: "{search_name}"')
+            plataforma = data.get('plataforma', 'mercadolibre')  # Default a MercadoLibre
+            print(f'💾 [CONSUMER] Guardar búsqueda: {should_save}, Nombre: "{search_name}", Plataforma: {plataforma}')
 
             # Limpiar buffer de resultados previos al iniciar nueva búsqueda
             self._scraper_results_buffer = None
@@ -242,7 +243,8 @@ class SearchProgressConsumer(WebsocketConsumer):
                             max_paginas=1,
                             workers_fase1=1,
                             workers_fase2=1,
-                            busqueda=busqueda_instance
+                            busqueda=busqueda_instance,
+                            plataforma=plataforma
                         )
                         print('\n✅ [DEPURACIÓN] run_scraper completado (hilo)\n')
                         

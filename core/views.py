@@ -223,11 +223,12 @@ def http_search_fallback(request):
         texto = data.get('texto', '')
         filtros_manual = data.get('filtros', {})
 
-        # Extraer información de guardado
+        # Extraer información de guardado y plataforma
         should_save = data.get('guardar', False)
         search_name = data.get('name', '')
+        plataforma = data.get('plataforma', 'mercadolibre')  # Default a MercadoLibre
         print(f"[HTTP FALLBACK] Iniciando búsqueda HTTP: {texto}")
-        print(f'💾 [HTTP FALLBACK] Guardar búsqueda: {should_save}, Nombre: "{search_name}"')
+        print(f'💾 [HTTP FALLBACK] Guardar búsqueda: {should_save}, Nombre: "{search_name}", Plataforma: {plataforma}')
 
         # USAR IA como en el WebSocket consumer
         print('🤖 [HTTP FALLBACK] Procesando texto con IA...')
@@ -314,7 +315,7 @@ def http_search_fallback(request):
 
         # Ejecutar scraper con los filtros y keywords procesados
         from .scraper import run_scraper
-        resultados_scraper = run_scraper(filtros_final, keywords, max_paginas=2, workers_fase1=1, workers_fase2=1, busqueda=busqueda_instance) or []
+        resultados_scraper = run_scraper(filtros_final, keywords, max_paginas=2, workers_fase1=1, workers_fase2=1, busqueda=busqueda_instance, plataforma=plataforma) or []
         # Obtener resultados de la base de datos
         from .models import Propiedad
         propiedades = Propiedad.objects.order_by('-id')[:50]  # Últimas 50 para buscar coincidencias

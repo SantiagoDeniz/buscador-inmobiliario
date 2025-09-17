@@ -8,17 +8,20 @@ sin Django configurado mientras no se llame a funciones pesadas.
 
 __all__ = [
 	# url builder
-	'build_mercadolibre_url', 'normalizar_para_url',
+	'build_mercadolibre_url', 'build_infocasas_url', 'normalizar_para_url',
 	# progress
 	'send_progress_update', 'tomar_captura_debug',
 	# browser
 	'iniciar_driver', 'manejar_popups_cookies', 'verificar_necesita_login', 'cargar_cookies',
 	# extractors
 	'parse_rango', 'scrape_detalle_con_requests', 'recolectar_urls_de_pagina',
+	'scrape_detalle_infocasas_con_requests', 'recolectar_urls_infocasas_de_pagina',
 	# mercadolibre
 	'extraer_total_resultados_mercadolibre', 'scrape_mercadolibre',
+	# infocasas
+	'extraer_total_resultados_infocasas', 'scrape_infocasas',
 	# orchestration
-	'run_scraper',
+	'run_scraper', 'run_scraper_mercadolibre', 'run_scraper_infocasas',
 	# utils
 	'stemming_basico', 'extraer_variantes_keywords', 'build_keyword_groups',
 ]
@@ -26,6 +29,10 @@ __all__ = [
 # --- URL Builder ---
 def build_mercadolibre_url(*args, **kwargs):
 	from .url_builder import build_mercadolibre_url as _impl
+	return _impl(*args, **kwargs)
+
+def build_infocasas_url(*args, **kwargs):
+	from .url_builder import build_infocasas_url as _impl
 	return _impl(*args, **kwargs)
 
 def normalizar_para_url(*args, **kwargs):
@@ -71,6 +78,14 @@ def recolectar_urls_de_pagina(*args, **kwargs):
 	from .extractors import recolectar_urls_de_pagina as _impl
 	return _impl(*args, **kwargs)
 
+def scrape_detalle_infocasas_con_requests(*args, **kwargs):
+	from .extractors import scrape_detalle_infocasas_con_requests as _impl
+	return _impl(*args, **kwargs)
+
+def recolectar_urls_infocasas_de_pagina(*args, **kwargs):
+	from .extractors import recolectar_urls_infocasas_de_pagina as _impl
+	return _impl(*args, **kwargs)
+
 # --- MercadoLibre ---
 def extraer_total_resultados_mercadolibre(*args, **kwargs):
 	from .mercadolibre import extraer_total_resultados_mercadolibre as _impl
@@ -80,9 +95,26 @@ def scrape_mercadolibre(*args, **kwargs):
 	from .mercadolibre import scrape_mercadolibre as _impl
 	return _impl(*args, **kwargs)
 
+# --- InfoCasas ---
+def extraer_total_resultados_infocasas(*args, **kwargs):
+	from .infocasas import extraer_total_resultados_infocasas as _impl
+	return _impl(*args, **kwargs)
+
+def scrape_infocasas(*args, **kwargs):
+	from .infocasas import scrape_infocasas as _impl
+	return _impl(*args, **kwargs)
+
 # --- Orquestación ---
 def run_scraper(*args, **kwargs):
 	from .run import run_scraper as _impl
+	return _impl(*args, **kwargs)
+
+def run_scraper_mercadolibre(*args, **kwargs):
+	from .run import run_scraper_mercadolibre as _impl
+	return _impl(*args, **kwargs)
+
+def run_scraper_infocasas(*args, **kwargs):
+	from .run import run_scraper_infocasas as _impl
 	return _impl(*args, **kwargs)
 
 # --- Utils ---
@@ -106,6 +138,7 @@ def __getattr__(name):
 		mapping = {
 			# url_builder
 			'build_mercadolibre_url': ('core.scraper.url_builder', 'build_mercadolibre_url'),
+			'build_infocasas_url': ('core.scraper.url_builder', 'build_infocasas_url'),
 			'normalizar_para_url': ('core.scraper.url_builder', 'normalizar_para_url'),
 			# progress
 			'send_progress_update': ('core.scraper.progress', 'send_progress_update'),
@@ -119,11 +152,18 @@ def __getattr__(name):
 			'parse_rango': ('core.scraper.extractors', 'parse_rango'),
 			'scrape_detalle_con_requests': ('core.scraper.extractors', 'scrape_detalle_con_requests'),
 			'recolectar_urls_de_pagina': ('core.scraper.extractors', 'recolectar_urls_de_pagina'),
+			'scrape_detalle_infocasas_con_requests': ('core.scraper.extractors', 'scrape_detalle_infocasas_con_requests'),
+			'recolectar_urls_infocasas_de_pagina': ('core.scraper.extractors', 'recolectar_urls_infocasas_de_pagina'),
 			# mercadolibre
 			'extraer_total_resultados_mercadolibre': ('core.scraper.mercadolibre', 'extraer_total_resultados_mercadolibre'),
 			'scrape_mercadolibre': ('core.scraper.mercadolibre', 'scrape_mercadolibre'),
+			# infocasas
+			'extraer_total_resultados_infocasas': ('core.scraper.infocasas', 'extraer_total_resultados_infocasas'),
+			'scrape_infocasas': ('core.scraper.infocasas', 'scrape_infocasas'),
 			# orchestration
 			'run_scraper': ('core.scraper.run', 'run_scraper'),
+			'run_scraper_mercadolibre': ('core.scraper.run', 'run_scraper_mercadolibre'),
+			'run_scraper_infocasas': ('core.scraper.run', 'run_scraper_infocasas'),
 			# utils
 			'stemming_basico': ('core.scraper.utils', 'stemming_basico'),
 			'extraer_variantes_keywords': ('core.scraper.utils', 'extraer_variantes_keywords'),

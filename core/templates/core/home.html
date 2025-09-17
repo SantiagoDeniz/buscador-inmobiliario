@@ -203,6 +203,14 @@
                                 <option>Otros inmuebles</option>
                             </select>
                         </div>
+                        <div class="col-md-3">
+                            <label for="plataforma" class="form-label">Plataforma</label>
+                            <select name="plataforma" id="plataforma" class="form-select">
+                                <option value="Todas">Todas las plataformas</option>
+                                <option value="MercadoLibre">MercadoLibre</option>
+                                <option value="InfoCasas">InfoCasas</option>
+                            </select>
+                        </div>
                     </div>
                     <div class="row g-3 mb-2">
                         <div class="col-md-3">
@@ -790,6 +798,7 @@
             let texto = '';
             const filtros = {};
             let searchName = '';
+            let plataforma = 'mercadolibre'; // Default
             
             for (const [key, value] of formData.entries()) {
                 if (key === 'csrfmiddlewaretoken') continue;
@@ -797,6 +806,8 @@
                     texto = value;
                 } else if (key === 'name') {
                     searchName = value;
+                } else if (key === 'plataforma') {
+                    plataforma = value;
                 } else if (key !== 'guardar' && value !== '') {
                     filtros[key] = value;
                 }
@@ -806,7 +817,8 @@
                 texto: texto,
                 filtros: filtros,
                 guardar: shouldSave,
-                name: searchName
+                name: searchName,
+                plataforma: plataforma
             };
             // Marcar si esta ejecución es un "Buscar y Guardar" inicial
             currentSearchIsInitialSave = shouldSave;
