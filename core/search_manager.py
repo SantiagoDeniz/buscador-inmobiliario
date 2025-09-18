@@ -390,7 +390,7 @@ def crear_o_actualizar_propiedad(prop_data: Dict) -> Propiedad:
 
     def es_placeholder(t: str) -> bool:
         t_norm = normalizar_texto(t or '')
-        return t_norm in {'publicacion', 'sin titulo'} or t.strip() == ''
+        return 'publicacion' in t_norm or 'sin titulo' in t_norm or t.strip() == ''
 
     # Crear o recuperar la propiedad por URL
     propiedad, created = Propiedad.objects.get_or_create(
@@ -479,7 +479,7 @@ def load_results(search_id: str) -> List[Dict]:
             model_title = (prop.titulo or '').strip()
             def _es_placeholder(t: str) -> bool:
                 t_norm = normalizar_texto(t or '')
-                return t_norm in {'publicacion', 'sin titulo'} or t.strip() == ''
+                return 'publicacion' in t_norm or 'sin titulo' in t_norm or t.strip() == ''
             titulo_final = model_title if model_title and not _es_placeholder(model_title) else (meta_title if meta_title and not _es_placeholder(meta_title) else None)
             
             # Añadir información estándar

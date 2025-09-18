@@ -319,22 +319,33 @@ def recolectar_urls_infocasas_de_pagina(url_target, api_key=None, use_scrapingbe
         for contenedor in contenedores:
             # Buscar el enlace principal de la propiedad
             enlace = contenedor.select_one('a.lc-data')
-            if enlace and enlace.get('href'):
-                href = enlace.get('href')
+            if not enlace or not enlace.get('href'):
+                continue
                 
-                # Construir URL completa
-                if href.startswith('/'):
-                    url_completa = f"https://www.infocasas.com.uy{href}"
+            href = enlace.get('href')
+            
+            # Construir URL completa
+            if href.startswith('/'):
+                url_completa = f"https://www.infocasas.com.uy{href}"
+            else:
+                url_completa = href
+            
+            # Extraer título - Actualizado para usar la clase lc-title
+            titulo_elem = enlace.select_one('h2.lc-title')
+            if titulo_elem:
+                titulo = titulo_elem.get_text(strip=True)
+            else:
+                # Fallback: intentar h2 sin clase específica
+                titulo_elem = enlace.select_one('h2')
+                if titulo_elem:
+                    titulo = titulo_elem.get_text(strip=True)
                 else:
-                    url_completa = href
-                
-                # Extraer título
-                titulo_elem = enlace.select_one('h2 span')
-                titulo = titulo_elem.get_text(strip=True) if titulo_elem else ""
-                
-                urls_de_pagina.add(url_completa)
-                if titulo:
-                    titulos_por_url.setdefault(url_completa, titulo)
+                    # Fallback final: usar el texto del enlace principal
+                    titulo = enlace.get_text(strip=True)[:100] if enlace.get_text(strip=True) else ""
+            
+            urls_de_pagina.add(url_completa)
+            if titulo:
+                titulos_por_url.setdefault(url_completa, titulo)
         
         print(f"  [Recolector IC] ÉXITO: Se encontraron {len(urls_de_pagina)} URLs en {url_target}")
         return urls_de_pagina, titulos_por_url

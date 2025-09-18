@@ -43,7 +43,7 @@ def search_detail(request, search_id):
     print(f"[DEPURACIÓN] Datos de búsqueda: {search}")
     results = load_results(search_id)
     print(f"[DEPURACIÓN] Resultados cargados: {len(results) if results else 0}")
-    advertencias = ["El texto de la búsqueda encuentra las palabras por separado en las publicaciones."]
+    advertencias = []
     print(f"[DEPURACIÓN] Renderizando resultados...")
     return render(request, 'core/search_detail_partial.html', {'search': search, 'results': results, 'advertencias': advertencias})
 
@@ -167,7 +167,7 @@ def search_detail_ajax(request, search_id):
             return JsonResponse({'error': 'Búsqueda no encontrada'}, status=404)
         
         results = load_results(search_id)
-        advertencias = ["El texto de la búsqueda encuentra las palabras por separado en las publicaciones."]
+        advertencias = []
         html = render_to_string('core/search_detail_partial.html', {
             'search': search, 
             'results': results, 

@@ -17,6 +17,47 @@ from .progress import send_progress_update
 from .utils import stemming_basico, extraer_variantes_keywords, build_keyword_groups
 
 
+def extraer_titulo_de_url_infocasas(url):
+    """
+    Extrae un título legible desde una URL de InfoCasas.
+    Ej: '/alquiler-apartamento-2-dormitorios-puerto-buceo-garage/192693037' 
+    -> 'Alquiler apartamento 2 dormitorios puerto buceo garage'
+    """
+    if not url:
+        return "Propiedad InfoCasas"
+    
+    try:
+        # Extraer la parte del título de la URL (sin el ID numérico al final)
+        if url.startswith('https://www.infocasas.com.uy'):
+            # URL completa, extraer el path
+            path = url.replace('https://www.infocasas.com.uy', '')
+        else:
+            # Path relativo
+            path = url
+        
+        # Remover barras iniciales y finales
+        path = path.strip('/')
+        
+        # Dividir por barras y tomar la primera parte (el título)
+        partes = path.split('/')
+        if partes:
+            titulo_slug = partes[0]
+            
+            # Convertir slug a título legible
+            # Reemplazar guiones por espacios y capitalizar primera letra
+            titulo = titulo_slug.replace('-', ' ').strip()
+            if titulo:
+                # Capitalizar solo la primera letra
+                titulo = titulo[0].upper() + titulo[1:] if len(titulo) > 1 else titulo.upper()
+                return titulo
+    
+    except Exception:
+        pass
+    
+    # Fallback si no se puede extraer
+    return "Propiedad InfoCasas"
+
+
 def buscar_en_contenido_almacenado(prop, keyword_groups, keywords_ya_cubiertas=None):
     """
     Busca keywords en el contenido almacenado de una propiedad.
@@ -601,13 +642,12 @@ def run_scraper_infocasas(filters: dict, keywords: list = None, max_paginas: int
         print("🔧 [CONFIG IC] Modo secuencial activado - usando requests directo")
 
     cant_propiedades_omitidas = 0
-    nuevas_propiedades_guardadas = 0
     urls_a_visitar_final = set()
     titulos_por_url_total = {}
 
     try:
-        # Construir URL específica de InfoCasas
-        url_base_con_filtros = build_infocasas_url(filters)
+        # Construir URL específica de InfoCasas con keywords incluidas
+        url_base_con_filtros = build_infocasas_url(filters, keywords=keywords_con_variantes)
         send_progress_update(current_search_item=f"🏠 URL InfoCasas generada: {url_base_con_filtros[:100]}{'...' if len(url_base_con_filtros) > 100 else ''}")
     except Exception as e:
         print(f"❌ [URL BUILD IC] Error construyendo URL: {e}")
@@ -764,7 +804,7 @@ def run_scraper_infocasas(filters: dict, keywords: list = None, max_paginas: int
 
         resultados_fase1 = [
             {
-                'title': titulos_por_url_total.get(u) or 'Publicación InfoCasas',
+                'title': titulos_por_url_total.get(u) or extraer_titulo_de_url_infocasas(u),
                 'url': u,
                 'coincide': True
             }
@@ -787,7 +827,7 @@ def run_scraper_infocasas(filters: dict, keywords: list = None, max_paginas: int
                     url=url,
                     defaults={
                         'plataforma': plataforma_ic,
-                        'titulo': titulos_por_url_total.get(url) or 'Publicación InfoCasas',
+                        'titulo': titulos_por_url_total.get(url) or extraer_titulo_de_url_infocasas(url),
                         'descripcion': '',
                         'metadata': {}
                     }
@@ -805,130 +845,29 @@ def run_scraper_infocasas(filters: dict, keywords: list = None, max_paginas: int
         print(f"📊 [IC RESUMEN] URLs finales: {len(matched_publications_titles)}")
         return matched_publications_titles
 
-    # FASE 2: Procesar propiedades nuevas con keywords
+    # FASE 2: Agregar nuevas URLs de InfoCasas al resultado (sin procesamiento individual)
+    # InfoCasas ya filtra por keywords en la URL de búsqueda, no necesitamos scrapear individualmente
     if urls_a_visitar_final:
-        print(f"\n--- FASE 2 IC: Procesando {len(urls_a_visitar_final)} propiedades nuevas ---")
-        send_progress_update(current_search_item=f"FASE 2 IC: Procesando {len(urls_a_visitar_final)} publicaciones...")
+        print(f"\n--- FASE 2 IC: Agregando {len(urls_a_visitar_final)} propiedades nuevas al resultado ---")
+        send_progress_update(current_search_item=f"FASE 2 IC: Agregando {len(urls_a_visitar_final)} resultados de InfoCasas...")
         
-        # Obtener plataforma InfoCasas
-        try:
-            plataforma_ic = Plataforma.objects.get(nombre='InfoCasas')
-        except Plataforma.DoesNotExist:
-            plataforma_ic = Plataforma.objects.create(
-                nombre='InfoCasas',
-                url='https://www.infocasas.com.uy'
+        for i, url in enumerate(urls_a_visitar_final, 1):
+            titulo = titulos_por_url_total.get(url) or extraer_titulo_de_url_infocasas(url)
+            
+            # Agregar directamente al resultado (todas las URLs de InfoCasas coinciden por diseño)
+            matched_publications_titles.append({
+                'title': titulo,
+                'url': url,
+                'coincide': True  # Siempre True porque InfoCasas ya filtró
+            })
+            
+            print(f"✅ [IC NUEVO] ({i}/{len(urls_a_visitar_final)}) Agregado: {titulo}")
+            send_progress_update(
+                current_search_item=f"IC ({i}/{len(urls_a_visitar_final)}) ✅ Agregado: {titulo}",
+                matched_publications=matched_publications_titles
             )
-        
-        # Procesar keywords
-        if keywords_con_variantes:
-            keywords_procesadas = procesar_keywords(' '.join(keywords_con_variantes))
-            palabras_clave_busqueda = []
-            
-            for keyword_data in keywords_procesadas:
-                palabra_clave = get_or_create_palabra_clave(keyword_data['texto'])
-                palabras_clave_busqueda.append(palabra_clave)
-        else:
-            palabras_clave_busqueda = []
-        
-        urls_lista = list(urls_a_visitar_final)
-        
-        # Procesar con ThreadPoolExecutor
-        with concurrent.futures.ThreadPoolExecutor(max_workers=workers_fase2) as executor:
-            
-            def procesar_propiedad_ic_wrapper(url):
-                """Wrapper para procesar cada URL de InfoCasas"""
-                try:
-                    # Extraer datos de la propiedad
-                    datos_propiedad = scrape_detalle_infocasas_con_requests(url, API_KEY, USE_THREADS and bool(API_KEY))
-                    
-                    if not datos_propiedad:
-                        return {'success': False, 'error': 'No se pudieron extraer datos'}
-                    
-                    # Crear propiedad
-                    propiedad = Propiedad(
-                        url=url,
-                        plataforma=plataforma_ic,
-                        titulo=datos_propiedad.get('titulo', ''),
-                        descripcion=datos_propiedad.get('descripcion', ''),
-                        precio=datos_propiedad.get('precio_valor', 0),
-                        moneda=datos_propiedad.get('precio_moneda', ''),
-                        metadata=datos_propiedad
-                    )
-                    propiedad.save()
-                    
-                    # Procesar con sistema de keywords
-                    if palabras_clave_busqueda:
-                        resultado_keywords = procesar_propiedad_nueva(propiedad, palabras_clave_busqueda)
-                        coincide = resultado_keywords.get('coincide_todas', True)
-                    else:
-                        coincide = True
-                    
-                    return {
-                        'success': True,
-                        'propiedad': propiedad,
-                        'coincide': coincide
-                    }
-                
-                except Exception as e:
-                    return {'success': False, 'error': str(e)}
-            
-            # Ejecutar procesamiento
-            futuros = {executor.submit(procesar_propiedad_ic_wrapper, url): url for url in urls_lista}
-            
-            for i, futuro in enumerate(concurrent.futures.as_completed(futuros)):
-                url_original = futuros[futuro]
-                
-                try:
-                    resultado = futuro.result()
-                    
-                    if resultado['success']:
-                        propiedad = resultado['propiedad']
-                        coincide = resultado['coincide']
-                        
-                        titulo_propiedad = propiedad.titulo or 'Sin título'
-                        nuevas_propiedades_guardadas += 1
-                        
-                        matched_publications_titles.append({
-                            'title': titulo_propiedad,
-                            'url': propiedad.url,
-                            'coincide': coincide
-                        })
-                        
-                        # Crear ResultadoBusqueda
-                        if busqueda:
-                            resultado_busqueda, created = ResultadoBusqueda.objects.update_or_create(
-                                busqueda=busqueda,
-                                propiedad=propiedad,
-                                defaults={
-                                    'coincide': coincide,
-                                    'last_seen_at': timezone.now(),
-                                }
-                            )
-                        
-                        if coincide:
-                            print(f"✅ [IC NUEVO] ({i+1}/{len(urls_lista)}) Coincide: {titulo_propiedad}")
-                            send_progress_update(
-                                current_search_item=f"IC ({i+1}/{len(urls_lista)}) ✅ Coincide: {titulo_propiedad}",
-                                matched_publications=matched_publications_titles
-                            )
-                        else:
-                            print(f"❌ [IC NUEVO] ({i+1}/{len(urls_lista)}) No coincide: {titulo_propiedad}")
-                            send_progress_update(
-                                current_search_item=f"IC ({i+1}/{len(urls_lista)}) ❌ No coincide: {titulo_propiedad}"
-                            )
-                    else:
-                        print(f"⚠️ [IC ERROR] ({i+1}/{len(urls_lista)}) Error: {resultado['error']}")
-                        send_progress_update(
-                            current_search_item=f"IC ({i+1}/{len(urls_lista)}) ⚠️ Error procesando URL"
-                        )
-                        
-                except Exception as exc:
-                    print(f'❌ [IC EXCEPCIÓN] URL {url_original[:100]}... error: {exc}')
-                    send_progress_update(
-                        current_search_item=f"IC ({i+1}/{len(urls_lista)}) ❌ Excepción"
-                    )
 
-    print(f"✅ [IC COMPLETADO] {nuevas_propiedades_guardadas} nuevas propiedades guardadas")
+    print(f"✅ [IC COMPLETADO] {len(urls_a_visitar_final)} propiedades agregadas al resultado")
     
     # Filtrar y consolidar resultados
     matched_only_new = [p for p in matched_publications_titles if p.get('coincide', True)]

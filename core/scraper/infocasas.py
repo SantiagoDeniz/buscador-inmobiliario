@@ -131,8 +131,13 @@ def scrape_infocasas(filtros, keywords=None, max_paginas=3, workers_fase1=1, wor
     """
     print(f"🏠 [INFOCASAS] Iniciando scraping - Filtros: {filtros}")
     
-    # Construir URL base
-    url_base = build_infocasas_url(filtros)
+    # Preparar keywords para la URL (lista simple de strings)
+    keywords_para_url = []
+    if keywords:
+        keywords_para_url = [k.strip().lower() for k in keywords if k.strip()]
+    
+    # Construir URL base con keywords incluidas
+    url_base = build_infocasas_url(filtros, keywords=keywords_para_url)
     print(f"🔗 [INFOCASAS] URL construida: {url_base}")
     
     # Extraer total de resultados
@@ -148,12 +153,8 @@ def scrape_infocasas(filtros, keywords=None, max_paginas=3, workers_fase1=1, wor
     
     print(f"📊 [INFOCASAS] Total de resultados: {total_resultados}")
     
-    # Preparar keywords
-    keywords_filtradas = []
-    if keywords:
-        from .utils import stemming_basico
-        keywords_filtradas = [k.strip().lower() for k in keywords if k.strip()]
-    
+    # Usar las keywords ya procesadas
+    keywords_filtradas = keywords_para_url
     keyword_groups = build_keyword_groups(keywords_filtradas)
     print(f"🔍 [INFOCASAS] Keywords preparadas: {keywords_filtradas}")
     

@@ -111,6 +111,8 @@ def build_infocasas_url(filters: Dict[str, Any], keywords: List[str] = None) -> 
     path_parts = []
     query_params = []
 
+    print(f"\n\n\n   Filters para InfoCasas: {filters}\n\n\n")
+    print(f"\n\n\n   Keywords para InfoCasas: {keywords}\n\n\n")
     # 1) Operación (requerida)
     operacion = filters.get('operacion', 'venta')
     if operacion.lower() == 'alquiler':
