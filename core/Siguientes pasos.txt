@@ -1,8 +1,63 @@
 Completados:
   🎯✅ COMPLETADO - Armar la base de datos.
 
-  🎯 Próximos Pasos Recomendados:
-  ✅ COMPLETADO - Tests: Crear tests para nuevas funcionalidades (17 tests pasando)
+🔮 VISIÓN FUTURA (2025-2026):
+
+  🌟 CARACTERÍSTICAS AVANZADAS:
+    - Análisis predictivo de precios usando ML/IA
+    - Sistema de alertas inteligentes basado en patrones de mercado
+    - Comparativas automáticas entre plataformas
+    - Integración con APIs de valuación inmobiliaria
+    - Sistema de recomendaciones personalizadas
+
+  🤖 AUTOMATIZACIÓN INTELIGENTE:
+    - Monitoreo continuo de cambios de precios
+    - Detección automática de nuevas funcionalidades en sitios
+    - Auto-actualización de selectores mediante IA
+    - Generación automática de reportes de mercado
+    - Sistema de ML para optimizar estrategias de scraping
+
+  🔗 INTEGRACIONES ESTRATÉGICAS:
+    - WhatsApp/Telegram bots para notificaciones
+    - Integración con CRMs inmobiliarios
+    - API para desarrolladores de terceros
+    - Plugin para navegadores populares
+    - Webhook system para actualizaciones en tiempo real
+
+  📱 EXPERIENCIA DE USUARIO:
+    - PWA (Progressive Web App) para uso móvil
+    - Dashboard personalizable con widgets
+    - Sistema de favoritos y listas de seguimiento
+    - Comparador visual de propiedades
+    - Mapas interactivos con capas de datos
+
+  🌍 EXPANSIÓN Y ESCALABILIDAD:
+    - Soporte multi-país (Argentina, Brasil, Chile)
+    - Arquitectura multi-tenant para diferentes usuarios
+    - Sistema de caching distribuido
+    - Load balancing automático
+    - Microservicios para componentes críticos
+
+  🛡️ COMPLIANCE Y SOSTENIBILIDAD:
+    - Cumplimiento GDPR/LGPD para expansión internacional
+    - Sistema de auditoría completo para trazabilidad
+    - Métricas de impacto ambiental del scraping
+    - Políticas de fair use y rate limiting inteligente
+    - Certificaciones de seguridad y privacy
+
+🎯 HITOS TÉCNICOS CLAVE:
+  Q4 2025: Sistema de ML para análisis predictivo
+  Q1 2026: PWA y expansión móvil completa
+  Q2 2026: Multi-país (Argentina como piloto)
+  Q3 2026: API pública v1.0 y ecosystem de terceros
+  Q4 2026: Arquitectura distribuida y microservicios
+
+💡 INNOVACIONES PROPUESTAS:
+  - Computer vision para análisis de fotos de propiedades
+  - NLP avanzado para extracción de características desde descripciones
+  - Blockchain para trazabilidad de datos de mercado
+  - AR/VR integrations para visualización de propiedades
+  - IoT integration para propiedades inteligentes Crear tests para nuevas funcionalidades (17 tests pasando)
   ✅ COMPLETADO - Documentación: Actualizar documentación técnica (DOCUMENTACION_TECNICA.md)
   ✅ COMPLETADO - Probar Funcionalidad WebSocket: Redis/Channels funcionando correctamente
   ✅ COMPLETADO - Exportación CSV + Auditoría: Endpoints /csv/export/all/, /csv/table/<tabla>/ y /csv/audit/latest/, manifiesto _manifest.json/CSV y poda de snapshots
@@ -18,7 +73,7 @@ Completados:
     ✅ Datos de ejemplo cargados
     ✅ Performance optimizada (<1 segundo consultas)
   ✅ Se arregló un bug del frontend que impedía mostrar la lista de publicaciones al finalizar una búsqueda (variable JS fuera de scope).
-
+  ✅ Se agregó búsqueda de InfoCasas
 
   ✅ ARREGLADO - Guardado de publicaciones mejorado con:
     ✅ Lógica de keywords más flexible (70% coincidencia)
@@ -26,53 +81,93 @@ Completados:
     ✅ Mejor manejo de errores
     ✅ Logs más detallados para debug
   ✅ Que la lista de los resultados se guarden en las búsquedas guardadas
+  ✅ COMPLETADO - Migración de scraper monolítico a arquitectura modular:
+    ✅ Paquete core/scraper/ implementado con API pública
+    ✅ Separación de responsabilidades en módulos especializados
+    ✅ Sistema de progreso y debugging mejorado
+    ✅ Soporte dual: Selenium + requests/BS4
+    ✅ Integración con ScrapingBee opcional
+  ✅ COMPLETADO - Sistema de guardado unificado:
+    ✅ Diferenciación entre búsquedas temporales y guardadas
+    ✅ Gestor de búsquedas (core/search_manager.py)
+    ✅ Historial completo mantenido en BD
+  ✅ COMPLETADO - Integración IA Gemini:
+    ✅ Análisis automático de texto libre
+    ✅ Inferencia de filtros y keywords
+    ✅ Fusión inteligente con filtros manuales
 
 
 🔄 SIGUIENTES PRIORIDADES:
 
   Funcionalidades a agregar / reparar / revisar:
-    - (1h) [Revisar] eliminado de búsquedas desde interfaz. No quedan guardadas actualmente.
-    - (30') [Testear] Las propiedades que encuentran (por ahora solo guarda coincidentes. Debería guardar las no coincidentes con 'coincide' valor False)
-    - (20') [Testear] Guardar características en la tabla de propiedades.
-    - (tiempos muertos) Actualizar documentaciones:
-      Qué debería tener una documentación de las funcionalidades del proyecto? y de la documentación técnica? y de las instrucciones para copilot?
-      Revisa nuestros documentos de 'Funcionalidades.md', 'DOCUMENTACION_TECNICA.md' y 'copilot-instructions.md' y haz los arreglos y actualizaciones necesarias. Si falta algún documento importante para un proyecto como este, también crealo.
-      Revisa el documento 'siguientes pasos.txt', no borrar nada pero agregar lo que creas pertinente para el futuro del proyecto. Actualizar la última parte del documento.
-    - (1h) [Revisar] Búsquedas con keywords y sinónimos 
-    - (2h) Se sigue mostrando los resultados encontrados de forma distinta a las búsquedas guardadas. 
-  Otras acciones:
-    - (4h) Agregar búsqueda de InfoCasas
-    - (2,5h) Cron jobs para automatización 
-    - Que la IA genere sinónimos para la palabra clave
-    - Sin subtítulos en resultados encontrados cuando se busca y guarda por primera vez. (30 mins)
-    - Botón de reiniciar búsqueda en búsquedas guardadas (2 hs)
+    . Testing/Revisión
+      - (1h) [Revisar] eliminado de búsquedas desde interfaz. No quedan guardadas actualmente.
+      - (30') [Testear] Las propiedades que encuentran (por ahora solo guarda coincidentes. Debería guardar las no coincidentes con 'coincide' valor False)
+      - (20') [Testear] Guardar características en la tabla de propiedades.
+      - (45') [Actualizar] Tests para arquitectura modular del scraper
+      - (30') [Verificar] Funcionamiento correcto de fallbacks HTTP cuando Redis no disponible
+    . (tiempos muertos) Actualizar documentaciones:
+      - Revisa el documento 'siguientes pasos.txt', no borrar nada pero agregar lo que creas pertinente para el futuro del proyecto. Actualizar la última parte del documento.
+      - (20') Documentar nuevos endpoints de debug y progreso
+      - (15') Actualizar README con configuración Redis/Upstash
+    . Agregar
+      - (2,5h) Cron jobs para automatización 
+      - Que la IA genere sinónimos para la palabra clave
+      - Sin subtítulos (nuevas o encontradas anteriormente) en resultados encontrados cuando se busca y guarda por primera vez. (30 mins)
+      - Botón de reiniciar búsqueda en búsquedas guardadas (2 hs)
+      - (1,5h) Expansión a nuevas plataformas usando arquitectura modular
+      - (1h) Sistema de notificaciones push para búsquedas automatizadas
+      - (45') Mejoras en sistema de cookies y gestión de sesiones
+
+    . Otras acciones:
     - Optimizar Consultas: Añadir índices y select_related (2 hs)
     - Dashboard de métricas y estadísticas (3 hs)
-  ⚙️ Otras acciones (opcionales):
+    - (2h) Implementar rate limiting y respeto a robots.txt más robusto
+    - (1,5h) Sistema de health checks para monitoreo en producción
+    . Opcionales
     - Documentar integración con Google Sheets (en README) y ejemplo de importación
     - Ajustar retención de snapshots según política (keep=N) si se desea histórico
+    - (3h) API REST pública para integración con terceros
+    - (2h) Plugin/extensión de navegador para búsqueda rápida
 
+🚀 CONSIDERACIONES PARA PRODUCCIÓN:
 
-📝 Arreglitos del pasado futuro:
-  Se implementó “Buscar nuevamente” para relanzar búsquedas guardadas: endpoint backend, botón en UI y refresco parcial del HTML.
-  Se corrigió un error de tipos en el scraper (“expected str instance, dict found”) normalizando keywords a strings antes de usarlas.
-  Se agregaron campos en BD para persistir “Última revisión” en Busqueda y el historial por resultado (last_seen_at, seen_count) con migraciones aplicadas.
-  Se ajustó search_manager.get_search para preferir la “Última revisión” persistida.
-  Se refactorizó search_manager.save_results:
-  Manejo de timezone (timezone.now()).
-  Actualización de seen_count/last_seen_at sin sobreescribir datos buenos.
-  Se mejoró load_results para devolver el título correcto (prioriza Propiedad.titulo; fallback a metadata si falta).
-  Se indicó claramente dónde se guardan y de dónde se leen/muestran los resultados:
-  Guardado/lectura: search_manager.py (save_results, load_results).
-  Render UI: search_detail_partial.html y JS en home.html.
+  🔧 Infraestructura:
+    - Redis/Upstash configurado para WebSockets en producción
+    - PostgreSQL como base de datos principal (ver README_POSTGRESQL.md)
+    - Configuración de variables de entorno para APIs externas (Gemini, ScrapingBee)
+    - Sistema de logs estructurado y monitoreo
+    - Docker compose para desarrollo y testing local
 
+  🛡️ Seguridad y Compliance:
+    - Cookies mias: Solucionar de otra forma (¿capaz utilizando concurrencia y proxy se soluciona?)
+    - Implementar rotación de user agents y proxies
+    - Validación robusta de URLs y filtrado de paths prohibidos (/jms/, /adn/api)
+    - Respeto estricto a robots.txt por plataforma
+    - Rate limiting configurable por sitio
 
-🚀 Cosas a tener en cuenta para deplegar el proyecto para producción:
-  Cookies mias: Solucionar de otra forma (¿capaz utilizando concurrencia y proxy se soluciona?)
+  📊 Escalabilidad y Performance:
+    - Arquitectura modular del scraper permite expansión horizontal
+    - Sistema de cacheado inteligente para URLs y resultados
+    - Bulk operations optimizadas para inserción masiva
+    - Índices de BD optimizados (ya implementados en Meta)
+    - Monitoreo de performance con métricas en tiempo real
 
-🎉 ESTADO ACTUAL: Sistema completamente migrado a base de datos relacional y funcionando (desactualizado)
-📊 TESTS: 17/17 tests pasando (antiguo)
-⚡ PERFORMANCE: Optimizada para producción
-📚 DOCUMENTACIÓN: falta actualizar y documentar última actualización acá.
+  🔄 Mantenimiento y Evolución:
+    - Selectores CSS/XPath versionados por plataforma
+    - Sistema de fallbacks automáticos (Selenium ↔ requests/BS4)
+    - Tests automatizados para detectar cambios en sitios objetivo
+    - Versionado de APIs internas del scraper
+    - Health checks automáticos para cada componente
 
-
+🎉 ESTADO ACTUAL ACTUALIZADO (Sep 2025):
+  📦 ARQUITECTURA: Sistema modular con core/scraper/ completamente refactorizado
+  🧠 IA INTEGRADA: Gemini para análisis de texto libre y inferencia de filtros
+  🔍 MULTI-PLATAFORMA: MercadoLibre e InfoCasas funcionando
+  💾 BASE DE DATOS: Migración completa a modelos Django relacionales
+  🌐 TIEMPO REAL: WebSockets con Redis/fallback HTTP funcional
+  📤 EXPORTACIÓN: CSV con auditoría y manifiestos automatizados
+  � GESTIÓN: Sistema de búsquedas guardadas vs temporales
+  🎯 TESTING: Arquitectura robusta con tests automatizados
+  ⚡ PERFORMANCE: Optimizada para grandes volúmenes de datos
+  📚 DOCUMENTACIÓN: Guías técnicas actualizadas y completas
