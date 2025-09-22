@@ -982,7 +982,222 @@ El sistema exporta automáticamente los datos a CSV para su consumo externo (por
     - `latest/_manifest.json`: manifiesto de auditoría en JSON
     - `latest/_manifest.csv`: manifiesto en CSV
 
-### Endpoints HTTP
+## 🔧 Endpoints de Debug y Progreso
+
+### 📊 Endpoints de Diagnóstico
+
+#### `GET /redis_diagnostic/`
+**Propósito**: Diagnosticar el estado de Redis y WebSockets  
+**Autenticación**: No requerida  
+**Método**: GET  
+
+**Funcionalidad**:
+- Verifica configuración de `REDIS_URL`
+- Evalúa disponibilidad del channel layer
+- Prueba operaciones básicas de WebSocket
+- Detecta si está usando fallback `InMemoryChannelLayer`
+
+**Respuesta JSON**:
+```json
+{
+  "redis_url": "redis://localhost:6379",
+  "channel_layer": "<class 'channels_redis.core.RedisChannelLayer'>",
+  "channel_layer_available": true,
+  "test_send_success": true,
+  "redis_connection": "OK"
+}
+```
+
+**Casos de uso**:
+- Verificar configuración Redis en producción
+- Diagnosticar problemas de WebSocket en tiempo real
+- Validar conectividad antes de búsquedas con progreso
+
+#### `GET /debug_screenshots/`
+**Propósito**: Visualizar capturas debug del scraper  
+**Autenticación**: No requerida  
+**Método**: GET  
+
+**Funcionalidad**:
+- Lee `static/debug_screenshots/latest_screenshots.json`
+- Ordena capturas por timestamp (más reciente primero)
+- Renderiza interface web para examinar capturas
+- Muestra información asociada (URL, título, timestamp)
+
+**Respuesta**: Página HTML con interface de capturas  
+
+**Estructura de datos**:
+```json
+[
+  {
+    "path": "/static/debug_screenshots/login_check_20240922_143052.png",
+    "timestamp": "2024-09-22T14:30:52.123456",
+    "message": "Verificando necesidad de login en MercadoLibre"
+  }
+]
+```
+
+**Archivos generados**:
+- `{motivo}_{timestamp}.png`: Captura de pantalla
+- `{motivo}_{timestamp}.html`: HTML completo de la página
+- `{motivo}_{timestamp}_info.txt`: Metadata (URL, título, tamaño ventana)
+
+### 🚫 Endpoints de Control
+
+#### `POST /detener_busqueda/`
+**Propósito**: Detener búsquedas en progreso  
+**Autenticación**: No requerida  
+**Método**: POST  
+
+**Funcionalidad**:
+- Marca todas las búsquedas activas para detenerse
+- Utiliza `search_lock` para operación thread-safe
+- Actualiza estado `stop_requested` en `active_searches`
+
+**Respuesta exitosa**:
+```json
+{
+  "success": true,
+  "message": "Señal de parada enviada a búsquedas activas"
+}
+```
+
+**Respuesta de error**:
+```json
+{
+  "success": false,
+  "error": "Descripción del error"
+}
+```
+
+### ⚡ Endpoints de Progreso
+
+#### `POST /http_search_fallback/`
+**Propósito**: Ejecutar búsquedas cuando WebSockets no funciona  
+**Autenticación**: No requerida  
+**Método**: POST  
+
+**Parámetros JSON**:
+```json
+{
+  "texto": "apartamento 2 dormitorios Pocitos",
+  "filtros": {
+    "tipo": "apartamento",
+    "operacion": "alquiler",
+    "departamento": "Montevideo"
+  },
+  "guardar": true,
+  "name": "Mi búsqueda personalizada",
+  "plataforma": "mercadolibre"
+}
+```
+
+**Funcionalidad**:
+- Alternativa HTTP completa a WebSocket consumer
+- Integración con IA para procesamiento de texto
+- Fusión inteligente de filtros (IA + manuales)
+- Ejecución síncrona del scraper
+- Guardado condicional según parámetro `guardar`
+
+**Flujo de procesamiento**:
+1. Extrae parámetros de la request JSON
+2. Procesa texto con IA (Gemini) si está configurada
+3. Fusiona filtros: prioriza IA > filtros manuales
+4. Ejecuta scraper con filtros combinados
+5. Guarda resultados si `guardar=True`
+
+**Respuesta exitosa**:
+```json
+{
+  "success": true,
+  "search_id": "123e4567-e89b-12d3-a456-426614174000",
+  "total_found": 150,
+  "results": [...],
+  "message": "Búsqueda completada exitosamente"
+}
+```
+
+#### WebSocket: `/ws/search_progress/`
+**Propósito**: Comunicación en tiempo real durante scraping  
+**Protocolo**: WebSocket  
+
+**Mensajes enviados al cliente**:
+```json
+{
+  "type": "progress_update",
+  "total_found": 450,
+  "estimated_time": "2 minutos",
+  "current_search_item": "Procesando página 3 de 15...",
+  "matched_publications": 12,
+  "page_items_found": 20,
+  "debug_screenshot": "/static/debug_screenshots/página_20240922_143052.png"
+}
+```
+
+**Mensaje final**:
+```json
+{
+  "type": "search_complete",
+  "final_message": "✅ Búsqueda completada: 45 propiedades encontradas",
+  "all_matched_properties": [...],
+  "search_id": "123e4567-e89b-12d3-a456-426614174000"
+}
+```
+
+### 🛠️ Utilidades de Progreso
+
+#### `send_progress_update()`
+**Ubicación**: `core.scraper.progress.send_progress_update()`  
+**Propósito**: Enviar actualizaciones de progreso via WebSocket  
+
+**Parámetros**:
+- `total_found`: Total de resultados encontrados
+- `estimated_time`: Tiempo estimado restante
+- `current_search_item`: Descripción de la tarea actual
+- `matched_publications`: Propiedades que coinciden con criterios
+- `final_message`: Mensaje de finalización
+- `page_items_found`: Items encontrados en página actual
+- `debug_screenshot`: Path de captura debug
+- `all_matched_properties`: Lista completa de propiedades al final
+
+**Comportamiento**:
+- Envía a WebSocket group `"search_progress"`
+- Fallback graceful si no hay Redis/Channel Layer
+- Logging detallado en consola
+- Actualiza `latest_screenshots.json` si hay captura
+
+#### `tomar_captura_debug()`
+**Ubicación**: `core.scraper.progress.tomar_captura_debug()`  
+**Propósito**: Generar capturas debug del navegador  
+
+**Parámetros**:
+- `driver`: Instancia de WebDriver (Selenium)
+- `motivo`: Descripción del motivo de la captura
+
+**Archivos generados**:
+- `static/debug_screenshots/{motivo}_{timestamp}.png`
+- `static/debug_screenshots/{motivo}_{timestamp}.html`
+- `static/debug_screenshots/{motivo}_{timestamp}_info.txt`
+- También copia a `staticfiles/` para producción
+
+**Retorna**: Path relativo de la captura o None si hay error
+
+### 🔄 Integración y Fallbacks
+
+**Detección automática de capacidades**:
+- Si Redis disponible → usa WebSockets para progreso en tiempo real
+- Si Redis no disponible → usa `InMemoryChannelLayer` + polling HTTP
+- Interface JavaScript detecta y adapta automáticamente
+
+**Configuración Redis**:
+```python
+# settings.py - Autodetección
+REDIS_URL = os.environ.get('REDIS_URL')
+if REDIS_URL and REDIS_URL.startswith('redis://'):
+    REDIS_URL = REDIS_URL.replace('redis://', 'rediss://', 1)  # Upstash compatibility
+```
+
+### 📱 Endpoints CSV (Exportación)
 - `GET /csv/export/all/`
     - Regenera CSVs en `exports/latest/`, poda snapshots anteriores y devuelve JSON con archivos y auditoría.
 - `GET /csv/table/<tabla>/`

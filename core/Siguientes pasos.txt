@@ -4,11 +4,11 @@ Completados:
 🔮 VISIÓN FUTURA (2025-2026):
 
   🌟 CARACTERÍSTICAS AVANZADAS:
-    - Análisis predictivo de precios usando ML/IA
-    - Sistema de alertas inteligentes basado en patrones de mercado
-    - Comparativas automáticas entre plataformas
-    - Integración con APIs de valuación inmobiliaria
-    - Sistema de recomendaciones personalizadas
+    - Análisis predictivo de precios usando ML/IA (basado en datos propios agregados)
+    - Sistema de alertas inteligentes para nuevas publicaciones que coincidan con criterios
+    - Estadísticas de mercado agregadas (sin mostrar contenido específico de plataformas)
+    - Integración con APIs públicas de valuación inmobiliaria
+    - Sistema de recomendaciones basado en búsquedas y preferencias del usuario
 
   🤖 AUTOMATIZACIÓN INTELIGENTE:
     - Monitoreo continuo de cambios de precios
@@ -28,8 +28,8 @@ Completados:
     - PWA (Progressive Web App) para uso móvil
     - Dashboard personalizable con widgets
     - Sistema de favoritos y listas de seguimiento
-    - Comparador visual de propiedades
-    - Mapas interactivos con capas de datos
+    - Buscador inteligente con filtros avanzados
+    - Mapas interactivos que deriven a propiedades originales
 
   🌍 EXPANSIÓN Y ESCALABILIDAD:
     - Soporte multi-país (Argentina, Brasil, Chile)
@@ -52,12 +52,12 @@ Completados:
   Q3 2026: API pública v1.0 y ecosystem de terceros
   Q4 2026: Arquitectura distribuida y microservicios
 
-💡 INNOVACIONES PROPUESTAS:
-  - Computer vision para análisis de fotos de propiedades
-  - NLP avanzado para extracción de características desde descripciones
-  - Blockchain para trazabilidad de datos de mercado
-  - AR/VR integrations para visualización de propiedades
-  - IoT integration para propiedades inteligentes Crear tests para nuevas funcionalidades (17 tests pasando)
+💡 INNOVACIONES PROPUESTAS (RESPETANDO DERECHOS DE AUTOR):
+  - NLP avanzado para mejorar búsquedas y filtros
+  - Sistema de matching inteligente entre criterios y propiedades
+  - Algoritmos de relevancia para ordenar resultados
+  - Interfaz de búsqueda por voz y lenguaje natural
+  - Sistema de notificaciones personalizadas para nuevas publicaciones Crear tests para nuevas funcionalidades (17 tests pasando)
   ✅ COMPLETADO - Documentación: Actualizar documentación técnica (DOCUMENTACION_TECNICA.md)
   ✅ COMPLETADO - Probar Funcionalidad WebSocket: Redis/Channels funcionando correctamente
   ✅ COMPLETADO - Exportación CSV + Auditoría: Endpoints /csv/export/all/, /csv/table/<tabla>/ y /csv/audit/latest/, manifiesto _manifest.json/CSV y poda de snapshots
@@ -107,9 +107,6 @@ Completados:
       - (45') [Actualizar] Tests para arquitectura modular del scraper
       - (30') [Verificar] Funcionamiento correcto de fallbacks HTTP cuando Redis no disponible
     . (tiempos muertos) Actualizar documentaciones:
-      - Revisa el documento 'siguientes pasos.txt', no borrar nada pero agregar lo que creas pertinente para el futuro del proyecto. Actualizar la última parte del documento.
-      - (20') Documentar nuevos endpoints de debug y progreso
-      - (15') Actualizar README con configuración Redis/Upstash
     . Agregar
       - (2,5h) Cron jobs para automatización 
       - Que la IA genere sinónimos para la palabra clave

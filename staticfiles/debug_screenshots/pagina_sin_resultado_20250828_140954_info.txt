@@ -1,5 +1,0 @@
-Motivo: pagina_sin_resultado
-URL: https://www.mercadolibre.com.uy/gz/account-verification?go=https%3A%2F%2Flistado.mercadolibre.com.uy%2Finmuebles%2Fapartamentos%2Fventa%2F1-a-2-dormitorios%2Fmontevideo%2Fcordon%2F_PriceRange_5000000UYU-6500000UYU_FULL%2ABATHROOMS_1-1_HAS%2ATERRACE_242085_HAS%2AAIR%2ACONDITIONING_242085_HAS%2ASWIMMING%2APOOL_242085_HAS%2ALIFT_242085_NoIndex_True_PARKING%2ALOTS_0-0_PROPERTY%2AAGE_0-0_TOTAL%2AAREA_45-60_COVERED%2AAREA_40-50&tid=2a9dbec8-1927-4fff-b03c-d7cdde1edcd6
-Título: Mercado Libre
-Timestamp: 20250828_140954
-Window Size: {'width': 780, 'height': 580}

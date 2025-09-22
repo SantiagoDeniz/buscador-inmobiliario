@@ -101,23 +101,57 @@ Para habilitar las búsquedas inteligentes con IA:
    GEMINI_API_KEY=tu_clave_aqui
    ```
 
-### 📊 **Redis para Mejor Performance (Opcional)**
+### � **Redis/WebSockets para Tiempo Real (Opcional)**
 
-Para mejor performance en producción:
+Para habilitar el progreso en tiempo real y mejor performance:
 
-1. **Instala Redis**:
-   - Windows: https://github.com/microsoftarchive/redis/releases
-   - Linux: `sudo apt install redis-server`
-   - Mac: `brew install redis`
+#### **Opción 1: Redis Local**
+```bash
+# Windows
+# Descargar desde: https://github.com/microsoftarchive/redis/releases
+# O usar WSL: wsl --install && wsl -e sudo apt install redis-server
 
-2. **Configura la variable**:
+# Linux
+sudo apt install redis-server
+sudo systemctl start redis
+
+# Mac
+brew install redis
+brew services start redis
+```
+
+Configurar variable:
+```bash
+# Local (puerto por defecto)
+REDIS_URL=redis://localhost:6379
+```
+
+#### **Opción 2: Upstash (Redis en la Nube - Recomendado)**
+
+1. **Crear cuenta gratuita** en [Upstash](https://upstash.com/)
+2. **Crear una database Redis**
+3. **Copiar la URL de conexión** del dashboard
+4. **Configurar la variable**:
    ```bash
-   # Local
-   REDIS_URL=redis://localhost:6379
+   # Windows (PowerShell)
+   $env:REDIS_URL="redis://default:tu_password@redis-12345.upstash.io:6379"
    
-   # Upstash (cloud)
-   REDIS_URL=rediss://usuario:password@host:port
+   # Linux/Mac
+   export REDIS_URL="redis://default:tu_password@redis-12345.upstash.io:6379"
    ```
+
+5. **Opcional**: Crear archivo `.env.redis` en la raíz:
+   ```
+   REDIS_URL=redis://default:tu_password@redis-12345.upstash.io:6379
+   ```
+
+> **💡 Nota**: El sistema automáticamente convierte `redis://` a `rediss://` (SSL) para URLs de Upstash.
+
+#### **Sin Redis (Fallback Automático)**
+Si no configuras Redis, el sistema usa `InMemoryChannelLayer`:
+- ✅ **Funciona perfectamente** para desarrollo
+- ⚠️ **Limitación**: WebSockets solo funcionan con un proceso
+- 📊 **Progreso**: Disponible vía endpoints HTTP alternativos (`/http_search_fallback/`)
 
 ---
 
@@ -199,6 +233,18 @@ En tu lista de búsquedas guardadas puedes:
 - ✅ Puedes detener la búsqueda en cualquier momento
 - ✅ Para mayor velocidad, considera configurar Redis
 
+#### **"No veo el progreso en tiempo real"**
+- ✅ Verifica que Redis esté configurado correctamente
+- ✅ Prueba el diagnóstico: http://localhost:10000/redis_diagnostic/
+- ✅ Sin Redis funciona pero sin WebSockets en tiempo real
+- ✅ El progreso estará disponible al finalizar la búsqueda
+
+#### **"Error de conexión Redis/Upstash"**
+- ✅ Verifica que `REDIS_URL` esté configurada correctamente
+- ✅ Para Upstash, usa la URL completa con credenciales
+- ✅ El sistema automáticamente usa fallback sin Redis
+- ✅ Reinicia la aplicación después de cambiar configuración
+
 #### **"Error de conexión"**
 - ✅ Verifica tu conexión a internet
 - ✅ MercadoLibre puede estar temporalmente inaccesible
@@ -218,6 +264,12 @@ python manage.py test
 
 # Crear usuario administrador
 python manage.py createsuperuser
+
+# Diagnóstico Redis (mientras la app está corriendo)
+# Acceder a: http://localhost:10000/redis_diagnostic/
+
+# Verificar configuración Redis
+python -c "import os; print('REDIS_URL:', os.environ.get('REDIS_URL', 'No configurado'))"
 ```
 
 ---
@@ -235,6 +287,8 @@ python manage.py createsuperuser
 - ⏱️ **Velocidad**: 1-3 minutos por búsqueda (scraping responsable)
 - 💾 **Almacenamiento**: SQLite local (datos en tu computadora)
 - 🌐 **Internet**: Requiere conexión para scraping
+- 🚀 **Tiempo Real**: WebSockets disponibles con Redis configurado
+- 🔄 **Escalabilidad**: Soporta múltiples procesos con Redis/Upstash
 
 ---
 
