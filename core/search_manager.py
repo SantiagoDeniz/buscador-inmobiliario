@@ -79,6 +79,14 @@ def get_all_search_history() -> List[Dict[str, Any]]:
 def get_search(search_id: str) -> Optional[Dict[str, Any]]:
     """Obtiene una búsqueda específica por ID"""
     try:
+        # Validar que sea un UUID válido antes de la consulta
+        import uuid
+        try:
+            uuid.UUID(search_id)
+        except (ValueError, TypeError):
+            print(f"[BÚSQUEDA] UUID inválido: {search_id}")
+            return None
+        
         busqueda = Busqueda.objects.select_related('usuario').get(id=search_id)
         return {
             'id': str(busqueda.id),
@@ -148,6 +156,14 @@ def delete_search(search_id: str) -> bool:
     """Elimina una búsqueda de la lista del usuario
     Nota técnica: Implementa eliminación suave (guardado=False) preservando datos para análisis"""
     try:
+        # Validar UUID antes de consulta
+        import uuid
+        try:
+            uuid.UUID(search_id)
+        except (ValueError, TypeError):
+            print(f"[BÚSQUEDA] UUID inválido: {search_id}")
+            return False
+            
         busqueda = Busqueda.objects.get(id=search_id, guardado=True)
         busqueda.guardado = False
         busqueda.save()
@@ -225,6 +241,8 @@ def procesar_keywords(texto_busqueda: str) -> List[Dict[str, Any]]:
 
 def normalizar_texto(texto: str) -> str:
     """Normaliza texto para búsquedas"""
+    if not texto:
+        return ""
     texto = unicodedata.normalize('NFD', texto.lower())
     texto = ''.join(c for c in texto if unicodedata.category(c) != 'Mn')
     texto = re.sub(r'[^\w\s]', '', texto)
@@ -232,6 +250,8 @@ def normalizar_texto(texto: str) -> str:
 
 def extraer_palabras(texto: str) -> List[str]:
     """Extrae palabras relevantes del texto de búsqueda"""
+    if not texto:
+        return []
     texto_normalizado = normalizar_texto(texto)
     palabras = texto_normalizado.split()
     

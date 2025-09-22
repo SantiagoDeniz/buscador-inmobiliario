@@ -1,61 +1,61 @@
 ﻿id,name,content_type_id,codename
-1,Can add log entry,1,add_logentry
-2,Can change log entry,1,change_logentry
-3,Can delete log entry,1,delete_logentry
-4,Can view log entry,1,view_logentry
-5,Can add permission,2,add_permission
-6,Can change permission,2,change_permission
-7,Can delete permission,2,delete_permission
-8,Can view permission,2,view_permission
-9,Can add group,3,add_group
-10,Can change group,3,change_group
-11,Can delete group,3,delete_group
-12,Can view group,3,view_group
-13,Can add user,4,add_user
-14,Can change user,4,change_user
-15,Can delete user,4,delete_user
-16,Can view user,4,view_user
-17,Can add content type,5,add_contenttype
-18,Can change content type,5,change_contenttype
-19,Can delete content type,5,delete_contenttype
-20,Can view content type,5,view_contenttype
-21,Can add session,6,add_session
-22,Can change session,6,change_session
-23,Can delete session,6,delete_session
-24,Can view session,6,view_session
-25,Can add Inmobiliaria,7,add_inmobiliaria
-26,Can change Inmobiliaria,7,change_inmobiliaria
-27,Can delete Inmobiliaria,7,delete_inmobiliaria
-28,Can view Inmobiliaria,7,view_inmobiliaria
-29,Can add Usuario,8,add_usuario
-30,Can change Usuario,8,change_usuario
-31,Can delete Usuario,8,delete_usuario
-32,Can view Usuario,8,view_usuario
-33,Can add Plataforma,9,add_plataforma
-34,Can change Plataforma,9,change_plataforma
-35,Can delete Plataforma,9,delete_plataforma
-36,Can view Plataforma,9,view_plataforma
-37,Can add Búsqueda,10,add_busqueda
-38,Can change Búsqueda,10,change_busqueda
-39,Can delete Búsqueda,10,delete_busqueda
-40,Can view Búsqueda,10,view_busqueda
-41,Can add Palabra Clave,11,add_palabraclave
-42,Can change Palabra Clave,11,change_palabraclave
-43,Can delete Palabra Clave,11,delete_palabraclave
-44,Can view Palabra Clave,11,view_palabraclave
-45,Can add Búsqueda - Palabra Clave,12,add_busquedapalabraclave
-46,Can change Búsqueda - Palabra Clave,12,change_busquedapalabraclave
-47,Can delete Búsqueda - Palabra Clave,12,delete_busquedapalabraclave
-48,Can view Búsqueda - Palabra Clave,12,view_busquedapalabraclave
-49,Can add Propiedad,13,add_propiedad
-50,Can change Propiedad,13,change_propiedad
-51,Can delete Propiedad,13,delete_propiedad
-52,Can view Propiedad,13,view_propiedad
-53,Can add Resultado de Búsqueda,14,add_resultadobusqueda
-54,Can change Resultado de Búsqueda,14,change_resultadobusqueda
-55,Can delete Resultado de Búsqueda,14,delete_resultadobusqueda
-56,Can view Resultado de Búsqueda,14,view_resultadobusqueda
-57,Can add Palabra Clave - Propiedad,15,add_palabraclavepropiedad
-58,Can change Palabra Clave - Propiedad,15,change_palabraclavepropiedad
-59,Can delete Palabra Clave - Propiedad,15,delete_palabraclavepropiedad
-60,Can view Palabra Clave - Propiedad,15,view_palabraclavepropiedad
+241,Can add log entry,61,add_logentry
+242,Can change log entry,61,change_logentry
+243,Can delete log entry,61,delete_logentry
+244,Can view log entry,61,view_logentry
+245,Can add permission,62,add_permission
+246,Can change permission,62,change_permission
+247,Can delete permission,62,delete_permission
+248,Can view permission,62,view_permission
+249,Can add group,63,add_group
+250,Can change group,63,change_group
+251,Can delete group,63,delete_group
+252,Can view group,63,view_group
+253,Can add user,64,add_user
+254,Can change user,64,change_user
+255,Can delete user,64,delete_user
+256,Can view user,64,view_user
+257,Can add content type,65,add_contenttype
+258,Can change content type,65,change_contenttype
+259,Can delete content type,65,delete_contenttype
+260,Can view content type,65,view_contenttype
+261,Can add session,66,add_session
+262,Can change session,66,change_session
+263,Can delete session,66,delete_session
+264,Can view session,66,view_session
+265,Can add Inmobiliaria,67,add_inmobiliaria
+266,Can change Inmobiliaria,67,change_inmobiliaria
+267,Can delete Inmobiliaria,67,delete_inmobiliaria
+268,Can view Inmobiliaria,67,view_inmobiliaria
+269,Can add Usuario,68,add_usuario
+270,Can change Usuario,68,change_usuario
+271,Can delete Usuario,68,delete_usuario
+272,Can view Usuario,68,view_usuario
+273,Can add Plataforma,69,add_plataforma
+274,Can change Plataforma,69,change_plataforma
+275,Can delete Plataforma,69,delete_plataforma
+276,Can view Plataforma,69,view_plataforma
+277,Can add Búsqueda,70,add_busqueda
+278,Can change Búsqueda,70,change_busqueda
+279,Can delete Búsqueda,70,delete_busqueda
+280,Can view Búsqueda,70,view_busqueda
+281,Can add Palabra Clave,71,add_palabraclave
+282,Can change Palabra Clave,71,change_palabraclave
+283,Can delete Palabra Clave,71,delete_palabraclave
+284,Can view Palabra Clave,71,view_palabraclave
+285,Can add Búsqueda - Palabra Clave,72,add_busquedapalabraclave
+286,Can change Búsqueda - Palabra Clave,72,change_busquedapalabraclave
+287,Can delete Búsqueda - Palabra Clave,72,delete_busquedapalabraclave
+288,Can view Búsqueda - Palabra Clave,72,view_busquedapalabraclave
+289,Can add Propiedad,73,add_propiedad
+290,Can change Propiedad,73,change_propiedad
+291,Can delete Propiedad,73,delete_propiedad
+292,Can view Propiedad,73,view_propiedad
+293,Can add Palabra Clave - Propiedad,74,add_palabraclavepropiedad
+294,Can change Palabra Clave - Propiedad,74,change_palabraclavepropiedad
+295,Can delete Palabra Clave - Propiedad,74,delete_palabraclavepropiedad
+296,Can view Palabra Clave - Propiedad,74,view_palabraclavepropiedad
+297,Can add Resultado de Búsqueda,75,add_resultadobusqueda
+298,Can change Resultado de Búsqueda,75,change_resultadobusqueda
+299,Can delete Resultado de Búsqueda,75,delete_resultadobusqueda
+300,Can view Resultado de Búsqueda,75,view_resultadobusqueda

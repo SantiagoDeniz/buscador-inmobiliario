@@ -1,13 +1,13 @@
 {
-  "generated_at": "2025-09-12T19:18:30.281919",
+  "generated_at": "2025-09-22T14:20:45.120573",
   "base_dir": "C:\\Users\\50246022\\Documents\\Programación\\buscador-inmobiliario\\exports",
   "latest_dir": "C:\\Users\\50246022\\Documents\\Programación\\buscador-inmobiliario\\exports\\latest",
   "files": [
     {
       "file": "_manifest.csv",
-      "bytes": 2325,
-      "rows_csv": 19,
-      "sha256": "689c15edc9f45f900df6cdb67cc58112f1b75c69a7350e493d6d2cd0b0a75729",
+      "bytes": 2444,
+      "rows_csv": 20,
+      "sha256": "f7eb3b8b00e66264c896068ea5a747e0f9776285a17e1b0155088ddb5302c660",
       "db_table": "_manifest",
       "db_rows": null,
       "rows_match": false,
@@ -38,9 +38,9 @@
     },
     {
       "file": "auth_permission.csv",
-      "bytes": 2822,
+      "bytes": 2927,
       "rows_csv": 60,
-      "sha256": "418caba408e2efda551b196ed5e9732bb659104709f6b94588c0935b20b39d61",
+      "sha256": "1b5a222605fd794b08493bffe1d9a90ecb1d5557875a42e8234b5d2c1cfce6fa",
       "db_table": "auth_permission",
       "db_rows": 60,
       "rows_match": true,
@@ -82,22 +82,22 @@
     },
     {
       "file": "busqueda.csv",
-      "bytes": 3619,
-      "rows_csv": 5,
-      "sha256": "bbf65c55636bca9f68dd7b9f0e72db99f6e1d9f99f10f4e9866536265d1dfcdc",
+      "bytes": 104,
+      "rows_csv": 0,
+      "sha256": "259d04f7d40df5fd39b7f067621a09a04a41357568535d68c2e123ae288c43d1",
       "db_table": "busqueda",
-      "db_rows": 5,
+      "db_rows": 0,
       "rows_match": true,
       "dup_full_row": 0,
       "dup_pk": 0
     },
     {
       "file": "busqueda_palabra_clave.csv",
-      "bytes": 256,
-      "rows_csv": 5,
-      "sha256": "9cad82a14757a0cad060439290286ae7dca78be87c7b51ada8c509aa02c9e8c4",
+      "bytes": 36,
+      "rows_csv": 0,
+      "sha256": "25a1ec4cca63ff886fe56629505bc3dfd7c27a5f53910459587dcc5827951d60",
       "db_table": "busqueda_palabra_clave",
-      "db_rows": 5,
+      "db_rows": 0,
       "rows_match": true,
       "dup_full_row": 0,
       "dup_pk": 0
@@ -115,9 +115,9 @@
     },
     {
       "file": "django_content_type.csv",
-      "bytes": 338,
+      "bytes": 347,
       "rows_csv": 15,
-      "sha256": "3f3a83983ad04fdea4c3a0ffe7a19b8b960d14bb0b84ca1953b251b58ca5d553",
+      "sha256": "5ba1e2d17d3eaaea3966da3bd2a96ccc82be2eec879fffc8263370c7cd7ff223",
       "db_table": "django_content_type",
       "db_rows": 15,
       "rows_match": true,
@@ -128,7 +128,7 @@
       "file": "django_migrations.csv",
       "bytes": 1625,
       "rows_csv": 22,
-      "sha256": "acf44f192ee80efc3f67739e522fced77d290e46670e63e53d4a2f771b7eb0a7",
+      "sha256": "72d59b04d43503acad423c2e79a35b36ea8760a451c08b8f9abaf7d52036d423",
       "db_table": "django_migrations",
       "db_rows": 22,
       "rows_match": true,
@@ -148,77 +148,77 @@
     },
     {
       "file": "inmobiliaria.csv",
-      "bytes": 235,
-      "rows_csv": 2,
-      "sha256": "2fbee107020cb412b04c16cbe1e0823388d21db128b5bed0d187964c1f28a842",
+      "bytes": 41,
+      "rows_csv": 0,
+      "sha256": "fab647c60ada1d3ab7ffd276cf65c6876783b3a6f4ff50bcb3d99fe3726d6957",
       "db_table": "inmobiliaria",
-      "db_rows": 2,
+      "db_rows": 0,
       "rows_match": true,
       "dup_full_row": 0,
       "dup_pk": 0
     },
     {
       "file": "palabra_clave.csv",
-      "bytes": 125,
-      "rows_csv": 4,
-      "sha256": "19367059bd086304f58d740a023765c2a2be878945bbdd2f06f112f5f02ec461",
+      "bytes": 30,
+      "rows_csv": 0,
+      "sha256": "92a9027851a9c6738be0febb996057828d6865ba3cc09414348931f54fc0eb23",
       "db_table": "palabra_clave",
-      "db_rows": 4,
+      "db_rows": 0,
       "rows_match": true,
       "dup_full_row": 0,
       "dup_pk": 0
     },
     {
       "file": "palabra_clave_propiedad.csv",
-      "bytes": 2049,
-      "rows_csv": 24,
-      "sha256": "bc0cb71d9ca344b92dfd879cbcb6e0d2afa4ada57f7a8da94ba300387b228c08",
+      "bytes": 70,
+      "rows_csv": 0,
+      "sha256": "a15ced9c6d78b4412a38c4df736269e03e6278abe487b6d4a632ee304b9be640",
       "db_table": "palabra_clave_propiedad",
-      "db_rows": 24,
+      "db_rows": 0,
       "rows_match": true,
       "dup_full_row": 0,
       "dup_pk": 0
     },
     {
       "file": "plataforma.csv",
-      "bytes": 167,
-      "rows_csv": 1,
-      "sha256": "c43b12721158eb610ced135181366a42fd1f6cbb53a85e85e90ef1f12a4d8ec7",
+      "bytes": 52,
+      "rows_csv": 0,
+      "sha256": "ee4ac176a94451dac1357cbd8ad50a969729fcdcb78afd651cb0c31703a24033",
       "db_table": "plataforma",
-      "db_rows": 1,
+      "db_rows": 0,
       "rows_match": true,
       "dup_full_row": 0,
       "dup_pk": 0
     },
     {
       "file": "propiedad.csv",
-      "bytes": 23728,
-      "rows_csv": 10,
-      "sha256": "2e366c9fec1f498041b706f9226ff4dca0fbc2b29c5757608a3604aa6e097ba0",
+      "bytes": 75,
+      "rows_csv": 0,
+      "sha256": "d0537380f1accc5d9e9bc3ae400684bdd70d95e98f0eafbf8a1c215073912c1f",
       "db_table": "propiedad",
-      "db_rows": 10,
+      "db_rows": 0,
       "rows_match": true,
       "dup_full_row": 0,
       "dup_pk": 0
     },
     {
       "file": "resultado_busqueda.csv",
-      "bytes": 5501,
-      "rows_csv": 14,
-      "sha256": "92a2b23b2f598448f993bf1561b7dcf7ea86226932060309a67f1ea5e5612888",
+      "bytes": 85,
+      "rows_csv": 0,
+      "sha256": "668a7552a6b7f72b84f88182e6734401656b60d2021e571fafc21768e950c538",
       "db_table": "resultado_busqueda",
-      "db_rows": 14,
+      "db_rows": 0,
       "rows_match": true,
       "dup_full_row": 0,
       "dup_pk": 0
     },
     {
       "file": "usuario.csv",
-      "bytes": 281,
-      "rows_csv": 2,
-      "sha256": "dd0e4e58ecb5f0b94df003a3474d4930c9bdc097790ca85569566be9b3d3f3da",
+      "bytes": 72,
+      "rows_csv": 0,
+      "sha256": "7de007fed8ff939cb46ab919dc5d52323dec1402e9f8c88d8483b06c3996bf0a",
       "db_table": "usuario",
-      "db_rows": 2,
+      "db_rows": 0,
       "rows_match": true,
       "dup_full_row": 0,
       "dup_pk": 0
@@ -252,11 +252,11 @@
       },
       "busqueda": {
         "primary_key": "id",
-        "row_count": 5
+        "row_count": 0
       },
       "busqueda_palabra_clave": {
         "primary_key": "id",
-        "row_count": 5
+        "row_count": 0
       },
       "django_admin_log": {
         "primary_key": "id",
@@ -276,37 +276,37 @@
       },
       "inmobiliaria": {
         "primary_key": "id",
-        "row_count": 2
+        "row_count": 0
       },
       "palabra_clave": {
         "primary_key": "id",
-        "row_count": 4
+        "row_count": 0
       },
       "palabra_clave_propiedad": {
         "primary_key": "id",
-        "row_count": 24
+        "row_count": 0
       },
       "plataforma": {
         "primary_key": "id",
-        "row_count": 1
+        "row_count": 0
       },
       "propiedad": {
         "primary_key": "id",
-        "row_count": 10
+        "row_count": 0
       },
       "resultado_busqueda": {
         "primary_key": "id",
-        "row_count": 14
+        "row_count": 0
       },
       "usuario": {
         "primary_key": "id",
-        "row_count": 2
+        "row_count": 0
       }
     }
   },
   "summary": {
     "files": 20,
-    "rows_total_csv": 183,
+    "rows_total_csv": 117,
     "db_tables_counted": 19,
     "csv_db_mismatches": 0,
     "files_with_duplicates": 0

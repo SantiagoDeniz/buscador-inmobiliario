@@ -1,55 +1,12 @@
-from django.test import TestCase, Client
-from .search_manager import get_all_searches, create_search
-from .scraper import build_mercadolibre_url
+"""
+Archivo de tests principal - importa todos los tests del directorio tests/
+"""
 
-class FiltrosBusquedaTest(TestCase):
-	def setUp(self):
-		self.client = Client()
-
-	def test_formulario_filtros(self):
-		# Simulación: Montevideo, ciudad Pocitos, Venta, Apartamento
-		search_data = {
-			'name': 'Test Montevideo',
-			'filters': {
-				'departamento': 'Montevideo',
-				'ciudad': 'Pocitos',
-				'operacion': 'Venta',
-				'tipo': 'Apartamento',
-			},
-			'keywords': ['terraza', 'garaje'],
-			'original_text': '',
-		}
-		created_search = create_search(search_data)
-		self.assertIsNotNone(created_search.get('id'))
-		
-		busquedas = get_all_searches()
-		self.assertTrue(any(b['filters']['departamento'] == 'Montevideo' and b['filters']['ciudad'] == 'Pocitos' for b in busquedas))
-
-	def test_url_mercadolibre(self):
-		# Simulación: Maldonado, sin ciudad, Alquiler, Casas
-		filtros = {
-			'departamento': 'Maldonado',
-			'ciudad': '',
-			'operacion': 'Alquiler',
-			'tipo': 'Casas',
-		}
-		url = build_mercadolibre_url(filtros)
-		self.assertIn('maldonado/', url)
-		self.assertIn('alquiler/', url)
-		self.assertIn('casas/', url)
-		self.assertNotIn('pocitos', url)
-
-	def test_ciudad_solo_montevideo(self):
-		# Simulación: Canelones, ciudad debería ser ignorada
-		filtros = {
-			'departamento': 'Canelones',
-			'ciudad': 'Pocitos',
-			'operacion': 'Venta',
-			'tipo': 'Casas',
-		}
-		url = build_mercadolibre_url(filtros)
-		self.assertIn('canelones/', url)
-		self.assertNotIn('pocitos', url)
-from django.test import TestCase
-
-# Create your tests here.
+# Importar todos los tests desde el directorio organizado
+from .tests.test_basic_functionality import *
+from .tests.test_database import *
+from .tests.test_views import *
+from .tests.test_scraper import *
+from .tests.test_search_manager import *
+from .tests.test_integration import *
+from .tests.test_optional_features import *
