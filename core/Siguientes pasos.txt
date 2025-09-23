@@ -1,5 +1,33 @@
-Completados:
-  🎯✅ COMPLETADO - Armar la base de datos.
+🔄 SIGUIENTES PRIORIDADES:
+
+  Funcionalidades a agregar / reparar / revisar:
+    . Testing/Revisión
+      - (1h) [Revisar] eliminado de búsquedas desde interfaz. No quedan guardadas actualmente.
+      - (30') [Testear] Las propiedades que encuentran (por ahora solo guarda coincidentes. Debería guardar las no coincidentes con 'coincide' valor False)
+      - (20') [Testear] Guardar características en la tabla de propiedades.
+      - (45') [Actualizar] Tests para arquitectura modular del scraper
+      - (30') [Verificar] Funcionamiento correcto de fallbacks HTTP cuando Redis no disponible
+    . (tiempos muertos) Actualizar documentaciones:
+    . Agregar
+      - (2,5h) Cron jobs para automatización 
+      - Que la IA genere sinónimos para la palabra clave
+      - Sin subtítulos (nuevas o encontradas anteriormente) en resultados encontrados cuando se busca y guarda por primera vez. (30 mins)
+      - Botón de reiniciar búsqueda en búsquedas guardadas (2 hs)
+      - (1,5h) Expansión a nuevas plataformas usando arquitectura modular
+      - (1h) Sistema de notificaciones push para búsquedas automatizadas
+      - (45') Mejoras en sistema de cookies y gestión de sesiones
+
+    . Otras acciones:
+    - Optimizar Consultas: Añadir índices y select_related (2 hs)
+    - Dashboard de métricas y estadísticas (3 hs)
+    - (2h) Implementar rate limiting y respeto a robots.txt más robusto
+    - (1,5h) Sistema de health checks para monitoreo en producción
+    . Opcionales
+    - Documentar integración con Google Sheets (en README) y ejemplo de importación
+    - Ajustar retención de snapshots según política (keep=N) si se desea histórico
+    - (3h) API REST pública para integración con terceros
+    - (2h) Plugin/extensión de navegador para búsqueda rápida
+
 
 🔮 VISIÓN FUTURA (2025-2026):
 
@@ -95,37 +123,6 @@ Completados:
     ✅ Análisis automático de texto libre
     ✅ Inferencia de filtros y keywords
     ✅ Fusión inteligente con filtros manuales
-
-
-🔄 SIGUIENTES PRIORIDADES:
-
-  Funcionalidades a agregar / reparar / revisar:
-    . Testing/Revisión
-      - (1h) [Revisar] eliminado de búsquedas desde interfaz. No quedan guardadas actualmente.
-      - (30') [Testear] Las propiedades que encuentran (por ahora solo guarda coincidentes. Debería guardar las no coincidentes con 'coincide' valor False)
-      - (20') [Testear] Guardar características en la tabla de propiedades.
-      - (45') [Actualizar] Tests para arquitectura modular del scraper
-      - (30') [Verificar] Funcionamiento correcto de fallbacks HTTP cuando Redis no disponible
-    . (tiempos muertos) Actualizar documentaciones:
-    . Agregar
-      - (2,5h) Cron jobs para automatización 
-      - Que la IA genere sinónimos para la palabra clave
-      - Sin subtítulos (nuevas o encontradas anteriormente) en resultados encontrados cuando se busca y guarda por primera vez. (30 mins)
-      - Botón de reiniciar búsqueda en búsquedas guardadas (2 hs)
-      - (1,5h) Expansión a nuevas plataformas usando arquitectura modular
-      - (1h) Sistema de notificaciones push para búsquedas automatizadas
-      - (45') Mejoras en sistema de cookies y gestión de sesiones
-
-    . Otras acciones:
-    - Optimizar Consultas: Añadir índices y select_related (2 hs)
-    - Dashboard de métricas y estadísticas (3 hs)
-    - (2h) Implementar rate limiting y respeto a robots.txt más robusto
-    - (1,5h) Sistema de health checks para monitoreo en producción
-    . Opcionales
-    - Documentar integración con Google Sheets (en README) y ejemplo de importación
-    - Ajustar retención de snapshots según política (keep=N) si se desea histórico
-    - (3h) API REST pública para integración con terceros
-    - (2h) Plugin/extensión de navegador para búsqueda rápida
 
 🚀 CONSIDERACIONES PARA PRODUCCIÓN:
 
