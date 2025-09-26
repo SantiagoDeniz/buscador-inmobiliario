@@ -14,6 +14,13 @@ urlpatterns = [
     path('http_search_fallback/', views.http_search_fallback, name='http_search_fallback'),
     path('redis_diagnostic/', views.redis_diagnostic, name='redis_diagnostic'),
     path('debug_screenshots/', views.debug_screenshots, name='debug_screenshots'),
+    
+    # Endpoints para actualización de búsquedas
+    path('actualizar/<str:busqueda_id>/', views.actualizar_busqueda_view, name='actualizar_busqueda'),
+    path('verificar_limites/', views.verificar_limites_usuario, name='verificar_limites'),
+    path('verificar_actualizable/<str:busqueda_id>/', views.verificar_busqueda_actualizable, name='verificar_actualizable'),
+    path('estado_actualizaciones/', views.estado_actualizaciones_view, name='estado_actualizaciones'),
+    
     # CSV export endpoints
     path('csv/export/all/', views.csv_export_all, name='csv_export_all'),
     path('csv/table/<str:table>/', views.csv_export_table, name='csv_export_table'),

@@ -5,6 +5,14 @@ class Inmobiliaria(models.Model):
     id = models.AutoField(primary_key=True)
     nombre = models.CharField(max_length=255)
     plan = models.CharField(max_length=100)  # 'basico', 'premium', etc.
+    
+    # Límites de tiempo
+    intervalo_actualizacion_horas = models.IntegerField(default=2)
+    
+    # Límites de cantidad por día
+    max_actualizaciones_por_dia = models.IntegerField(default=10)
+    max_busquedas_nuevas_por_dia = models.IntegerField(default=5)
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     

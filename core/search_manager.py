@@ -11,6 +11,8 @@ import uuid
 import json
 import re
 import unicodedata
+import requests
+from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional, Set, Tuple
 from django.db import transaction
 from django.utils import timezone
@@ -20,6 +22,7 @@ from .models import (
     Usuario, Plataforma, Propiedad, ResultadoBusqueda, Inmobiliaria
 )
 from .scraper.utils import stemming_basico
+from .limits import puede_realizar_accion
 
 # ================================
 # FUNCIONES PRINCIPALES DE BÚSQUEDA
@@ -946,5 +949,416 @@ def guardar_resultado_busqueda_con_keywords(busqueda: Busqueda, propiedad: Propi
     accion = "creado" if created else "actualizado"
     estado = "coincide" if coincide else "no coincide"
     print(f"[RESULTADO] {accion}: {busqueda.nombre_busqueda or 'Búsqueda'} - {propiedad.titulo or propiedad.url} ({estado})")
+
+
+# ================================
+# ACTUALIZACIÓN DE BÚSQUEDAS
+# ================================
+
+def actualizar_busqueda(busqueda_id: str, progress_callback=None) -> Dict[str, Any]:
+    """
+    Actualiza una búsqueda existente ejecutando un nuevo scraping
+    
+    Args:
+        busqueda_id: UUID de la búsqueda a actualizar
+        progress_callback: Función para reportar progreso
+        
+    Returns:
+        dict: Resultado de la actualización con estadísticas
+    """
+    from .scraper import run_scraper
+    from .scraper.url_builder import build_mercadolibre_url
+    from .scraper.mercadolibre import recolectar_urls_de_pagina
+    from .scraper.extractors import scrape_detalle_con_requests
+    from .scraper.progress import send_progress_update
+    
+    try:
+        busqueda = Busqueda.objects.get(id=busqueda_id)
+    except Busqueda.DoesNotExist:
+        return {'success': False, 'error': 'Búsqueda no encontrada'}
+    
+    # Validar límites
+    if busqueda.usuario:
+        puede, mensaje = puede_realizar_accion(busqueda.usuario, 'actualizar_busqueda', busqueda_id)
+        if not puede:
+            return {'success': False, 'error': mensaje}
+    
+    if progress_callback:
+        progress_callback("Iniciando actualización de búsqueda...")
+    
+    # Obtener URLs actuales de la búsqueda
+    resultados_actuales = ResultadoBusqueda.objects.filter(
+        busqueda=busqueda
+    ).select_related('propiedad')
+    
+    urls_actuales = {resultado.propiedad.url for resultado in resultados_actuales}
+    
+    if progress_callback:
+        progress_callback(f"Búsqueda actual tiene {len(urls_actuales)} propiedades")
+    
+    # Ejecutar scraping para obtener nuevas URLs
+    try:
+        if progress_callback:
+            progress_callback("Recolectando URLs actualizadas...")
+            
+        # Construir URL de búsqueda
+        filtros = busqueda.filtros
+        plataforma_nombre = filtros.get('plataforma', 'MercadoLibre')
+        
+        if plataforma_nombre.lower() == 'mercadolibre':
+            urls_nuevas = _recolectar_urls_mercadolibre(filtros, progress_callback)
+        else:
+            # Para InfoCasas u otras plataformas
+            return {'success': False, 'error': f'Actualización no implementada para {plataforma_nombre}'}
+            
+    except Exception as e:
+        return {'success': False, 'error': f'Error en scraping: {str(e)}'}
+    
+    # Analizar diferencias
+    urls_agregadas = urls_nuevas - urls_actuales
+    urls_eliminadas = urls_actuales - urls_nuevas
+    urls_mantenidas = urls_actuales & urls_nuevas
+    
+    estadisticas = {
+        'urls_nuevas': len(urls_agregadas),
+        'urls_eliminadas': len(urls_eliminadas), 
+        'urls_mantenidas': len(urls_mantenidas),
+        'total_anterior': len(urls_actuales),
+        'total_nuevo': len(urls_nuevas)
+    }
+    
+    if progress_callback:
+        progress_callback(f"Cambios detectados: {estadisticas['urls_nuevas']} nuevas, {estadisticas['urls_eliminadas']} eliminadas")
+    
+    # Procesar propiedades eliminadas (Caso 3)
+    propiedades_eliminadas = []
+    if urls_eliminadas:
+        propiedades_eliminadas = _procesar_propiedades_eliminadas(
+            urls_eliminadas, busqueda, progress_callback
+        )
+    
+    # Procesar propiedades nuevas (Caso 2)
+    propiedades_nuevas = []
+    if urls_agregadas:
+        propiedades_nuevas = _procesar_propiedades_nuevas(
+            urls_agregadas, busqueda, progress_callback
+        )
+    
+    # Actualizar propiedades existentes (Caso 1)
+    propiedades_actualizadas = []
+    if urls_mantenidas:
+        propiedades_actualizadas = _actualizar_propiedades_existentes(
+            urls_mantenidas, busqueda, progress_callback
+        )
+    
+    # Actualizar timestamp de la búsqueda
+    busqueda.ultima_revision = timezone.now()
+    busqueda.save()
+    
+    resultado_final = {
+        'success': True,
+        'busqueda_id': str(busqueda.id),
+        'estadisticas': estadisticas,
+        'propiedades_nuevas': len(propiedades_nuevas),
+        'propiedades_actualizadas': len(propiedades_actualizadas),
+        'propiedades_eliminadas': len(propiedades_eliminadas),
+        'timestamp': timezone.now().isoformat()
+    }
+    
+    if progress_callback:
+        progress_callback("Actualización completada exitosamente")
+    
+    return resultado_final
+
+
+def _recolectar_urls_mercadolibre(filtros: Dict, progress_callback=None) -> Set[str]:
+    """Recolecta URLs de MercadoLibre usando los filtros de la búsqueda"""
+    from .scraper.url_builder import build_mercadolibre_url
+    from .scraper.mercadolibre import recolectar_urls_de_pagina
+    
+    # Construir URL base
+    url_busqueda = build_mercadolibre_url(filtros)
+    
+    if progress_callback:
+        progress_callback("Recolectando URLs de MercadoLibre...")
+    
+    # Recolectar URLs de todas las páginas
+    urls_encontradas = set()
+    pagina = 1
+    max_paginas = 10  # Límite de seguridad
+    
+    while pagina <= max_paginas:
+        try:
+            if pagina > 1:
+                # Construir URL con paginación
+                if '_Desde_' in url_busqueda:
+                    # Reemplazar paginación existente
+                    url_pagina = re.sub(r'_Desde_\d+', f'_Desde_{(pagina-1)*50+1}', url_busqueda)
+                else:
+                    # Agregar paginación
+                    url_pagina = f"{url_busqueda}_Desde_{(pagina-1)*50+1}"
+            else:
+                url_pagina = url_busqueda
+            
+            # Recolectar URLs de esta página
+            urls_pagina = recolectar_urls_de_pagina(url_pagina)
+            
+            if not urls_pagina:
+                break  # No más resultados
+                
+            urls_encontradas.update(urls_pagina)
+            
+            if progress_callback:
+                progress_callback(f"Página {pagina}: {len(urls_pagina)} URLs encontradas (total: {len(urls_encontradas)})")
+            
+            pagina += 1
+            
+        except Exception as e:
+            print(f"Error en página {pagina}: {e}")
+            break
+    
+    return urls_encontradas
+
+
+def _procesar_propiedades_eliminadas(urls_eliminadas: Set[str], busqueda, progress_callback=None) -> List[Dict]:
+    """
+    Procesa propiedades que ya no aparecen en la búsqueda (Caso 3)
+    Verifica si aún existen y las elimina si corresponde
+    """
+    if progress_callback:
+        progress_callback(f"Verificando {len(urls_eliminadas)} propiedades eliminadas...")
+    
+    propiedades_eliminadas = []
+    
+    # Obtener propiedades a verificar
+    propiedades_verificar = Propiedad.objects.filter(url__in=urls_eliminadas)
+    
+    for i, propiedad in enumerate(propiedades_verificar):
+        if progress_callback and i % 10 == 0:
+            progress_callback(f"Verificando existencia {i+1}/{len(propiedades_verificar)}")
+        
+        # Verificar si la propiedad aún existe en la plataforma
+        existe = _verificar_existencia_propiedad(propiedad.url)
+        
+        if not existe:
+            # La propiedad no existe más, eliminarla completamente
+            propiedades_eliminadas.append({
+                'url': propiedad.url,
+                'titulo': propiedad.titulo,
+                'accion': 'eliminada_completamente'
+            })
+            propiedad.delete()  # Esto eliminará en cascada los ResultadoBusqueda
+        else:
+            # La propiedad existe pero ya no cumple filtros, solo eliminar ResultadoBusqueda
+            ResultadoBusqueda.objects.filter(
+                busqueda=busqueda,
+                propiedad=propiedad
+            ).delete()
+            propiedades_eliminadas.append({
+                'url': propiedad.url,
+                'titulo': propiedad.titulo,
+                'accion': 'removida_de_busqueda'
+            })
+    
+    return propiedades_eliminadas
+
+
+def _procesar_propiedades_nuevas(urls_nuevas: Set[str], busqueda, progress_callback=None) -> List[Dict]:
+    """
+    Procesa propiedades nuevas que aparecen en la búsqueda (Caso 2)
+    Hace scraping completo con verificación de keywords
+    """
+    if progress_callback:
+        progress_callback(f"Procesando {len(urls_nuevas)} propiedades nuevas...")
+    
+    propiedades_nuevas = []
+    
+    # Obtener keywords de la búsqueda
+    keywords_busqueda = []
+    for rel in busqueda.busquedapalabraclave_set.select_related('palabra_clave').all():
+        keywords_busqueda.extend([rel.palabra_clave.texto] + rel.palabra_clave.sinonimos_list)
+    
+    for i, url in enumerate(urls_nuevas):
+        if progress_callback and i % 5 == 0:
+            progress_callback(f"Scrapeando nueva propiedad {i+1}/{len(urls_nuevas)}")
+        
+        try:
+            # Scraping completo de la nueva propiedad
+            from .scraper.extractors import scrape_detalle_con_requests
+            datos_propiedad = scrape_detalle_con_requests(url)
+            
+            if datos_propiedad:
+                # Guardar propiedad en BD
+                propiedad = _guardar_propiedad_desde_datos(datos_propiedad, url)
+                
+                # Verificar coincidencia con keywords
+                coincide = _verificar_coincidencia_keywords(propiedad, keywords_busqueda)
+                
+                # Crear ResultadoBusqueda
+                _crear_o_actualizar_resultado_busqueda(busqueda, propiedad, coincide, {})
+                
+                propiedades_nuevas.append({
+                    'url': url,
+                    'titulo': propiedad.titulo,
+                    'coincide': coincide
+                })
+                
+        except Exception as e:
+            print(f"Error procesando nueva propiedad {url}: {e}")
+    
+    return propiedades_nuevas
+
+
+def _actualizar_propiedades_existentes(urls_mantenidas: Set[str], busqueda, progress_callback=None) -> List[Dict]:
+    """
+    Actualiza propiedades que se mantienen en la búsqueda (Caso 1)
+    Solo actualiza precio y metadatos, no hace scraping completo
+    """
+    if progress_callback:
+        progress_callback(f"Actualizando {len(urls_mantenidas)} propiedades existentes...")
+    
+    propiedades_actualizadas = []
+    
+    # Obtener propiedades existentes
+    propiedades_existentes = Propiedad.objects.filter(url__in=urls_mantenidas)
+    
+    for i, propiedad in enumerate(propiedades_existentes):
+        if progress_callback and i % 10 == 0:
+            progress_callback(f"Actualizando propiedad {i+1}/{len(propiedades_existentes)}")
+        
+        try:
+            # Scraping ligero para actualizar precio
+            from .scraper.extractors import scrape_detalle_con_requests
+            datos_actualizados = scrape_detalle_con_requests(propiedad.url)
+            
+            if datos_actualizados:
+                # Actualizar solo precio y metadatos relevantes
+                precio_anterior = propiedad.metadata.get('precio_valor') if propiedad.metadata else None
+                precio_nuevo = datos_actualizados.get('precio_valor')
+                
+                if precio_nuevo and precio_nuevo != precio_anterior:
+                    # Actualizar metadata con nuevo precio
+                    metadata_actualizada = propiedad.metadata.copy() if propiedad.metadata else {}
+                    metadata_actualizada.update({
+                        'precio_valor': precio_nuevo,
+                        'precio_moneda': datos_actualizados.get('precio_moneda', ''),
+                        'ultima_actualizacion_precio': timezone.now().isoformat()
+                    })
+                    propiedad.metadata = metadata_actualizada
+                    propiedad.save()
+                    
+                    propiedades_actualizadas.append({
+                        'url': propiedad.url,
+                        'titulo': propiedad.titulo,
+                        'precio_anterior': precio_anterior,
+                        'precio_nuevo': precio_nuevo
+                    })
+                
+                # Actualizar last_seen_at en ResultadoBusqueda
+                ResultadoBusqueda.objects.filter(
+                    busqueda=busqueda,
+                    propiedad=propiedad
+                ).update(last_seen_at=timezone.now())
+                
+        except Exception as e:
+            print(f"Error actualizando propiedad {propiedad.url}: {e}")
+    
+    return propiedades_actualizadas
+
+
+def _verificar_existencia_propiedad(url: str) -> bool:
+    """
+    Verifica si una propiedad aún existe en la plataforma mediante HTTP request
+    """
+    try:
+        response = requests.get(url, timeout=10, allow_redirects=True)
+        
+        # Considerar que existe si:
+        # - Status 200
+        # - No redirige a página de error
+        # - Contiene indicadores de contenido válido
+        
+        if response.status_code == 200:
+            content = response.text.lower()
+            
+            # Verificar que no sea una página de error
+            error_indicators = [
+                'publicación no disponible',
+                'anuncio no encontrado',
+                'página no encontrada',
+                'error 404',
+                'not found'
+            ]
+            
+            for indicator in error_indicators:
+                if indicator in content:
+                    return False
+            
+            return True
+        
+        return False
+        
+    except Exception:
+        # En caso de error de conexión, asumir que existe para ser conservadores
+        return True
+
+
+def _guardar_propiedad_desde_datos(datos: Dict, url: str) -> Propiedad:
+    """Guarda una propiedad en BD desde datos de scraping"""
+    # Obtener o crear plataforma
+    plataforma, _ = Plataforma.objects.get_or_create(
+        nombre='MercadoLibre',
+        defaults={'descripcion': 'MercadoLibre Uruguay'}
+    )
+    
+    # Crear o actualizar propiedad
+    propiedad, created = Propiedad.objects.get_or_create(
+        url=url,
+        defaults={
+            'titulo': datos.get('titulo', ''),
+            'descripcion': datos.get('descripcion', ''),
+            'metadata': datos,
+            'plataforma': plataforma
+        }
+    )
+    
+    if not created:
+        # Actualizar datos existentes
+        propiedad.titulo = datos.get('titulo', propiedad.titulo)
+        propiedad.descripcion = datos.get('descripcion', propiedad.descripcion)
+        propiedad.metadata = datos
+        propiedad.save()
+    
+    return propiedad
+
+
+def _verificar_coincidencia_keywords(propiedad: Propiedad, keywords: List[str]) -> bool:
+    """Verifica si una propiedad coincide con las keywords de la búsqueda"""
+    if not keywords:
+        return True
+    
+    # Texto a analizar (título + descripción + características)
+    texto_analizar = []
+    
+    if propiedad.titulo:
+        texto_analizar.append(propiedad.titulo.lower())
+    
+    if propiedad.descripcion:
+        texto_analizar.append(propiedad.descripcion.lower())
+    
+    # Agregar características desde metadata
+    if propiedad.metadata:
+        caracteristicas = propiedad.metadata.get('caracteristicas_texto', '')
+        if caracteristicas:
+            texto_analizar.append(caracteristicas.lower())
+    
+    texto_completo = ' '.join(texto_analizar)
+    
+    # Verificar coincidencias
+    for keyword in keywords:
+        if keyword.lower() in texto_completo:
+            return True
+    
+    return False
     
     return resultado

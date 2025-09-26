@@ -117,7 +117,7 @@ def main():
     print("\n🔧 Para crear datos de ejemplo:")
     print("   python manage.py create_sample_data")
     print("\n🚀 Para iniciar el servidor:")
-    print("   python manage.py runserver")
+    print("   .\\.venv\\Scripts\\activate ; daphne -b 0.0.0.0 -p 10000 buscador.asgi:application")
 
 if __name__ == '__main__':
     main()

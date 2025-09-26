@@ -231,7 +231,8 @@ def main():
             print("🚀 Próximos pasos:")
             print("1. python manage.py migrate")
             print("2. python manage.py create_sample_data") 
-            print("3. python manage.py runserver")
+            print("3. .\\.venv\\Scripts\\activate ; daphne -b 0.0.0.0 -p 10000 buscador.asgi:application")
+            print("4. Accede a: http://localhost:10000")
         else:
             print("\n❌ Error de configuración")
             print("🔧 Soluciones:")

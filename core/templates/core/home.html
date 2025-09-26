@@ -379,7 +379,15 @@
                             <a href="#" onclick="expandirBusqueda('{{ search.id }}'); return false;" class="fw-bold">
                                 {{ search.nombre_busqueda|default:search.texto_original|default:'(sin título)' }}
                             </a>
-                            <a href="{% url 'core:delete_search' search.id %}" class="btn btn-sm btn-danger">Eliminar</a>
+                            <div class="btn-group" role="group">
+                                <button type="button" class="btn btn-sm btn-outline-primary" 
+                                        id="actualizar-{{ search.id }}" 
+                                        onclick="actualizarBusqueda('{{ search.id }}')">
+                                    <span class="spinner-border spinner-border-sm me-1" style="display:none;"></span>
+                                    Actualizar búsqueda
+                                </button>
+                                <a href="{% url 'core:delete_search' search.id %}" class="btn btn-sm btn-danger">Eliminar</a>
+                            </div>
                         </div>
                         <div class="busqueda-detalle mt-3 p-0" style="display:none; transition: all 0.3s; border-radius: 0.5rem;"></div>
                     </li>
@@ -872,7 +880,15 @@
             const htmlContent = `
                 <div class="d-flex justify-content-between align-items-center">
                     <a href="#" onclick="expandirBusqueda('${escapeJs(searchObj.id)}'); return false;" class="fw-bold">${titleText}</a>
-                    <a href="${deleteUrl}" class="btn btn-sm btn-danger">Eliminar</a>
+                    <div class="btn-group" role="group">
+                        <button type="button" class="btn btn-sm btn-outline-primary" 
+                                id="actualizar-${escapeJs(searchObj.id)}" 
+                                onclick="actualizarBusqueda('${escapeJs(searchObj.id)}')">
+                            <span class="spinner-border spinner-border-sm me-1" style="display:none;"></span>
+                            Actualizar búsqueda
+                        </button>
+                        <a href="${deleteUrl}" class="btn btn-sm btn-danger">Eliminar</a>
+                    </div>
                 </div>
                 <div class="busqueda-detalle mt-3 p-0" style="display:none; transition: all 0.3s; border-radius: 0.5rem;"></div>
             `;
@@ -907,6 +923,124 @@
         function escapeJs(s) {
             return String(s).replace(/'/g, "\\'");
         }
+
+        // ================================
+        // FUNCIONES PARA ACTUALIZACIÓN DE BÚSQUEDAS
+        // ================================
+
+        async function actualizarBusqueda(searchId) {
+            const boton = document.getElementById(`actualizar-${searchId}`);
+            const spinner = boton.querySelector('.spinner-border');
+            
+            if (!boton || boton.disabled) return;
+            
+            try {
+                // Verificar si puede actualizar antes de proceder
+                const verificacion = await fetch(`/verificar_actualizable/${searchId}/`);
+                const puedeActualizar = await verificacion.json();
+                
+                if (!puedeActualizar.puede_actualizar) {
+                    alert(`No se puede actualizar: ${puedeActualizar.mensaje}`);
+                    return;
+                }
+                
+                // Deshabilitar botón y mostrar progreso
+                boton.disabled = true;
+                spinner.style.display = 'inline-block';
+                boton.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span>Actualizando...`;
+                
+                // Enviar petición de actualización
+                const response = await fetch(`/actualizar/${searchId}/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const resultado = await response.json();
+                
+                if (response.ok && resultado.success) {
+                    // Actualización exitosa
+                    mostrarNotificacionActualizacion(resultado);
+                    
+                    // Actualizar la vista de la búsqueda si está expandida
+                    const detalleDiv = document.querySelector(`#search-${searchId} .busqueda-detalle`);
+                    if (detalleDiv && detalleDiv.style.display !== 'none') {
+                        expandirBusqueda(searchId); // Re-expandir para mostrar datos actualizados
+                    }
+                } else {
+                    // Error en la actualización
+                    const errorMsg = resultado.error || 'Error desconocido';
+                    alert(`Error al actualizar búsqueda: ${errorMsg}`);
+                }
+                
+            } catch (error) {
+                console.error('Error en actualización:', error);
+                alert('Error de conexión al actualizar la búsqueda');
+            } finally {
+                // Restaurar botón
+                boton.disabled = false;
+                spinner.style.display = 'none';
+                boton.innerHTML = `<span class="spinner-border spinner-border-sm me-1" style="display:none;"></span>Actualizar búsqueda`;
+                
+                // Verificar nuevamente el estado del botón
+                verificarEstadoBotonActualizar(searchId);
+            }
+        }
+
+        function mostrarNotificacionActualizacion(resultado) {
+            const datos = resultado.datos;
+            let mensaje = 'Búsqueda actualizada exitosamente.\n\n';
+            
+            if (datos && datos.estadisticas) {
+                const stats = datos.estadisticas;
+                mensaje += `📊 Estadísticas:\n`;
+                mensaje += `• Propiedades nuevas: ${stats.urls_nuevas || 0}\n`;
+                mensaje += `• Propiedades eliminadas: ${stats.urls_eliminadas || 0}\n`;
+                mensaje += `• Total actual: ${stats.total_nuevo || 0}\n`;
+                mensaje += `• Total anterior: ${stats.total_anterior || 0}`;
+            }
+            
+            alert(mensaje);
+        }
+
+        async function verificarEstadoBotonActualizar(searchId) {
+            try {
+                const response = await fetch(`/verificar_actualizable/${searchId}/`);
+                const estado = await response.json();
+                const boton = document.getElementById(`actualizar-${searchId}`);
+                
+                if (!boton) return;
+                
+                if (!estado.puede_actualizar) {
+                    boton.disabled = true;
+                    boton.title = estado.mensaje;
+                    
+                    if (estado.tiempo_restante_horas) {
+                        boton.innerHTML = `Disponible en ${estado.tiempo_restante_horas}h`;
+                    } else {
+                        boton.innerHTML = 'No disponible';
+                    }
+                } else {
+                    boton.disabled = false;
+                    boton.title = 'Actualizar esta búsqueda';
+                    boton.innerHTML = `<span class="spinner-border spinner-border-sm me-1" style="display:none;"></span>Actualizar búsqueda`;
+                }
+                
+            } catch (error) {
+                console.error('Error verificando estado del botón:', error);
+            }
+        }
+
+        // Verificar estado de todos los botones al cargar la página
+        document.addEventListener('DOMContentLoaded', function() {
+            const botones = document.querySelectorAll('[id^="actualizar-"]');
+            botones.forEach(boton => {
+                const searchId = boton.id.replace('actualizar-', '');
+                verificarEstadoBotonActualizar(searchId);
+            });
+        });
     });
     </script>
     

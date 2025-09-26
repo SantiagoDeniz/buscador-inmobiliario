@@ -109,7 +109,7 @@ async def analyze_query_with_ia(query: str) -> dict:
         return {"filters": {}, "remaining_text": query}
 
     try:
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-2.0-flash')
         response = await sync_to_async(model.generate_content)(prompt)
         raw = response.text.strip() if hasattr(response, 'text') else str(response)
         # Limpiar bloques ```json ... ``` si existen
@@ -568,3 +568,161 @@ def debug_screenshots(request):
         
     except Exception as e:
         return JsonResponse({'error': str(e)})
+
+
+# ================================
+# VISTAS PARA ACTUALIZACIÓN DE BÚSQUEDAS
+# ================================
+
+def verificar_limites_usuario(request):
+    """
+    Endpoint para verificar los límites actuales del usuario
+    Usado por el frontend para habilitar/deshabilitar botones
+    """
+    from .limits import get_limites_usuario
+    from .models import Usuario
+    
+    # Por ahora, usar el primer usuario disponible (temporal)
+    # En producción esto vendría del sistema de autenticación
+    try:
+        usuario = Usuario.objects.first()
+        if not usuario:
+            return JsonResponse({
+                'error': 'No hay usuarios configurados',
+                'sugerencia': 'Ejecuta: python manage.py create_testing_user'
+            }, status=404)
+        
+        limites = get_limites_usuario(usuario)
+        return JsonResponse(limites)
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@require_POST
+@csrf_exempt
+def actualizar_busqueda_view(request, busqueda_id):
+    """
+    Vista para actualizar una búsqueda específica
+    """
+    from .search_manager import actualizar_busqueda
+    from .limits import puede_realizar_accion
+    from .models import Usuario, Busqueda
+    
+    try:
+        # Obtener usuario (temporal - en producción vendrá de autenticación)
+        usuario = Usuario.objects.first()
+        if not usuario:
+            return JsonResponse({
+                'error': 'No hay usuarios configurados',
+                'sugerencia': 'Ejecuta: python manage.py create_testing_user'
+            }, status=404)
+        
+        # Verificar que la búsqueda existe y pertenece al usuario
+        try:
+            busqueda = Busqueda.objects.get(id=busqueda_id)
+            if busqueda.usuario and busqueda.usuario != usuario:
+                return JsonResponse({'error': 'No tiene permisos para esta búsqueda'}, status=403)
+        except Busqueda.DoesNotExist:
+            return JsonResponse({'error': 'Búsqueda no encontrada'}, status=404)
+        
+        # Verificar límites
+        puede, mensaje = puede_realizar_accion(usuario, 'actualizar_busqueda', busqueda_id)
+        if not puede:
+            return JsonResponse({'error': mensaje}, status=429)  # Too Many Requests
+        
+        # Función de progreso para WebSockets (opcional)
+        def progress_callback(mensaje):
+            # Aquí se podría integrar con el sistema de WebSockets existente
+            print(f"[ACTUALIZACIÓN] {mensaje}")
+        
+        # Ejecutar actualización
+        resultado = actualizar_busqueda(busqueda_id, progress_callback)
+        
+        if resultado['success']:
+            return JsonResponse({
+                'success': True,
+                'mensaje': 'Búsqueda actualizada exitosamente',
+                'datos': resultado
+            })
+        else:
+            return JsonResponse({
+                'error': resultado.get('error', 'Error desconocido')
+            }, status=400)
+            
+    except Exception as e:
+        return JsonResponse({'error': f'Error interno: {str(e)}'}, status=500)
+
+
+def verificar_busqueda_actualizable(request, busqueda_id):
+    """
+    Verifica si una búsqueda específica puede ser actualizada
+    Usado por el frontend para mostrar estado del botón
+    """
+    from .limits import puede_actualizar_busqueda_especifica
+    from .models import Busqueda
+    
+    try:
+        busqueda = Busqueda.objects.get(id=busqueda_id)
+        puede, mensaje, tiempo_restante = puede_actualizar_busqueda_especifica(busqueda)
+        
+        response_data = {
+            'puede_actualizar': puede,
+            'mensaje': mensaje
+        }
+        
+        if tiempo_restante is not None:
+            response_data['tiempo_restante_horas'] = round(tiempo_restante, 1)
+        
+        return JsonResponse(response_data)
+        
+    except Busqueda.DoesNotExist:
+        return JsonResponse({'error': 'Búsqueda no encontrada'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+def estado_actualizaciones_view(request):
+    """
+    Vista de resumen para mostrar el estado de todas las búsquedas guardadas
+    """
+    from .models import Busqueda, Usuario
+    from .limits import puede_actualizar_busqueda_especifica, get_limites_usuario
+    
+    try:
+        # Obtener usuario temporal
+        usuario = Usuario.objects.first()
+        if not usuario:
+            return JsonResponse({
+                'error': 'No hay usuarios configurados'
+            }, status=404)
+        
+        # Obtener búsquedas guardadas del usuario
+        busquedas = Busqueda.objects.filter(guardado=True)
+        if usuario:
+            busquedas = busquedas.filter(usuario=usuario)
+        
+        # Verificar estado de cada búsqueda
+        busquedas_estado = []
+        for busqueda in busquedas:
+            puede, mensaje, tiempo_restante = puede_actualizar_busqueda_especifica(busqueda)
+            
+            busquedas_estado.append({
+                'id': str(busqueda.id),
+                'nombre': busqueda.nombre_busqueda,
+                'puede_actualizar': puede,
+                'mensaje': mensaje,
+                'tiempo_restante_horas': round(tiempo_restante, 1) if tiempo_restante else None,
+                'ultima_revision': busqueda.ultima_revision.isoformat() if busqueda.ultima_revision else None
+            })
+        
+        # Obtener límites generales del usuario
+        limites = get_limites_usuario(usuario)
+        
+        return JsonResponse({
+            'busquedas': busquedas_estado,
+            'limites_usuario': limites
+        })
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)

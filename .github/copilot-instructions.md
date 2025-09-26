@@ -13,6 +13,18 @@ Objetivo: ayudarte a ser productivo de inmediato en este proyecto Django (scrapi
 - Para múltiples comandos en una línea, separa con `;`.
 - **Siempre que haya una tarea disponible en VS Code, prefierela**.
 
+## Servidor de Desarrollo (IMPORTANTE)
+- **USAR DAPHNE, NO RUNSERVER**: `.\\.venv\\Scripts\\activate ; daphne -b 0.0.0.0 -p 10000 buscador.asgi:application`
+- **Puerto 10000**, NO 8000: http://localhost:10000
+- **Razón**: Soporte WebSockets para sistema de progreso y Django Channels
+- **Configurado en**: DEV_CONFIG.md para referencia
+
+## Configuración de Límites (DESARROLLO vs PRODUCCIÓN)
+- **DESARROLLO**: Usar plan "testing" por defecto (límites ilimitados)
+- **PRODUCCIÓN**: Cambiar a planes reales (básico/premium/enterprise) cuando se solicite
+- **Usuario testing**: `testing@example.com` creado automáticamente con plan testing
+- **Variable entorno**: `BUSCADOR_TESTING_MODE=true` como alternativa
+
 ## Arquitectura del Scraper Modular
 
 ### Paquete `core/scraper/` (NO usar `core/scraper.py`)

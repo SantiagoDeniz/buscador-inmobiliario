@@ -2,11 +2,14 @@
 
   Funcionalidades a agregar / reparar / revisar:
     . Testing/Revisión
+      - (1h) [Testear] Verificar 3 casos de propiedades al actualizar búsqueda (existentes, nuevas y eliminadas)
       - (1h) [Revisar] eliminado de búsquedas desde interfaz. No quedan guardadas actualmente.
       - (30') [Testear] Las propiedades que encuentran (por ahora solo guarda coincidentes. Debería guardar las no coincidentes con 'coincide' valor False)
       - (20') [Testear] Guardar características en la tabla de propiedades.
       - (45') [Actualizar] Tests para arquitectura modular del scraper
       - (30') [Verificar] Funcionamiento correcto de fallbacks HTTP cuando Redis no disponible
+    . Reparar
+      - Agregado correcto de precio a metadatos
     . (tiempos muertos) Actualizar documentaciones:
     . Agregar
       - (2,5h) Cron jobs para automatización 
