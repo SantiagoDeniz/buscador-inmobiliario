@@ -1,0 +1,5 @@
+Motivo: elemento_total_no_encontrado
+URL: https://www.mercadolibre.com.uy/gz/account-verification?go=https%3A%2F%2Flistado.mercadolibre.com.uy%2Finmuebles%2Fventa%2F3-dormitorios%2Fmontevideo%2Fcarrasco%2F_PriceRange_500000USD-6500000USD_FULL%2ABATHROOMS_2-2_HAS%2AAIR%2ACONDITIONING_242085_HAS%2ASWIMMING%2APOOL_242085_NoIndex_True_PROPERTY%2AAGE_0-0&tid=5461a709-3643-4e70-807a-45407f6d69b1
+Título: Mercado Libre
+Timestamp: 20250926_144653
+Window Size: {'width': 780, 'height': 580}

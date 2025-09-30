@@ -968,8 +968,7 @@ def actualizar_busqueda(busqueda_id: str, progress_callback=None) -> Dict[str, A
     """
     from .scraper import run_scraper
     from .scraper.url_builder import build_mercadolibre_url
-    from .scraper.mercadolibre import recolectar_urls_de_pagina
-    from .scraper.extractors import scrape_detalle_con_requests
+    from .scraper.extractors import recolectar_urls_de_pagina, scrape_detalle_con_requests
     from .scraper.progress import send_progress_update
     
     try:
@@ -986,30 +985,50 @@ def actualizar_busqueda(busqueda_id: str, progress_callback=None) -> Dict[str, A
     if progress_callback:
         progress_callback("Iniciando actualización de búsqueda...")
     
-    # Obtener URLs actuales de la búsqueda
+    # Obtener URLs actuales de la búsqueda (sin depender de plataformas existentes)
     resultados_actuales = ResultadoBusqueda.objects.filter(
         busqueda=busqueda
-    ).select_related('propiedad')
+    ).select_related('propiedad', 'propiedad__plataforma')
     
     urls_actuales = {resultado.propiedad.url for resultado in resultados_actuales}
+    plataformas_existentes = {resultado.propiedad.plataforma.nombre for resultado in resultados_actuales}
     
     if progress_callback:
-        progress_callback(f"Búsqueda actual tiene {len(urls_actuales)} propiedades")
+        progress_callback(f"Búsqueda actual tiene {len(urls_actuales)} propiedades en plataformas: {', '.join(plataformas_existentes) if plataformas_existentes else 'ninguna'}")
     
-    # Ejecutar scraping para obtener nuevas URLs
+    # Ejecutar scraping para obtener nuevas URLs de TODAS las plataformas disponibles
     try:
         if progress_callback:
-            progress_callback("Recolectando URLs actualizadas...")
+            progress_callback("Recolectando URLs actualizadas de TODAS las plataformas...")
             
-        # Construir URL de búsqueda
         filtros = busqueda.filtros
-        plataforma_nombre = filtros.get('plataforma', 'MercadoLibre')
+        urls_nuevas = set()
         
-        if plataforma_nombre.lower() == 'mercadolibre':
-            urls_nuevas = _recolectar_urls_mercadolibre(filtros, progress_callback)
-        else:
-            # Para InfoCasas u otras plataformas
-            return {'success': False, 'error': f'Actualización no implementada para {plataforma_nombre}'}
+        # SIEMPRE buscar en todas las plataformas disponibles (independientemente de resultados previos)
+        
+        # Buscar en MercadoLibre
+        if progress_callback:
+            progress_callback("Actualizando desde MercadoLibre...")
+        try:
+            urls_mercadolibre = _recolectar_urls_mercadolibre(filtros, progress_callback)
+            urls_nuevas.update(urls_mercadolibre)
+            if progress_callback:
+                progress_callback(f"MercadoLibre: {len(urls_mercadolibre)} URLs obtenidas")
+        except Exception as e:
+            if progress_callback:
+                progress_callback(f"Error en MercadoLibre: {str(e)}")
+        
+        # Buscar en InfoCasas
+        if progress_callback:
+            progress_callback("Actualizando desde InfoCasas...")
+        try:
+            urls_infocasas = _recolectar_urls_infocasas(filtros, progress_callback)
+            urls_nuevas.update(urls_infocasas)
+            if progress_callback:
+                progress_callback(f"InfoCasas: {len(urls_infocasas)} URLs obtenidas")
+        except Exception as e:
+            if progress_callback:
+                progress_callback(f"Error en InfoCasas: {str(e)}")
             
     except Exception as e:
         return {'success': False, 'error': f'Error en scraping: {str(e)}'}
@@ -1074,7 +1093,7 @@ def actualizar_busqueda(busqueda_id: str, progress_callback=None) -> Dict[str, A
 def _recolectar_urls_mercadolibre(filtros: Dict, progress_callback=None) -> Set[str]:
     """Recolecta URLs de MercadoLibre usando los filtros de la búsqueda"""
     from .scraper.url_builder import build_mercadolibre_url
-    from .scraper.mercadolibre import recolectar_urls_de_pagina
+    from .scraper.extractors import recolectar_urls_de_pagina
     
     # Construir URL base
     url_busqueda = build_mercadolibre_url(filtros)
@@ -1101,7 +1120,7 @@ def _recolectar_urls_mercadolibre(filtros: Dict, progress_callback=None) -> Set[
                 url_pagina = url_busqueda
             
             # Recolectar URLs de esta página
-            urls_pagina = recolectar_urls_de_pagina(url_pagina)
+            urls_pagina, titulos_map = recolectar_urls_de_pagina(url_pagina)
             
             if not urls_pagina:
                 break  # No más resultados
@@ -1115,6 +1134,59 @@ def _recolectar_urls_mercadolibre(filtros: Dict, progress_callback=None) -> Set[
             
         except Exception as e:
             print(f"Error en página {pagina}: {e}")
+            break
+    
+    return urls_encontradas
+
+
+def _recolectar_urls_infocasas(filtros: Dict, progress_callback=None) -> Set[str]:
+    """Recolecta URLs de InfoCasas usando los filtros de la búsqueda"""
+    from .scraper.url_builder import build_infocasas_url
+    from .scraper.extractors import recolectar_urls_infocasas_de_pagina
+    
+    # Construir URL base - InfoCasas necesita keywords
+    keywords = filtros.get('keywords', [])
+    if not keywords:
+        # Si no hay keywords en filtros, intentar extraer del texto original
+        texto_original = filtros.get('texto_original', '')
+        keywords = texto_original.split() if texto_original else ['apartamento']
+    
+    url_busqueda = build_infocasas_url(filtros, keywords)
+    
+    if progress_callback:
+        progress_callback("Recolectando URLs de InfoCasas...")
+    
+    # Recolectar URLs de todas las páginas
+    urls_encontradas = set()
+    pagina = 1
+    max_paginas = 10  # Límite de seguridad
+    
+    while pagina <= max_paginas:
+        try:
+            # InfoCasas maneja paginación diferente, pero usar la URL base
+            url_pagina = url_busqueda
+            if pagina > 1:
+                # InfoCasas usa parámetro page o similar en algunos casos
+                if '?' in url_pagina:
+                    url_pagina = f"{url_pagina}&page={pagina}"
+                else:
+                    url_pagina = f"{url_pagina}?page={pagina}"
+            
+            # Recolectar URLs de esta página
+            urls_pagina, titulos_map = recolectar_urls_infocasas_de_pagina(url_pagina)
+            
+            if not urls_pagina:
+                break  # No más resultados
+                
+            urls_encontradas.update(urls_pagina)
+            
+            if progress_callback:
+                progress_callback(f"InfoCasas - Página {pagina}: {len(urls_pagina)} URLs encontradas (total: {len(urls_encontradas)})")
+            
+            pagina += 1
+            
+        except Exception as e:
+            print(f"Error en página {pagina} de InfoCasas: {e}")
             break
     
     return urls_encontradas
@@ -1305,11 +1377,23 @@ def _verificar_existencia_propiedad(url: str) -> bool:
 
 def _guardar_propiedad_desde_datos(datos: Dict, url: str) -> Propiedad:
     """Guarda una propiedad en BD desde datos de scraping"""
-    # Obtener o crear plataforma
-    plataforma, _ = Plataforma.objects.get_or_create(
-        nombre='MercadoLibre',
-        defaults={'descripcion': 'MercadoLibre Uruguay'}
-    )
+    # Identificar plataforma basándose en la URL
+    if 'mercadolibre.com' in url:
+        plataforma, _ = Plataforma.objects.get_or_create(
+            nombre='MercadoLibre',
+            defaults={'descripcion': 'MercadoLibre Uruguay'}
+        )
+    elif 'infocasas.com' in url:
+        plataforma, _ = Plataforma.objects.get_or_create(
+            nombre='InfoCasas',
+            defaults={'descripcion': 'InfoCasas Uruguay'}
+        )
+    else:
+        # Fallback a MercadoLibre para URLs desconocidas
+        plataforma, _ = Plataforma.objects.get_or_create(
+            nombre='MercadoLibre',
+            defaults={'descripcion': 'MercadoLibre Uruguay'}
+        )
     
     # Crear o actualizar propiedad
     propiedad, created = Propiedad.objects.get_or_create(

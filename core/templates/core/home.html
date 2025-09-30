@@ -867,6 +867,9 @@
             }
         });
 
+        // Inicializar sistema de actualización de búsquedas
+        inicializarBotonesActualizacion();
+
         // Función para insertar o actualizar una búsqueda guardada en la lista de la UI
         // Mantiene el mismo HTML que genera el servidor para consistencia visual.
         function addOrUpdateSavedSearchInList(searchObj, highlight=false) {
@@ -923,21 +926,37 @@
         function escapeJs(s) {
             return String(s).replace(/'/g, "\\'");
         }
+    
+    // ================================
+    // FUNCIONES GLOBALES PARA ACTUALIZACIÓN DE BÚSQUEDAS
+    // ================================
 
-        // ================================
-        // FUNCIONES PARA ACTUALIZACIÓN DE BÚSQUEDAS
-        // ================================
-
-        async function actualizarBusqueda(searchId) {
+    async function actualizarBusqueda(searchId) {
+            console.log('🔄 Iniciando actualización de búsqueda:', searchId);
             const boton = document.getElementById(`actualizar-${searchId}`);
-            const spinner = boton.querySelector('.spinner-border');
+            const spinner = boton?.querySelector('.spinner-border');
             
-            if (!boton || boton.disabled) return;
+            if (!boton) {
+                console.error('❌ Botón no encontrado para ID:', searchId);
+                return;
+            }
+            
+            if (boton.disabled) {
+                console.log('⏸️ Botón deshabilitado, cancelando actualización');
+                return;
+            }
             
             try {
                 // Verificar si puede actualizar antes de proceder
+                console.log('🔍 Verificando si puede actualizar...');
                 const verificacion = await fetch(`/verificar_actualizable/${searchId}/`);
+                
+                if (!verificacion.ok) {
+                    throw new Error(`Error ${verificacion.status}: ${verificacion.statusText}`);
+                }
+                
                 const puedeActualizar = await verificacion.json();
+                console.log('📋 Estado de verificación:', puedeActualizar);
                 
                 if (!puedeActualizar.puede_actualizar) {
                     alert(`No se puede actualizar: ${puedeActualizar.mensaje}`);
@@ -946,50 +965,67 @@
                 
                 // Deshabilitar botón y mostrar progreso
                 boton.disabled = true;
-                spinner.style.display = 'inline-block';
+                if (spinner) spinner.style.display = 'inline-block';
                 boton.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span>Actualizando...`;
                 
                 // Enviar petición de actualización
+                console.log('📤 Enviando petición de actualización...');
+                const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '{{ csrf_token }}';
+                console.log('🔑 Token CSRF:', csrfToken ? 'OK' : 'MISSING');
+                
                 const response = await fetch(`/actualizar/${searchId}/`, {
                     method: 'POST',
                     headers: {
-                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                        'X-CSRFToken': csrfToken,
                         'Content-Type': 'application/json'
                     }
                 });
                 
-                const resultado = await response.json();
+                console.log('📡 Respuesta recibida:', response.status, response.statusText);
+                
+                let resultado;
+                try {
+                    resultado = await response.json();
+                    console.log('📊 Datos de respuesta:', resultado);
+                } catch (e) {
+                    console.error('❌ Error parseando JSON:', e);
+                    throw new Error('Respuesta inválida del servidor');
+                }
                 
                 if (response.ok && resultado.success) {
                     // Actualización exitosa
+                    console.log('✅ Actualización exitosa');
                     mostrarNotificacionActualizacion(resultado);
                     
                     // Actualizar la vista de la búsqueda si está expandida
                     const detalleDiv = document.querySelector(`#search-${searchId} .busqueda-detalle`);
                     if (detalleDiv && detalleDiv.style.display !== 'none') {
+                        console.log('🔄 Re-expandiendo búsqueda para mostrar datos actualizados');
                         expandirBusqueda(searchId); // Re-expandir para mostrar datos actualizados
                     }
                 } else {
                     // Error en la actualización
                     const errorMsg = resultado.error || 'Error desconocido';
+                    console.error('❌ Error en actualización:', errorMsg);
                     alert(`Error al actualizar búsqueda: ${errorMsg}`);
                 }
                 
             } catch (error) {
-                console.error('Error en actualización:', error);
-                alert('Error de conexión al actualizar la búsqueda');
+                console.error('❌ Error en actualización:', error);
+                alert(`Error de conexión al actualizar la búsqueda: ${error.message}`);
             } finally {
                 // Restaurar botón
+                console.log('🔧 Restaurando botón...');
                 boton.disabled = false;
-                spinner.style.display = 'none';
+                if (spinner) spinner.style.display = 'none';
                 boton.innerHTML = `<span class="spinner-border spinner-border-sm me-1" style="display:none;"></span>Actualizar búsqueda`;
                 
                 // Verificar nuevamente el estado del botón
-                verificarEstadoBotonActualizar(searchId);
+                setTimeout(() => verificarEstadoBotonActualizar(searchId), 1000);
             }
         }
 
-        function mostrarNotificacionActualizacion(resultado) {
+    function mostrarNotificacionActualizacion(resultado) {
             const datos = resultado.datos;
             let mensaje = 'Búsqueda actualizada exitosamente.\n\n';
             
@@ -1005,7 +1041,7 @@
             alert(mensaje);
         }
 
-        async function verificarEstadoBotonActualizar(searchId) {
+    async function verificarEstadoBotonActualizar(searchId) {
             try {
                 const response = await fetch(`/verificar_actualizable/${searchId}/`);
                 const estado = await response.json();
@@ -1033,15 +1069,150 @@
             }
         }
 
-        // Verificar estado de todos los botones al cargar la página
-        document.addEventListener('DOMContentLoaded', function() {
-            const botones = document.querySelectorAll('[id^="actualizar-"]');
-            botones.forEach(boton => {
-                const searchId = boton.id.replace('actualizar-', '');
-                verificarEstadoBotonActualizar(searchId);
-            });
+    // Función de debug global
+    window.testActualizacion = function(searchId) {
+        console.log('🧪 Test manual de actualización:', searchId);
+        actualizarBusqueda(searchId);
+    };
+
+    // Inicialización de botones de actualización al cargar la página
+    function inicializarBotonesActualizacion() {
+        console.log('🚀 Inicializando botones de actualización...');
+        const botones = document.querySelectorAll('[id^="actualizar-"]');
+        console.log(`📊 Encontrados ${botones.length} botones de actualización`);
+        
+        botones.forEach(boton => {
+            const searchId = boton.id.replace('actualizar-', '');
+            console.log(`🔍 Verificando botón para búsqueda: ${searchId}`);
+            verificarEstadoBotonActualizar(searchId);
         });
+        
+        console.log('✅ Sistema de actualización inicializado');
+        console.log('💡 Para test manual: testActualizacion("ID_DE_BUSQUEDA") en consola');
+    }
     });
+    </script>
+    
+    <!-- Script separado para funciones de actualización (GLOBAL) -->
+    <script>
+        console.log('🔧 Definiendo funciones globales de actualización...');
+        
+        // Función GLOBAL para actualizar búsqueda
+        window.actualizarBusqueda = async function(searchId) {
+            console.log('🔄 Iniciando actualización de búsqueda:', searchId);
+            const boton = document.getElementById(`actualizar-${searchId}`);
+            const spinner = boton?.querySelector('.spinner-border');
+            
+            if (!boton) {
+                console.error('❌ Botón no encontrado para ID:', searchId);
+                alert('Error: Botón no encontrado');
+                return;
+            }
+            
+            if (boton.disabled) {
+                console.log('⏸️ Botón deshabilitado, cancelando actualización');
+                return;
+            }
+            
+            try {
+                // Verificar si puede actualizar antes de proceder
+                console.log('🔍 Verificando si puede actualizar...');
+                const verificacion = await fetch(`/verificar_actualizable/${searchId}/`);
+                
+                if (!verificacion.ok) {
+                    throw new Error(`Error ${verificacion.status}: ${verificacion.statusText}`);
+                }
+                
+                const puedeActualizar = await verificacion.json();
+                console.log('📋 Estado de verificación:', puedeActualizar);
+                
+                if (!puedeActualizar.puede_actualizar) {
+                    alert(`No se puede actualizar: ${puedeActualizar.mensaje}`);
+                    return;
+                }
+                
+                // Deshabilitar botón y mostrar progreso
+                boton.disabled = true;
+                if (spinner) spinner.style.display = 'inline-block';
+                boton.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span>Actualizando...`;
+                
+                // Enviar petición de actualización
+                console.log('📤 Enviando petición de actualización...');
+                const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '{{ csrf_token }}';
+                console.log('🔑 Token CSRF:', csrfToken ? 'OK' : 'MISSING');
+                
+                const response = await fetch(`/actualizar/${searchId}/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrfToken,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                console.log('📡 Respuesta recibida:', response.status, response.statusText);
+                
+                let resultado;
+                try {
+                    resultado = await response.json();
+                    console.log('📊 Datos de respuesta:', resultado);
+                } catch (e) {
+                    console.error('❌ Error parseando JSON:', e);
+                    throw new Error('Respuesta inválida del servidor');
+                }
+                
+                if (response.ok && resultado.success) {
+                    // Actualización exitosa
+                    console.log('✅ Actualización exitosa');
+                    
+                    const datos = resultado.datos;
+                    let mensaje = 'Búsqueda actualizada exitosamente.\n\n';
+                    
+                    if (datos && datos.estadisticas) {
+                        const stats = datos.estadisticas;
+                        mensaje += `📊 Estadísticas:\n`;
+                        mensaje += `• Propiedades nuevas: ${stats.urls_nuevas || 0}\n`;
+                        mensaje += `• Propiedades eliminadas: ${stats.urls_eliminadas || 0}\n`;
+                        mensaje += `• Total actual: ${stats.total_nuevo || 0}\n`;
+                        mensaje += `• Total anterior: ${stats.total_anterior || 0}`;
+                    }
+                    
+                    alert(mensaje);
+                    
+                    // Actualizar la vista de la búsqueda si está expandida
+                    const detalleDiv = document.querySelector(`#search-${searchId} .busqueda-detalle`);
+                    if (detalleDiv && detalleDiv.style.display !== 'none') {
+                        console.log('🔄 Re-expandiendo búsqueda para mostrar datos actualizados');
+                        if (window.expandirBusqueda) {
+                            expandirBusqueda(searchId); // Re-expandir para mostrar datos actualizados
+                        }
+                    }
+                } else {
+                    // Error en la actualización
+                    const errorMsg = resultado.error || 'Error desconocido';
+                    console.error('❌ Error en actualización:', errorMsg);
+                    alert(`Error al actualizar búsqueda: ${errorMsg}`);
+                }
+                
+            } catch (error) {
+                console.error('❌ Error en actualización:', error);
+                alert(`Error de conexión al actualizar la búsqueda: ${error.message}`);
+            } finally {
+                // Restaurar botón
+                console.log('🔧 Restaurando botón...');
+                boton.disabled = false;
+                if (spinner) spinner.style.display = 'none';
+                boton.innerHTML = `<span class="spinner-border spinner-border-sm me-1" style="display:none;"></span>Actualizar búsqueda`;
+            }
+        };
+        
+        // Función de debug global
+        window.testActualizacion = function(searchId) {
+            console.log('🧪 Test manual de actualización:', searchId);
+            actualizarBusqueda(searchId);
+        };
+        
+        console.log('✅ Funciones globales de actualización definidas');
+        console.log('💡 Función disponible: actualizarBusqueda(searchId)');
     </script>
     
     <!-- Bootstrap JavaScript -->

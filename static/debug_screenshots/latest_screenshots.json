@@ -1,0 +1,12 @@
+[
+  {
+    "path": "/static/debug_screenshots/elemento_total_no_encontrado_20250926_144653.png",
+    "timestamp": "2025-09-26T14:46:53.974489",
+    "message": "❌ No se encontró elemento de total. Ver captura debug."
+  },
+  {
+    "path": "/static/debug_screenshots/pagina_sin_resultado_20250926_144655.png",
+    "timestamp": "2025-09-26T14:46:56.064582",
+    "message": "❌ Página sin 'resultado' - posible error. Ver captura debug."
+  }
+]

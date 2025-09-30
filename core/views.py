@@ -582,10 +582,13 @@ def verificar_limites_usuario(request):
     from .limits import get_limites_usuario
     from .models import Usuario
     
-    # Por ahora, usar el primer usuario disponible (temporal)
+    # Por ahora, usar el usuario testing preferentemente
     # En producción esto vendría del sistema de autenticación
     try:
-        usuario = Usuario.objects.first()
+        usuario = Usuario.objects.filter(email="testing@example.com").first()
+        if not usuario:
+            usuario = Usuario.objects.first()
+        
         if not usuario:
             return JsonResponse({
                 'error': 'No hay usuarios configurados',
@@ -610,21 +613,28 @@ def actualizar_busqueda_view(request, busqueda_id):
     from .models import Usuario, Busqueda
     
     try:
-        # Obtener usuario (temporal - en producción vendrá de autenticación)
-        usuario = Usuario.objects.first()
-        if not usuario:
-            return JsonResponse({
-                'error': 'No hay usuarios configurados',
-                'sugerencia': 'Ejecuta: python manage.py create_testing_user'
-            }, status=404)
-        
-        # Verificar que la búsqueda existe y pertenece al usuario
+        # Verificar que la búsqueda existe primero
         try:
             busqueda = Busqueda.objects.get(id=busqueda_id)
-            if busqueda.usuario and busqueda.usuario != usuario:
-                return JsonResponse({'error': 'No tiene permisos para esta búsqueda'}, status=403)
         except Busqueda.DoesNotExist:
             return JsonResponse({'error': 'Búsqueda no encontrada'}, status=404)
+        
+        # Obtener usuario - preferir el usuario asignado a la búsqueda
+        if busqueda.usuario:
+            usuario = busqueda.usuario
+        else:
+            # Fallback al usuario testing o primer usuario disponible
+            usuario = Usuario.objects.filter(email="testing@example.com").first()
+            if not usuario:
+                usuario = Usuario.objects.first()
+            
+            if not usuario:
+                return JsonResponse({
+                    'error': 'No hay usuarios configurados',
+                    'sugerencia': 'Ejecuta: python manage.py create_testing_user'
+                }, status=404)
+        
+        # En este punto, usuario y búsqueda están alineados
         
         # Verificar límites
         puede, mensaje = puede_realizar_accion(usuario, 'actualizar_busqueda', busqueda_id)
@@ -690,8 +700,11 @@ def estado_actualizaciones_view(request):
     from .limits import puede_actualizar_busqueda_especifica, get_limites_usuario
     
     try:
-        # Obtener usuario temporal
-        usuario = Usuario.objects.first()
+        # Obtener usuario temporal - preferir testing
+        usuario = Usuario.objects.filter(email="testing@example.com").first()
+        if not usuario:
+            usuario = Usuario.objects.first()
+        
         if not usuario:
             return JsonResponse({
                 'error': 'No hay usuarios configurados'
